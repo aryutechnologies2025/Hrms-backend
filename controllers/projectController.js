@@ -15,6 +15,7 @@ const createProject = async (req, res) => {
     startDate,
     endDate,
     status,
+    currency,
     budget,
     priority,
     paymentType,
@@ -57,6 +58,7 @@ const createProject = async (req, res) => {
       createdByAdmin,
       gst,
       gst_amount,
+      currency,
       // employeeMembers: parsedMembers,
       clientName,
       startDate,
@@ -155,6 +157,7 @@ const updateProject = async (req, res) => {
     startDate,
     endDate,
     status,
+    currency,
     budget,
     priority,
     recurringDays,
@@ -219,6 +222,7 @@ const updateProject = async (req, res) => {
     existingProject.clientName = clientName;
     existingProject.recurringDays = recurringDays;
     existingProject.paymentType = paymentType;
+    existingProject.currency = currency;
     existingProject.gst = gst;
     if (startDate !== "null") {
       existingProject.startDate = startDate;
@@ -231,7 +235,7 @@ const updateProject = async (req, res) => {
     }
 
     // existingProject.budget = budget;
-    existingProject.Priority = priority;
+    existingProject.priority = priority;
 
     // Append new files to the existing documents
     existingProject.document = existingProject.document.concat(newDocuments);

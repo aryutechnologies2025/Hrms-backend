@@ -51,6 +51,9 @@ const employee = new mongoose.Schema(
     personalEmail: {
       type: String,
     },
+    gitHubEmail: {
+      type: String,
+    },
 
     // departmentTypeId:{type: mongoose.Schema.Types.ObjectId, ref: 'EmployeeDepartment'},
     passportNo: { type: String, default: "" },

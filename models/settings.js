@@ -47,7 +47,7 @@ const settingsSchema = new mongoose.Schema(
 //     payroll_erpf_percent: { type: Number },
 //     payroll_eeesi_percent:{type:Number},
 //     payroll_eresi_percent:{type:Number},
-    date_format:{type:String},
+    date_format:{type:String,default:"DD/MM/YYYY"},
     password: { type: String },
 
     //leave settings

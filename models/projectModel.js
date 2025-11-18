@@ -40,6 +40,7 @@ const Project = new mongoose.Schema(
     },
     status: { type: String, required: [true, "Please select a status"] },
     budget: { type: Number, default: 0 },
+    currency: {type:String},
     priority: {
       type: String,
       // enum: ["low", "high", "medium", "critial"] ,default:"low"

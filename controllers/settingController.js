@@ -19,7 +19,8 @@ const createSetting = async (req, res) => {
       payroll_eeesi_percent,
       payroll_eresi_percent,
       date_format,
-      unhappy_leave_option
+      unhappy_leave_option,
+
     } = req.body;
 
     console.log("Incoming data:", req.body);
@@ -45,6 +46,7 @@ const createSetting = async (req, res) => {
       settings.payroll_eresi_percent = payroll_eresi_percent;
       settings.date_format = date_format;
       settings.unhappy_leave_option = unhappy_leave_option;
+      
       // only update password if provided
       if (password) {
         settings.password = password;

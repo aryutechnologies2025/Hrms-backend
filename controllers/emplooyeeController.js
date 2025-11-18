@@ -564,6 +564,7 @@ const editEmployee = async (req, res) => {
     req.body.education = req.body.education || [];
     req.body.skills = req.body.skills || [];
     req.body.experience = req.body.experience || [];
+    // req.body.gitHubEmail = req.body.gitHubEmail || "";
 
     const updatedData = { ...req.body };
     // console.log("updatedData", updatedData);

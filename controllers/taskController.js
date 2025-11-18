@@ -2998,7 +2998,7 @@ const updateTaskStatus = async (req, res) => {
 
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
-        { $set:{status} },
+        { $set: { status } },
         { new: true, runValidators: true }
       );
 
@@ -3143,7 +3143,7 @@ const updateTaskStatus = async (req, res) => {
       //   updatedBy,
       //   findTask.projectManagerId
       // );
-
+      //  only project manager and super admin and client and subUser client can mark as done/completed
       const superAdmin = await User.findOne({ superUser: true });
       // console.log(
       //   updatedBy,
@@ -3153,15 +3153,57 @@ const updateTaskStatus = async (req, res) => {
       //   updatedBy == superAdmin._id.toString()
       // );
 
+      // if (
+      //   (status === "done" || status === "completed") &&
+      //   updatedBy !== findTask.projectManagerId.toString() &&
+      //   updatedBy !== superAdmin._id.toString()
+      // ) {
+      //   return res.status(403).json({
+      //     success: false,
+      //     message:
+      //       "Only Project Manager or Admin can mark task as done/completed",
+      //   });
+      // }
+      // --- Find Client ---
+      const client = await ClientDetails.findById(updatedBy);
+
+      let clientIdAllowed = null;
+
+      if (client) {
+        const projectMatch = await ProjectModel.findOne({
+          _id: findTask.projectId, // PROJECTS
+          clientName: client._id,
+        });
+
+        if (projectMatch) clientIdAllowed = client._id.toString();
+      }
+
+      // --- Find Client Sub User ---
+      const clientSubUser = await ClientSubUser.findOne({
+        _id: updatedBy,
+        projectId: { $in: findTask.projectId }, // PROJECTS ARRAY
+      });
+
+      let clientSubUserAllowed = clientSubUser
+        ? clientSubUser._id.toString()
+        : null;
+
+      // --- Permission Logic ---
+      const allowedUsers = [
+        findTask.projectManagerId?.toString(),
+        superAdmin._id?.toString(),
+        clientIdAllowed,
+        clientSubUserAllowed,
+      ].filter(Boolean);
+
       if (
         (status === "done" || status === "completed") &&
-        updatedBy !== findTask.projectManagerId.toString() &&
-        updatedBy !== superAdmin._id.toString()
+        !allowedUsers.includes(updatedBy.toString())
       ) {
         return res.status(403).json({
           success: false,
           message:
-            "Only Project Manager or Admin can mark task as done/completed",
+            "Only Project Manager, Admin, Client or Sub-Client can mark task as done/completed",
         });
       }
 
