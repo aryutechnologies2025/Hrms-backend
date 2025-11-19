@@ -4,12 +4,12 @@ const createAssetCategory = async (req, res) => {
   try {
    
     const {
-      title,
+      name,
       status
     } = req.body;
 
     const newAssetCategory = new AssetCategory({
-      title,
+      name,
       status
     });
 
@@ -40,6 +40,17 @@ const getAssetCategoryDetails = async (req, res) => {
     
 };
 
+
+const getAssetCategoryDetailsById = async (req, res) => {
+  const { id } = req.params;
+    try{
+        const assetCategoryDetails = await AssetCategory.findById(id);
+        res.status(200).json({ success: true, data: assetCategoryDetails });
+        }catch(error){
+            res.status(500).json({ success: false, message: "Internal Server Error" });
+        }
+    
+};
 const assetCategoryDelete = async (req, res) => {
   const { id } = req.params;
   try {
@@ -88,6 +99,7 @@ const editAssetCategoryDetails = async (req, res) => {
 export{
     createAssetCategory,
     getAssetCategoryDetails,
+    getAssetCategoryDetailsById,
     assetCategoryDelete,
     editAssetCategoryDetails,
     
