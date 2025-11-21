@@ -635,11 +635,10 @@ const editEmployee = async (req, res) => {
         { new: true }
       );
     }
- 
 
     res.status(200).json({
       message: "Employee updated successfully",
-      data: updated
+      data: updated,
     });
   } catch (err) {
     // console.error("Update Error:", err);
@@ -751,10 +750,10 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
           role: {
             name: "$role.name",
             status: "$role.status",
-            department: "$role.department"
-          }
-        }
-      }
+            department: "$role.department",
+          },
+        },
+      },
     ]);
 
     if (!employees || employees.length === 0) {
@@ -2351,8 +2350,9 @@ const payroll = async (req, res) => {
           // conv
           conveyanceAllowance = payroll_conveyanceAllowance * dayRatio;
           // otherAllowance
-          otherAllowance =(grossSalary*dayRatio) - (
-            basic + hra + medicalAllowance + conveyanceAllowance);
+          otherAllowance =
+            grossSalary * dayRatio -
+            (basic + hra + medicalAllowance + conveyanceAllowance);
           console.log(
             "basic",
             grossSalary,
@@ -2373,7 +2373,7 @@ const payroll = async (req, res) => {
           // ESI calculation only if grossSalary <= esiThreshold
           actualGrossSalary = (grossSalary / totalDays) * workingDays;
 
-          if (grossSalary<= esiThreshold) {
+          if (grossSalary <= esiThreshold) {
             // employeeESI = actualGrossSalary * 0.0075; // 0.75%
             // employerESI = actualGrossSalary * 0.0325; // 3.25%
             console.log("yyy", payroll_eeesi_percent, payroll_eresi_percent);
@@ -2854,17 +2854,227 @@ const hrPermission = async (req, res) => {
 //     res.status(500).json({ success: false, message: "Internal Server Error" });
 //   }
 // };
+// const relivingList = async (req, res) => {
+//   const {type} = req.query;
+//   try {
+//     if(type === 'relieved'){
+//     const relievedDetails = await Employee.find({
+//       resignation_email_date: { $exists: true },dutyStatus:"0"
+//     })
+//     .select(
+//       "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate"
+//     )
+//     .populate("roleId", "name");
+
+//    const relievingCheckList = await RelivingList.find({
+//       emp_id: { $in: relievingDetails.map((emp) => emp._id) },
+//     });
+
+//     const checklistMap = {};
+//     relievingCheckList.forEach((item) => {
+//       checklistMap[item.emp_id] = item;
+//     });
+
+//     const todoTasks = await Task.find({
+//       assignedTo: { $in: relievingDetails.map((emp) => emp._id) },
+//       status: "todo",
+//     })
+//       .populate("assignedTo", "employeeName")
+//       .select("taskId");
+
+//     const inProgressTasks = await Task.find({
+//       assignedTo: { $in: relievingDetails.map((emp) => emp._id) },
+//       status: "in-progress",
+//     })
+//       .populate("assignedTo", "employeeName")
+//       .select("taskId");
+
+//     // Letters
+//     const letterTitle = await LetterSchema.find({ status: "1" }).select(
+//       "title"
+//     );
+
+//     res.status(200).json({
+//       success: true,
+
+//       //       data: relievingDetails.map((emp) => ({
+//       //         id: emp._id,
+//       //         employeeName: emp.employeeName,
+//       //         employeeId: emp.employeeId,
+//       //         email: emp.email,
+//       //         role: emp.roleId?.name || null,
+//       //         dateOfBirth: emp.dateOfJoining,
+//       //         resignationEmailDate: emp.resignation_email_date,
+//       //         reason: emp.relieving_reason,
+//       //         noticePeriod: emp.notice_period,
+//       //         lastDate: emp.last_working_date,
+//       //         status: "Pending",
+//       //         relievingCheckList: checklistMap[emp._id] || null, // attach checklist here
+//       //       })),
+
+//       data: relievingDetails.map((emp) => {
+//         const empChecklist = checklistMap[emp._id]?.verification || [];
+
+//         const empOptionsAllYes =
+//           empChecklist.length > 0 &&
+//           empChecklist.every(
+//             (item) =>
+//               item.options && item.options.trim().toLowerCase() === "yes"
+//           );
+
+//         return {
+//           checkList: empOptionsAllYes,
+//           id: emp._id,
+//           employeeName: emp.employeeName,
+//           employeeId: emp.employeeId,
+//           email: emp.email,
+//           role: emp.roleId?.name || null,
+//           dateOfBirth: emp.dateOfJoining,
+//           resignationEmailDate: emp.resignation_email_date,
+//           reason: emp.relieving_reason,
+//           noticePeriod: emp.notice_period,
+//           lastDate: emp.last_working_date,
+//           status: "Pending",
+//           letter: letterTitle,
+//           relievingCheckList: checklistMap[emp._id] || null,
+//           todoTasks: emp._id
+//             ? todoTasks.filter((task) => task.assignedTo.equals(emp._id))
+//             : [],
+//           inProgressTasks: emp._id
+//             ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
+//             : [],
+//           todoTasksCount: emp._id
+//             ? todoTasks.filter((task) => task.assignedTo.equals(emp._id)).length
+//             : 0,
+//           inProgressTasksCount: emp._id
+//             ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
+//                 .length
+//             : 0,
+//         };
+//       }),
+//     });
+
+//   }
+//     const relievingDetails = await Employee.find({
+//       resignation_email_date: { $exists: true },dutyStatus:"1"
+//     })
+
+//       .select(
+//         "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate"
+//       )
+//       .populate("roleId", "name");
+
+//     const relievingCheckList = await RelivingList.find({
+//       emp_id: { $in: relievingDetails.map((emp) => emp._id) },
+//     });
+
+//     const checklistMap = {};
+//     relievingCheckList.forEach((item) => {
+//       checklistMap[item.emp_id] = item;
+//     });
+
+//     const todoTasks = await Task.find({
+//       assignedTo: { $in: relievingDetails.map((emp) => emp._id) },
+//       status: "todo",
+//     })
+//       .populate("assignedTo", "employeeName")
+//       .select("taskId");
+
+//     const inProgressTasks = await Task.find({
+//       assignedTo: { $in: relievingDetails.map((emp) => emp._id) },
+//       status: "in-progress",
+//     })
+//       .populate("assignedTo", "employeeName")
+//       .select("taskId");
+
+//     // Letters
+//     const letterTitle = await LetterSchema.find({ status: "1" }).select(
+//       "title"
+//     );
+
+//     res.status(200).json({
+//       success: true,
+
+//       //       data: relievingDetails.map((emp) => ({
+//       //         id: emp._id,
+//       //         employeeName: emp.employeeName,
+//       //         employeeId: emp.employeeId,
+//       //         email: emp.email,
+//       //         role: emp.roleId?.name || null,
+//       //         dateOfBirth: emp.dateOfJoining,
+//       //         resignationEmailDate: emp.resignation_email_date,
+//       //         reason: emp.relieving_reason,
+//       //         noticePeriod: emp.notice_period,
+//       //         lastDate: emp.last_working_date,
+//       //         status: "Pending",
+//       //         relievingCheckList: checklistMap[emp._id] || null, // attach checklist here
+//       //       })),
+
+//       data: relievingDetails.map((emp) => {
+//         const empChecklist = checklistMap[emp._id]?.verification || [];
+
+//         const empOptionsAllYes =
+//           empChecklist.length > 0 &&
+//           empChecklist.every(
+//             (item) =>
+//               item.options && item.options.trim().toLowerCase() === "yes"
+//           );
+
+//         return {
+//           checkList: empOptionsAllYes,
+//           id: emp._id,
+//           employeeName: emp.employeeName,
+//           employeeId: emp.employeeId,
+//           email: emp.email,
+//           role: emp.roleId?.name || null,
+//           dateOfBirth: emp.dateOfJoining,
+//           resignationEmailDate: emp.resignation_email_date,
+//           reason: emp.relieving_reason,
+//           noticePeriod: emp.notice_period,
+//           lastDate: emp.last_working_date,
+//           status: "Pending",
+//           letter: letterTitle,
+//           relievingCheckList: checklistMap[emp._id] || null,
+//           todoTasks: emp._id
+//             ? todoTasks.filter((task) => task.assignedTo.equals(emp._id))
+//             : [],
+//           inProgressTasks: emp._id
+//             ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
+//             : [],
+//           todoTasksCount: emp._id
+//             ? todoTasks.filter((task) => task.assignedTo.equals(emp._id)).length
+//             : 0,
+//           inProgressTasksCount: emp._id
+//             ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
+//                 .length
+//             : 0,
+//         };
+//       }),
+//     });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).json({ success: false, message: "Internal Server Error" });
+//   }
+// };
+
 const relivingList = async (req, res) => {
+  const { type } = req.query;
+
   try {
+    // Determine dutyStatus based on type
+    const dutyStatus = type === "relieved" ? "0" : "1";
+
+    // Fetch employees
     const relievingDetails = await Employee.find({
       resignation_email_date: { $exists: true },
+      dutyStatus,
     })
-
       .select(
-        "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate"
+        "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate dutyStatus"
       )
       .populate("roleId", "name");
 
+    // Fetch checklists for employees
     const relievingCheckList = await RelivingList.find({
       emp_id: { $in: relievingDetails.map((emp) => emp._id) },
     });
@@ -2874,6 +3084,7 @@ const relivingList = async (req, res) => {
       checklistMap[item.emp_id] = item;
     });
 
+    // Fetch tasks
     const todoTasks = await Task.find({
       assignedTo: { $in: relievingDetails.map((emp) => emp._id) },
       status: "todo",
@@ -2888,70 +3099,51 @@ const relivingList = async (req, res) => {
       .populate("assignedTo", "employeeName")
       .select("taskId");
 
-    // Letters
+    // Fetch letters
     const letterTitle = await LetterSchema.find({ status: "1" }).select(
       "title"
     );
 
-    res.status(200).json({
-      success: true,
+    // Prepare response
+    const data = relievingDetails.map((emp) => {
+      const empChecklist = checklistMap[emp._id]?.verification || [];
+      const empOptionsAllYes =
+        empChecklist.length > 0 &&
+        empChecklist.every(
+          (item) => item.options && item.options.trim().toLowerCase() === "yes"
+        );
 
-      //       data: relievingDetails.map((emp) => ({
-      //         id: emp._id,
-      //         employeeName: emp.employeeName,
-      //         employeeId: emp.employeeId,
-      //         email: emp.email,
-      //         role: emp.roleId?.name || null,
-      //         dateOfBirth: emp.dateOfJoining,
-      //         resignationEmailDate: emp.resignation_email_date,
-      //         reason: emp.relieving_reason,
-      //         noticePeriod: emp.notice_period,
-      //         lastDate: emp.last_working_date,
-      //         status: "Pending",
-      //         relievingCheckList: checklistMap[emp._id] || null, // attach checklist here
-      //       })),
+      const empTodoTasks = todoTasks.filter((task) =>
+        task.assignedTo._id.equals(emp._id)
+      );
+      const empInProgressTasks = inProgressTasks.filter((task) =>
+        task.assignedTo._id.equals(emp._id)
+      );
 
-      data: relievingDetails.map((emp) => {
-        const empChecklist = checklistMap[emp._id]?.verification || [];
-
-        const empOptionsAllYes =
-          empChecklist.length > 0 &&
-          empChecklist.every(
-            (item) =>
-              item.options && item.options.trim().toLowerCase() === "yes"
-          );
-
-        return {
-          checkList: empOptionsAllYes,
-          id: emp._id,
-          employeeName: emp.employeeName,
-          employeeId: emp.employeeId,
-          email: emp.email,
-          role: emp.roleId?.name || null,
-          dateOfBirth: emp.dateOfJoining,
-          resignationEmailDate: emp.resignation_email_date,
-          reason: emp.relieving_reason,
-          noticePeriod: emp.notice_period,
-          lastDate: emp.last_working_date,
-          status: "Pending",
-          letter: letterTitle,
-          relievingCheckList: checklistMap[emp._id] || null,
-          todoTasks: emp._id
-            ? todoTasks.filter((task) => task.assignedTo.equals(emp._id))
-            : [],
-          inProgressTasks: emp._id
-            ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
-            : [],
-          todoTasksCount: emp._id
-            ? todoTasks.filter((task) => task.assignedTo.equals(emp._id)).length
-            : 0,
-          inProgressTasksCount: emp._id
-            ? inProgressTasks.filter((task) => task.assignedTo.equals(emp._id))
-                .length
-            : 0,
-        };
-      }),
+      return {
+        checkList: empOptionsAllYes,
+        id: emp._id,
+        dutyStatus: emp.dutyStatus,
+        employeeName: emp.employeeName,
+        employeeId: emp.employeeId,
+        email: emp.email,
+        role: emp.roleId?.name || null,
+        dateOfBirth: emp.dateOfJoining,
+        resignationEmailDate: emp.resignation_email_date,
+        reason: emp.relieving_reason,
+        noticePeriod: emp.notice_period,
+        lastDate: emp.last_working_date,
+        status: "Pending",
+        letter: letterTitle,
+        relievingCheckList: checklistMap[emp._id] || null,
+        todoTasks: empTodoTasks,
+        inProgressTasks: empInProgressTasks,
+        todoTasksCount: empTodoTasks.length,
+        inProgressTasksCount: empInProgressTasks.length,
+      };
     });
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
@@ -3689,32 +3881,33 @@ const dashboard = async (req, res) => {
   );
 
   // 🔹 Future employees
- const futureEmployees = await Employee.find({
-  dutyStatus: "1",
-  $expr: {
-    $and: [
-      // Ensure last_working_date exists and is not invalid
-      { $ne: ["$last_working_date", null] },
-      { $ne: ["$last_working_date", ""] },
-      { $ne: ["$last_working_date", "-"] },
-      {
-        $gte: [
-          {
-            $dateFromString: {
-              dateString: "$last_working_date",
-              onError: null, // <— prevents crash if parsing fails
-              onNull: null,  // <— prevents crash if null
+  const futureEmployees = await Employee.find({
+    dutyStatus: "1",
+    $expr: {
+      $and: [
+        // Ensure last_working_date exists and is not invalid
+        { $ne: ["$last_working_date", null] },
+        { $ne: ["$last_working_date", ""] },
+        { $ne: ["$last_working_date", "-"] },
+        {
+          $gte: [
+            {
+              $dateFromString: {
+                dateString: "$last_working_date",
+                onError: null, // <— prevents crash if parsing fails
+                onNull: null, // <— prevents crash if null
+              },
             },
-          },
-          new Date(),
-        ],
-      },
-    ],
-  },
-})
-  .select("_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus")
-  .populate("roleId", "name");
-
+            new Date(),
+          ],
+        },
+      ],
+    },
+  })
+    .select(
+      "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
+    )
+    .populate("roleId", "name");
 
   //Internship End Dates
   const interns = await Employee.find({
