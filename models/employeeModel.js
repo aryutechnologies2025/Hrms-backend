@@ -54,7 +54,7 @@ const employee = new mongoose.Schema(
     gitHubEmail: {
       type: String,
     },
-
+    linkedIn: { type: String, required:[true, "LinkedIn is required"] },
     // departmentTypeId:{type: mongoose.Schema.Types.ObjectId, ref: 'EmployeeDepartment'},
     passportNo: { type: String, default: "" },
     passportExpDate: { type: Date, default: "" },
