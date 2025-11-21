@@ -5,7 +5,7 @@ node_modules/
 *.log
 
 # Environment files
-.env
+# .env
 
 # Output directories
 dist/
