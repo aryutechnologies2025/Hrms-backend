@@ -14,6 +14,7 @@ const createAsset = async (req, res) => {
       totalCost,
       warrantyYear,
       disposedDate,
+      fileUpload
     } = req.body;
 
     const newAsset = new Asset({
@@ -26,6 +27,7 @@ const createAsset = async (req, res) => {
       totalCost,
       warrantyYear,
       disposedDate,
+      fileUpload
     });
 
     const formatDate = (date) => {
