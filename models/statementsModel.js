@@ -37,6 +37,7 @@ const statementSchema = new mongoose.Schema(
          ref: "FinanceCompany",
          required: [true, "Please provide a category"],  
        },
+       notes: { type: String,  },
      
   },
   { timestamps: true }

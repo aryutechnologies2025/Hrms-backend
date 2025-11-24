@@ -280,7 +280,7 @@ const getAllStatementDetails = async (req, res) => {
     if (account) filter.account = account;
 
     // First get all documents
-    let all = await Statement.find(filter);
+    let all = await Statement.find(filter).populate("account","name");
 
     // If date filter applied → filter manually
     if (startDate && endDate) {
@@ -335,7 +335,8 @@ const editStatementDetails = async (req, res) => {
   try {
     const updated = await Statement.findByIdAndUpdate(
       req.params.id,
-      req.body,
+       { notes: req.body.notes },   // Only update notes
+      // req.body,
       { new: true }
     );
 
