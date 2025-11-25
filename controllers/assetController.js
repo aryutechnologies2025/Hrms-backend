@@ -14,8 +14,17 @@ const createAsset = async (req, res) => {
       totalCost,
       warrantyYear,
       disposedDate,
-      fileUpload
+      fileUpload,
     } = req.body;
+
+    let fileName = null;
+
+if (req.file) {
+  fileName = req.file.filename;          // single upload
+} else if (req.files && req.files.fileUpload) {
+  fileName = req.files.fileUpload[0].filename;   // multiple files
+}
+
 
     const newAsset = new Asset({
       assetCategory,
@@ -27,7 +36,7 @@ const createAsset = async (req, res) => {
       totalCost,
       warrantyYear,
       disposedDate,
-      fileUpload
+      fileUpload : fileName
     });
 
     const formatDate = (date) => {

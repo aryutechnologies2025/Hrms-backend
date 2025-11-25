@@ -28,7 +28,12 @@ const assetSchema = new mongoose.Schema({
   }, // stores date + time by default
   eachCost: {
      type: Number,
-      required: [true, "Please provide a cost"] 
+      required: [
+        function () {
+          return this.count > 1;
+        },
+        "Please provide a cost",
+      ] 
     },
   totalCost: { 
     type: Number, 
@@ -46,7 +51,7 @@ const assetSchema = new mongoose.Schema({
   }, // stores date + time by default
 fileUpload: {
   type: String,
-  required: [true, "Please provide a file"]
+   required: [true, "Please upload an asset file (image/pdf)"]
 }
 },
  {

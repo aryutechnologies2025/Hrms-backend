@@ -77,6 +77,10 @@ const storage = multer.diskStorage({
     if (file.fieldname === "photo") {
       destPath = path.join(__dirname, "../uploads");
     }
+
+    else if (file.fieldname === "fileUpload") {
+      destPath = path.join(__dirname, "../uploads/assets");
+    }
     // else if (file.fieldname === 'files'){
     //   console.log("download 123");
     //   destPath =path.join(__dirname,'../uploads/documents');
