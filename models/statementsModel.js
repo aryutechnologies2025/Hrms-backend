@@ -3,7 +3,9 @@ import mongoose from "mongoose";
 const statementSchema = new mongoose.Schema(
   {
     date: {
-         type: String
+        //  type: String
+         type: Date,
+         required: [true, "Please provide a date"]
         },
     narration: { type: String ,
       required: [true, "Please provide a narration"] 

@@ -173,26 +173,48 @@ import Statement from "../models/statementsModel.js";
 /* --------- DATE HELPERS ------------ */
 
 // Convert Excel numeric or string date to dd-mm-yyyy
+// function formatExcelDate(value) {
+//   if (!value) return null;
+
+//   // Numeric Excel date
+//   if (typeof value === "number") {
+//     const excelDate = new Date((value - 25569) * 86400 * 1000);
+//     const d = String(excelDate.getDate()).padStart(2, "0");
+//     const m = String(excelDate.getMonth() + 1).padStart(2, "0");
+//     const y = excelDate.getFullYear();
+//     return `${d}-${m}-${y}`;
+//   }
+
+//   // Already formatted string: "01-04-2025"
+//   if (typeof value === "string" && value.includes("-")) {
+//     const parts = value.split("-");
+//     if (parts.length === 3) return value;
+//   }
+
+//   return null;
+// }
+
+
+/*...........if use date as date type in model ........*/
+
 function formatExcelDate(value) {
   if (!value) return null;
 
-  // Numeric Excel date
+  // If Excel gives a number (Excel serial date)
   if (typeof value === "number") {
     const excelDate = new Date((value - 25569) * 86400 * 1000);
-    const d = String(excelDate.getDate()).padStart(2, "0");
-    const m = String(excelDate.getMonth() + 1).padStart(2, "0");
-    const y = excelDate.getFullYear();
-    return `${d}-${m}-${y}`;
+    return excelDate;
   }
 
-  // Already formatted string: "01-04-2025"
-  if (typeof value === "string" && value.includes("-")) {
-    const parts = value.split("-");
-    if (parts.length === 3) return value;
+  // If "dd-mm-yyyy"
+  if (typeof value === "string") {
+    const [day, month, year] = value.split("-");
+    return new Date(`${year}-${month}-${day}`);
   }
 
   return null;
 }
+
 
 // Convert date from query: yyyy-mm-dd → dd-mm-yyyy
 // function convertToDMY(value) {
@@ -271,6 +293,56 @@ function toSortable(d) {
   return `${year}${month}${day}`; // 20250401
 }
 
+/* ...........if using date type as string in model ............ */ 
+// const getAllStatementDetails = async (req, res) => {
+//   try {
+//     const { type, account, startDate, endDate } = req.query;
+
+//     let filter = {};
+//     if (type) filter.type = type;
+//     if (account) filter.account = account;
+
+//     // First get all documents
+//     let all = await Statement.find(filter).populate("account","name");
+
+//     console.log("filter",filter);
+// console.log("startDate : ",startDate)
+// console.log("endDate : ",endDate)
+//     // If date filter applied → filter manually
+//     if (startDate && endDate) {
+//       const start = toSortable(startDate);
+//       const end = toSortable(endDate);
+
+//       console.log("start : ",start)
+//       console.log("end : ",end)
+
+//       all = all.filter(item => {
+//         const itemSortable = toSortable(item.date); // item.date = "01-04-2025"
+//         // console.log("itemSortable : ",itemSortable)
+//         // console.log("item.date : ",item.date)
+        
+//         return itemSortable >= start && itemSortable <= end;
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "All Statement Details",
+//       count: all.length,
+//       allStatementDetails: all,
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+/*.............if using date as date in model means no need to sortable  ...............*/
 const getAllStatementDetails = async (req, res) => {
   try {
     const { type, account, startDate, endDate } = req.query;
@@ -279,19 +351,18 @@ const getAllStatementDetails = async (req, res) => {
     if (type) filter.type = type;
     if (account) filter.account = account;
 
-    // First get all documents
-    let all = await Statement.find(filter).populate("account","name");
-
-    // If date filter applied → filter manually
+console.log("filter",filter);
+console.log("startDate : ",startDate)
+console.log("endDate : ",endDate)
     if (startDate && endDate) {
-      const start = toSortable(startDate);
-      const end = toSortable(endDate);
-
-      all = all.filter(item => {
-        const itemSortable = toSortable(item.date); // item.date = "01-04-2025"
-        return itemSortable >= start && itemSortable <= end;
-      });
+      console.log("filter.date",filter.date);
+      filter.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
     }
+
+    const all = await Statement.find(filter).populate("account", "name");
 
     return res.status(200).json({
       success: true,
