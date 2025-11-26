@@ -4,18 +4,26 @@ const createAsset = async (req, res) => {
 
   try {
    
-    const {
-      assetCategory,
-      assetName,
-      serialNumber,
-      count,
-      purchasedDate,    
-      eachCost,
-      totalCost,
-      warrantyYear,
-      disposedDate,
-      fileUpload,
-    } = req.body;
+    // const {
+    //   invoiceNumber,
+    //   purchasedDate,
+    //   ledger,   
+    //   assetCategory,
+    //   assetSubCategory,
+    //   depricationPercentage,
+    //   quantity,
+    //   eachCost,
+    //   totalCost,
+    //   gstRate,
+    //   taxable,
+    //   cgst,
+    //   sgst,
+    //   igst,
+    //   invoiceValue,
+    //   warrantyYear,
+    //   disposedDate,
+    //   fileUpload,
+    // } = req.body;
 
     let fileName = null;
 
@@ -25,20 +33,45 @@ if (req.file) {
   fileName = req.files.fileUpload[0].filename;   // multiple files
 }
 
+const data = req.body;
 
-    const newAsset = new Asset({
-      assetCategory,
-      assetName,
-      serialNumber,
-      count,
-      purchasedDate,    
-      eachCost,
-      totalCost,
-      warrantyYear,
-      disposedDate,
+// Convert numeric values
+    const quantity = Number(data.quantity);
+    const rate = Number(data.rate);
+    const gstRate = Number(data.gstRate || 18);
+
+    // ---- Financial Calculations ---
+    const taxable = quantity * rate;
+    const gstHalf = (taxable * gstRate) / 200;
+
+    const cgst = gstHalf;
+    const sgst = gstHalf;
+    const invoiceValue = taxable + cgst + sgst;
+
+
+    const newAsset = await Asset.create({
+      invoiceNumber:data.invoiceNumber,
+      purchasedDate:data.purchasedDate,
+      ledger:data.ledger,   
+      assetCategory:data.assetCategory,
+      assetSubCategory:data.assetSubCategory,
+      depricationPercentage:data.depricationPercentage,
+      quantity,
+      rate,
+      gstRate,
+      taxable,
+      cgst,
+      sgst,
+      igst:data.igst || 0,
+      invoiceValue,
+      warrantyYear:data.warrantyYear,
+      disposedDate:data.disposedDate,
       fileUpload : fileName
     });
 
+      
+  
+ // ---- Format dates for response ----
     const formatDate = (date) => {
   return new Date(date).toISOString().split("T")[0];
 };
@@ -65,9 +98,12 @@ if (req.file) {
   }
 };
 
+//get all assets
 const getAssetDetails = async (req, res) => {
     try{
-        const assetDetails = await Asset.find().populate("assetCategory");
+        const assetDetails = await Asset.find()
+        .populate("assetCategory")    // populate the assetCategory field
+        .populate("assetSubCategory");  // populate the assetSubCategory field
          const formatted = assetDetails.map(asset => {
       const obj = asset.toObject();
       return {
@@ -134,7 +170,26 @@ const assetDelete = async (req, res) => {
 const editAssetDetails = async (req, res) => {
   const { id } = req.params;
   try {
-    const updated = await Asset.findByIdAndUpdate(id, req.body, {
+
+    const data = req.body;
+
+    // Recalculate financials if quantity or rate changes
+    if (data.quantity || data.rate) {
+      const quantity = Number(data.quantity);
+      const rate = Number(data.rate);
+      const gstRate = Number(data.gstRate || 18);
+
+      const taxable = quantity * rate;
+      const gstHalf = (taxable * gstRate) / 200;
+
+      data.taxable = taxable;
+      data.cgst = gstHalf;
+      data.sgst = gstHalf;
+      data.invoiceValue = taxable + gstHalf * 2;
+    }
+
+
+    const updated = await Asset.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
     });
