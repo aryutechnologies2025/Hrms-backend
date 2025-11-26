@@ -1409,7 +1409,7 @@ const getTaskById = async (req, res) => {
         ProjectModel.findById(task.projectId).select("name ").lean(),
       ]);
 
-    const subtasks = await SubTask.find({ taskId: task._id }).populate([
+    const subtasks = await SubTask.find({ mainTaskId: task._id }).populate([
       { path: "assignedTo", select: "employeeName " },
     ]);
 
@@ -1420,6 +1420,7 @@ const getTaskById = async (req, res) => {
       projectId: { name: project?.name || null },
       createdById: { employeeName: createdByName },
       projectManagerId: { _id: task.projectManagerId, projectManagerName },
+      projectIdFilter: project?._id,
       // assignedToName:{},
       // createdByName,
       // projectManagerName,
