@@ -28,7 +28,11 @@ const assetSchema = new mongoose.Schema({
     ref: "SubCategory",
     required: [true, "Please provide a subCategory"],  
   },
-  depricationPercentage: {
+  title: {
+    type: String, 
+    required: [true, "Please provide a title"]
+  },
+  depreciationPercentage: {
       type: Number,
        required: [
           true,
@@ -68,7 +72,7 @@ const assetSchema = new mongoose.Schema({
 
     gstRate: {
         type: Number,
-        default: 18
+        
     },
 
   taxable: { 
