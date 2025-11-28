@@ -197,6 +197,20 @@ const editMom = async (req, res) => {
     });
   }
 };
+const documentDelete = async (req, res) => {  
+   const { id } = req.params;
+  try {
+    const linkDetails = await MomDocument.findByIdAndDelete(id);
+    if (!linkDetails) {
+      return res.status(404).json({ success: false, message: "Mom not found" });
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Mom deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
 
 const momDelete = async (req, res) => {
   const { id } = req.params;
@@ -214,7 +228,8 @@ const momDelete = async (req, res) => {
 };
 
 const createMomDocument = async (req, res) => {
-  const {project,title,description,createdBy,status} = req.body;
+  console.log("Files received:", req.body);
+  const {date,client,project,title,description,createdBy,status} = req.body;
   const documentArray = [];
 
   if (Array.isArray(req.files)) {
@@ -229,6 +244,8 @@ const createMomDocument = async (req, res) => {
   }
   try {
     const newMomDocument = new MomDocument({
+      date,
+      client,
       project,
       title,
       description,
@@ -247,7 +264,7 @@ return res.status(201).json({
   } catch (error) {
     console.error("Error creating MOM:", error);
 
-    if (error.name === "ValidationError") {
+    if (error.name === "ValidationError"){
       const errors = {};
       for (let field in error.errors) {
         errors[field] = error.errors[field].message;
@@ -276,22 +293,16 @@ const getCreatorDetails = async (creatorId) => {
 
   const user = await User.findById(creatorId);
   console.log("User found:", user);
-
+if (user) return { id: creatorId, name: user.name, type: "User" };
   const client = await ClientDetails.findById(creatorId);
   console.log("Client found:", client);
+  if (client) return { id: creatorId, name: client.client_name, type: "ClientDetails" };
 
   return { id: creatorId, name: "Unknown", type: null };
 };
-
-
-
-
-
-
-
 const getMomDocument = async (req, res) => {
   try {
-    const momDocuments = await MomDocument.find().sort({ createdAt: -1 });
+    const momDocuments = await MomDocument.find().populate("project","name").populate("client","client_name").sort({ createdAt: -1 });
 
     const populatedMom = await Promise.all(
       momDocuments.map(async (mom) => {
@@ -348,6 +359,8 @@ const getMomDocumentById = async (req, res) => {
 
 const editDocument = async (req, res) => {
   const { id } = req.params;
+  console.log("Editing MOM ID:", id,req.body);
+
 
   try {
     const existingMom = await MomDocument.findById(id);
@@ -410,4 +423,4 @@ const editDocument = async (req, res) => {
 
 
 
-export { createMom, getMom, editMom, momDelete, getMomById,createMomDocument,getMomDocument,getMomDocumentById,editDocument };
+export { createMom, getMom, editMom, momDelete, getMomById,createMomDocument,getMomDocument,getMomDocumentById,editDocument,documentDelete };
