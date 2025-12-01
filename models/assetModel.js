@@ -106,10 +106,10 @@ const assetSchema = new mongoose.Schema({
      default: Date.now, 
 
   }, // stores date + time by default
-fileUpload: {
+fileUpload: [{
   type: String,
    required: [true, "Please upload an asset file (image/pdf)"]
-}
+}]
 },
  {
   timestamps: true // adds createdAt and updatedAt fields

@@ -62,6 +62,7 @@ dotenv.config();
 
 // Initialize app
 const app = express();
+
 app.use(morgan("dev"));
 
 app.use(
@@ -82,6 +83,7 @@ const startApp = async () => {
   autoLogoutJob();
   // Ensure uploads directory exists
   app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
   app.use("/api/auth", userRoutes);
   app.use("/api/roles", roleRouter);
