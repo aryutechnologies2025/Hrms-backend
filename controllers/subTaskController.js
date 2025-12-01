@@ -1,19 +1,37 @@
+import Counter from "../models/counterModel.js";
 import SubTask from "../models/subTaskModel.js";
 import TaskLogsModel from "../models/taskLogsModel.js";
 import Task from "../models/taskModal.js";
+
+
+
+
+const generateTaskId = async () => {
+  const counter = await Counter.findOneAndUpdate(
+    { id: "taskId" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  const paddedSeq = counter.seq.toString().padStart(3, "0"); // AY001, AY002
+  return `AY${paddedSeq}`;
+};
 
 //  Create Subtask
 const createSubTask = async (req, res) => {
   try {
     const {
       taskId,
+      projectId,
       title,
-      assignedTo,
+      assignTo,
       status,
       priority,
       startDate,
       dueDate,
       createdById,
+      projectManagerId,
+      projectDescription
     } = req.body;
 
     // Check if task exists
@@ -26,16 +44,22 @@ const createSubTask = async (req, res) => {
         .status(400)
         .json({ message: "Cannot add subtask to a completed task" });
     }
+     // Generate taskId
+    const taskIdNumber = await generateTaskId();
 
     const subtask = await SubTask.create({
-      taskId,
+      taskId:taskIdNumber,
+      mainTaskId: taskId,
       title,
-      assignedTo,
+      assignedTo: assignTo,
       status,
       priority,
       startDate,
       dueDate,
       createdById,
+      projectId,
+      projectManagerId,
+      projectDescription
     });
 
     const taskLog = {
@@ -50,7 +74,7 @@ const createSubTask = async (req, res) => {
     res.status(201).json({ message: "Subtask created successfully", subtask });
   } catch (error) {
     console.error("Error creating task:", error);
-
+     
     if (error.name === "ValidationError") {
       const errors = {};
       for (const field in error.errors) {
@@ -61,7 +85,7 @@ const createSubTask = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 };

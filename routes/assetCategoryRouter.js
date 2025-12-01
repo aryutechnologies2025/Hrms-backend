@@ -6,7 +6,7 @@ import { assetCategoryDelete, createAssetCategory, editAssetCategoryDetails, get
 const assetCategoryRouter = express.Router();
 
 assetCategoryRouter.post("/create-assetCategory",createAssetCategory);
-assetCategoryRouter.get("/assetCatagory",getAssetCategoryDetails);
+assetCategoryRouter.get("/assetCategory",getAssetCategoryDetails);
 // assetCategoryRouter.get("/assetCatagory/:id",getAssetCategoryDetailsById);
 assetCategoryRouter.put("/edit-assetCategorydetails/:id",editAssetCategoryDetails); 
 assetCategoryRouter.delete("/delete-assetCategoryDelete/:id",assetCategoryDelete); 

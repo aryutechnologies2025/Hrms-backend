@@ -210,10 +210,11 @@ const addClientSubUser=async (req,res)=>{
 
 
 const getClientDetails = async (req, res) => {
-  const {dropDown} = req.params;
+  const {dropDown} = req.query;
+  console.log("test", req.query); 
   try {
     const baseFilter={}
-    if(dropDown && dropDown==="true"){
+    if(dropDown ){
       baseFilter.status="1"
     }
     const clientDetails = await ClientDetails.find(baseFilter).sort({

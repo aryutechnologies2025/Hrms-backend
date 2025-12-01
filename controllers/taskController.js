@@ -13,8 +13,7 @@ import UpcomingHoliday from "../models/upcomingHolidayModal.js";
 import Attendance from "../models/attendanceModal.js";
 import Leave from "../models/leaveModel.js";
 import ClientDetails from "../models/clientModals.js";
-import ClientSubUser from "../models/clientSubUserModel.js";
-import { stat } from "fs";
+import ClientSubUser from "../models/clientSubUserModel.js";              
 
 const generateTaskId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -1409,17 +1408,18 @@ const getTaskById = async (req, res) => {
         ProjectModel.findById(task.projectId).select("name ").lean(),
       ]);
 
-    const subtasks = await SubTask.find({ taskId: task._id }).populate([
+    const subtasks = await SubTask.find({ mainTaskId: task._id }).populate([
       { path: "assignedTo", select: "employeeName " },
     ]);
 
     const taskWithNames = {
       ...task,
       subtasks,
-      assignedTo: { employeeName: assignedToName },
+      assignedTo: { _id: task.assignedTo, employeeName: assignedToName },
       projectId: { name: project?.name || null },
       createdById: { employeeName: createdByName },
       projectManagerId: { _id: task.projectManagerId, projectManagerName },
+      projectIdFilter: project?._id,
       // assignedToName:{},
       // createdByName,
       // projectManagerName,
@@ -2116,7 +2116,6 @@ const particularTask = async (req, res) => {
   }
 };
 
-
 const particularTaskById = async (req, res) => {
   try {
     let {
@@ -2327,9 +2326,6 @@ function emptyTaskResponse() {
     statusCounts: {},
   };
 }
-
-
-
 
 const updateTask = async (req, res) => {
   // console.log("Update task request body:", req.params.id, req.body);
@@ -2594,7 +2590,7 @@ const updateTask = async (req, res) => {
 // };
 const updateTaskStatus = async (req, res) => {
   try {
-    const { status, startTime, endTime, updatedBy } = req.body;
+    const { status, startTime, endTime, updatedBy, assignedTo } = req.body;
     const { id } = req.params;
 
     console.log("Request Body:", req.body);
@@ -2611,6 +2607,26 @@ const updateTaskStatus = async (req, res) => {
     const task = await Task.findOne({ taskId: id });
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (assignedTo) {
+      const updatedTask = await Task.findOneAndUpdate(
+        { taskId: id },
+        { $set: { assignedTo } },
+        { new: true, runValidators: true }
+      );
+      // Step 7: Save task log
+      // const taskLogEntry = new TaskLogsModel({
+      //   taskId: updatedTask.taskId,
+      //   status,
+      //   updatedBy,
+      //   startTime: new Date(), // You could also use startTime from req.body
+      // });
+      return res.status(200).json({
+        success: true,
+        message: "Task assigned to updated updated successfully",
+        task: updatedTask,
+      });
     }
 
     if (status === "block") {

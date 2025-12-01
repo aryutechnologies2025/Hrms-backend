@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 const SubTaskSchema = new mongoose.Schema(
   {
-    taskId: {
+    mainTaskId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Task",
       required: true,
+      
     },
+   taskId: { type: String, unique: true }, // Auto-increment field
     title: {
       type: String,
       required: [true, "Please provide subtask title"],
@@ -45,7 +47,13 @@ const SubTaskSchema = new mongoose.Schema(
         time: { type: Date, default: Date.now },
       },
     ],
+     projectManagerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Employee",
+          required: [false, "Please provide a project manager id"],
+        },
     testerStatus: { type: String, default: "0" },
+    projectDescription: { type: String, default: "" ,required:false},
   },
   { timestamps: true }
 );

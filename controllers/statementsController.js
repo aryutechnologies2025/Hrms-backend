@@ -8,7 +8,7 @@
 //     if (!req.file) {
 //       return res.status(400).json({ message: "Excel file is required" });
 //     }
-    
+
 
 //     // read file from disk
 //     const workbook = XLSX.readFile(req.file.path);
@@ -170,52 +170,110 @@
 import XLSX from "xlsx";
 import Statement from "../models/statementsModel.js";
 
+/* --------- DATE HELPERS ------------ */
+
+// Convert Excel numeric or string date to dd-mm-yyyy
+// function formatExcelDate(value) {
+//   if (!value) return null;
+
+//   // Numeric Excel date
+//   if (typeof value === "number") {
+//     const excelDate = new Date((value - 25569) * 86400 * 1000);
+//     const d = String(excelDate.getDate()).padStart(2, "0");
+//     const m = String(excelDate.getMonth() + 1).padStart(2, "0");
+//     const y = excelDate.getFullYear();
+//     return `${d}-${m}-${y}`;
+//   }
+
+//   // Already formatted string: "01-04-2025"
+//   if (typeof value === "string" && value.includes("-")) {
+//     const parts = value.split("-");
+//     if (parts.length === 3) return value;
+//   }
+
+//   return null;
+// }
+
+
+/*...........if use date as date type in model ........*/
+
+function formatExcelDate(value) {
+  if (!value) return null;
+
+  // If Excel gives a number (Excel serial date)
+  if (typeof value === "number") {
+    const excelDate = new Date((value - 25569) * 86400 * 1000);
+    return excelDate;
+  }
+
+  // If "dd-mm-yyyy"
+  if (typeof value === "string") {
+    const [day, month, year] = value.split("-");
+    return new Date(`${year}-${month}-${day}`);
+  }
+
+  return null;
+}
+
+
+// Convert date from query: yyyy-mm-dd → dd-mm-yyyy
+// function convertToDMY(value) {
+//   const d = new Date(value);
+//   const day = String(d.getDate()).padStart(2, "0");
+//   const month = String(d.getMonth() + 1).padStart(2, "0");
+//   const year = d.getFullYear();
+//   return `${day}-${month}-${year}`;
+// }
+
+/* ----IMPORT EXCEL ----- */
+
 const importExcel = async (req, res) => {
   try {
+    const { account } = req.body;
 
-    const { projectId } = req.body;
-    // console.log("INSIDE CONTROLLER");
-    // console.log("FILE:", req.file);
-
-    if (!projectId) {
-      return res.status(400).json({ error: "Project ID is required" });
+    if (!account) {
+      return res.status(400).json({ error: "Account ID is required" });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "File not received",
+        message: "Excel file not received",
       });
     }
 
-  // Read Excel
+    // Read Excel
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
     const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
- // Convert rows to format your Schema needs
-    const parsed = sheetData.map((row) => ({
-      date: new Date(row["Date"]),
-      narration: row["Narration"],
-      ledger: row["Ledger"],
-      reason: row["Reason"],
-      type: row["Withdrawal Amt."] > 0 ? "debit" : "credit",
-      withdrawalAmount: row["Withdrawal Amt."] || 0,
-      depositAmount: row["Deposit Amt."] || 0,
-       projectId, //  attach project id
-      createdBy: req.admin?._id || "Admin",
-    }));
+    // Transform sheet rows → DB Rows
+    const parsed = sheetData.map((row) => {
+      const withdrawal = row["Withdrawal Amt."] || 0;
+      const deposit = row["Deposit Amt."] || 0;
 
-    //  IMPORTANT: Save all rows properly using Promise.all
-    await Promise.all(parsed.map((entry) => Statement.create(entry)));
+      const type = withdrawal > 0 ? "debit" : "credit";
 
-   
+      return {
+        date: formatExcelDate(row["Date"]), // Always dd-mm-yyyy
+        narration: row["Narration"],
+        ledger: row["Ledger"],
+        reason: row["Reason"],
+        type,
+        withdrawalAmount: withdrawal,
+        depositAmount: deposit,
+        amount: type === "debit" ? withdrawal : deposit,
+        account,
+      };
+    });
+
+    // Save all rows
+    await Statement.insertMany(parsed);
 
     return res.status(200).json({
       success: true,
-      message: "Excel parsed successfully",
+      message: "Excel imported successfully",
       total: parsed.length,
-    
     });
 
   } catch (error) {
@@ -228,4 +286,170 @@ const importExcel = async (req, res) => {
   }
 };
 
-export default importExcel;
+/* ------- GET ALL STATEMENTS ----------- */
+
+function toSortable(d) {
+  const [day, month, year] = d.split("-");
+  return `${year}${month}${day}`; // 20250401
+}
+
+/* ...........if using date type as string in model ............ */ 
+// const getAllStatementDetails = async (req, res) => {
+//   try {
+//     const { type, account, startDate, endDate } = req.query;
+
+//     let filter = {};
+//     if (type) filter.type = type;
+//     if (account) filter.account = account;
+
+//     // First get all documents
+//     let all = await Statement.find(filter).populate("account","name");
+
+//     console.log("filter",filter);
+// console.log("startDate : ",startDate)
+// console.log("endDate : ",endDate)
+//     // If date filter applied → filter manually
+//     if (startDate && endDate) {
+//       const start = toSortable(startDate);
+//       const end = toSortable(endDate);
+
+//       console.log("start : ",start)
+//       console.log("end : ",end)
+
+//       all = all.filter(item => {
+//         const itemSortable = toSortable(item.date); // item.date = "01-04-2025"
+//         // console.log("itemSortable : ",itemSortable)
+//         // console.log("item.date : ",item.date)
+        
+//         return itemSortable >= start && itemSortable <= end;
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "All Statement Details",
+//       count: all.length,
+//       allStatementDetails: all,
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+/*.............if using date as date in model means no need to sortable  ...............*/
+const getAllStatementDetails = async (req, res) => {
+  try {
+    const { type, account, startDate, endDate } = req.query;
+
+    let filter = {};
+    if (type) filter.type = type;
+    if (account) filter.account = account;
+
+console.log("filter",filter);
+console.log("startDate : ",startDate)
+console.log("endDate : ",endDate)
+    if (startDate && endDate) {
+      console.log("filter.date",filter.date);
+      filter.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const all = await Statement.find(filter).populate("account", "name");
+
+    return res.status(200).json({
+      success: true,
+      message: "All Statement Details",
+      count: all.length,
+      allStatementDetails: all,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+/* ------- GET ONE STATEMENT -------- */
+
+const getStatementDetailsById = async (req, res) => {
+  try {
+    const one = await Statement.findById(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: "Single Statement Details",
+      singleStatementDetails: one,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/* ----------- EDIT ------------ */
+
+const editStatementDetails = async (req, res) => {
+  try {
+    const updated = await Statement.findByIdAndUpdate(
+      req.params.id,
+       { notes: req.body.notes },   // Only update notes
+      // req.body,
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Statement Updated",
+      updatedStatementDetails: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/* ---------- DELETE -------------- */
+
+const deleteStatementDetails = async (req, res) => {
+  try {
+    const deleted = await Statement.findByIdAndDelete(req.params.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Statement Deleted",
+      deletedStatementDetails: deleted,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export {
+  importExcel,
+  getAllStatementDetails,
+  getStatementDetailsById,
+  editStatementDetails,
+  deleteStatementDetails,
+};
