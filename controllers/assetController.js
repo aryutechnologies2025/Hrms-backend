@@ -1,6 +1,6 @@
 import Asset from "../models/assetModel.js";
 const createAsset = async (req, res) => {
-
+console.log("object")
 
   try {
    
@@ -25,15 +25,19 @@ const createAsset = async (req, res) => {
     //   fileUpload,
     // } = req.body;
 
-    let fileName = null;
-
-if (req.file) {
-  fileName = req.file.filename;          // single upload
-} else if (req.files && req.files.fileUpload) {
-  fileName = req.files.fileUpload[0].filename;   // multiple files
+    let fileNames = [];
+console.log("fileUpload: ",req.fileUpload)
+// if (req.files) {
+//   fileName = req.file.filename;          // single upload
+// } else if (req.files && req.files.fileUpload) {
+//   fileName = req.files.fileUpload[0].filename;   // multiple files
+// }
+if (req.files && req.files.length > 0) {
+  fileNames = req.files.map((file) => file.filename); // array of filenames
 }
-
 const data = req.body;
+
+console.log("data",data)
 
 // Convert numeric values
     const quantity = Number(data.quantity);
@@ -67,7 +71,7 @@ const data = req.body;
       invoiceValue,
       warrantyYear:data.warrantyYear,
       disposedDate:data.disposedDate,
-      fileUpload : fileName
+      fileUpload : fileNames
     });
 
       
@@ -172,7 +176,42 @@ const editAssetDetails = async (req, res) => {
   const { id } = req.params;
   try {
 
-    const data = req.body;
+    const data = { ...req.body };
+
+     //  Handle existing files
+    let existingFiles = [];
+    if (data.existingFiles) {
+      // Make sure existingFiles is an array, and parse JSON strings if needed
+      existingFiles = Array.isArray(data.existingFiles)
+        ? data.existingFiles.map(f => {
+            try {
+              return JSON.parse(f); // parse if stringified
+            } catch {
+              return f;
+            }
+          }).flat()
+        : [data.existingFiles];
+    }
+
+         //  Handle files to delete
+    let filesToDelete = [];
+    if (data.filesToDelete) {
+      filesToDelete = Array.isArray(data.filesToDelete) ? data.filesToDelete : [data.filesToDelete];
+    }
+
+        // Remove filesToDelete from existingFiles
+    existingFiles = existingFiles.filter(f => !filesToDelete.includes(f));
+
+    //  Handle newly uploaded files
+    let newFiles = [];
+    if (req.files && req.files.length > 0) {
+      newFiles = req.files.map(file => file.filename);
+    }
+
+    // Final files array to store
+    data.fileUpload = [...existingFiles, ...newFiles];
+
+
 
     // Recalculate financials if quantity or rate changes
     if (data.quantity || data.rate) {
