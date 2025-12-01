@@ -7,6 +7,11 @@ const declarationModel = new mongoose.Schema(
     empId: { type: String, required: [true, "Please provide emp ID"] },
     certificateName: { type: String, required: [true, "Please provide certificate name"] },
     certificateNo: { type: String, required: [true, "Please provide certificate number"] },
+    documents: [
+      {
+        type: Object,
+      },
+    ],
   },{
     timestamps: true,
   });
