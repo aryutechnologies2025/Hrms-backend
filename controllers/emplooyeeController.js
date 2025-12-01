@@ -767,17 +767,23 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
   }
 };
 const allEmployeesUserDetails = async (req, res) => {
+  const { type } = req.query;
+
   try {
+    let matchCondition;
+
+    if (type === "Intern") {
+      matchCondition = { employeeType: "Intern", employeeStatus: "1" };
+    } else {
+      matchCondition = { employeeType: { $ne: "Intern" }, employeeStatus: "1" };
+    }
+
     const employees = await Employee.aggregate([
-      {
-        $match: { employeeStatus: "1" }, // Optional match filter
-      },
-      {
-        $sort: { employeeName: -1 }, // 1 = ascending (A–Z), -1 = descending (Z–A)
-      },
+      { $match: matchCondition },
+      { $sort: { employeeName: -1 } },
       {
         $lookup: {
-          from: "employeeroles", // collection name of role model
+          from: "employeeroles",
           localField: "roleId",
           foreignField: "_id",
           as: "role",
@@ -786,15 +792,14 @@ const allEmployeesUserDetails = async (req, res) => {
       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "employeedepartments", // collection name of department model
+          from: "employeedepartments",
           localField: "role.departmentId",
           foreignField: "_id",
           as: "role.department",
         },
       },
-      {
-        $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true },
-      },
+      { $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true } },
+      // Optional: $project to shape the output
       // {
       //   $project: {
       //     employeeName: 1,
@@ -809,10 +814,9 @@ const allEmployeesUserDetails = async (req, res) => {
     ]);
 
     if (!employees || employees.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No employees found" });
+      return res.status(404).json({ success: false, message: "No employees found" });
     }
+
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error });
