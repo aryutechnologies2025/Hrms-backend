@@ -9,6 +9,7 @@ const createDeclaration = async (req, res) => {
       certificateName,
       certificateNo,
     } = req.body;
+    console.log("Files received:", req.body);
     const documentArray = [];
 
     if (Array.isArray(req.files)) {
@@ -28,26 +29,14 @@ const createDeclaration = async (req, res) => {
       empId,
       certificateName,
       certificateNo,
-      documents: documentArray
+      documents: documentArray,
     });
 
     const savedDeclaration = await newDeclaration.save();
     res.status(201).json(savedDeclaration);
   } catch (error) {
-    console.error("Error creating MOM:", error);
-
-    if (error.name === "ValidationError") {
-      const errors = {};
-      for (let field in error.errors) {
-        errors[field] = error.errors[field].message;
-      }
-      return res.status(400).json({ success: false, errors });
-    }
-
-    return res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
+    console.error("Error creating declaration:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -66,21 +55,66 @@ const getDeclaration = async (req, res) => {
 const editDeclaration = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await DeclarationModel.findByIdAndUpdate(id, req.body, {
+
+    // Fetch existing declaration
+    const existingDeclaration = await DeclarationModel.findById(id);
+    if (!existingDeclaration) {
+      return res.status(404).json({
+        success: false,
+        message: "Declaration not found",
+      });
+    }
+
+    // Handle uploaded new documents
+    const newDocuments = [];
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        if (file.fieldname === "document[]") {
+          newDocuments.push({
+            filepath: file.filename,
+            originalName: file.originalname,
+          });
+        }
+      });
+    }
+
+    // Spread other fields
+    const updatedData = { ...req.body };
+
+    // If new documents uploaded
+    if (newDocuments.length > 0) {
+      if (req.body.appendDocuments === "true") {
+        // Append new docs to old docs
+        updatedData.documents = [
+          ...(existingDeclaration.documents || []),
+          ...newDocuments
+        ];
+      } else {
+        // Replace all old docs
+        updatedData.documents = newDocuments;
+      }
+    }
+
+    // Update declaration
+    const updated = await DeclarationModel.findByIdAndUpdate(id, updatedData, {
       new: true,
       runValidators: true,
     });
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "declaration not found" });
-    }
-    res
-      .status(200)
-      .json({ success: true, message: "declaration updated successfully" });
+
+    console.log("Updated Declaration:", updated);
+
+    res.status(200).json({
+      success: true,
+      message: "Declaration updated successfully",
+      data: updated,
+    });
+
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    console.error("Error updating declaration:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
 

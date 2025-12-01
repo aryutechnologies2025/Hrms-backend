@@ -10,6 +10,7 @@ const declarationModel = new mongoose.Schema(
     documents: [
       {
         type: Object,
+        required:[false,"Please provide documents"]
       },
     ],
   },{
