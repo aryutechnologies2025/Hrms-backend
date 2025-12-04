@@ -69,6 +69,7 @@ const employee = new mongoose.Schema(
     motherName: { type: String },
     address1: { type: String },
     address2: { type: String },
+    employeeJoiningDate: { type: Date },
 
     //reliving date
     relivingDate: { type: Date },
