@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 const announcementSchema = new mongoose.Schema({
 
     date: { 
-    // type: Date,
-    type:String,
+    type: Date,
+    // type:String,
      default: Date.now, 
     required: [true, "Please provide a date"] 
   }, 
