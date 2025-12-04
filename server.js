@@ -56,6 +56,7 @@ import assetCategoryRouter from "./routes/assetCategoryRouter.js";
 import statementsRouter from "./routes/statementsRouter.js";
 import announcementRouter from "./routes/announcementRouter.js";
 import subCategoryRouter from "./routes/subCategoryRouter.js";
+import projectNotesRouter from "./routes/projectNotesRouter.js";
 
 // Load environment variables
 dotenv.config();
@@ -126,6 +127,7 @@ const startApp = async () => {
   app.use("/api/sub-asset-category", subCategoryRouter);
   app.use("/api/statement", statementsRouter);
   app.use("/api/announcement", announcementRouter);
+  app.use("/api/projectNotes", projectNotesRouter);
 
   // Base route
   app.get('/api', (req, res) => res.send('API is running...'));
