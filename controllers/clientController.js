@@ -219,6 +219,7 @@ const getClientDetails = async (req, res) => {
     if(dropDown ){
       baseFilter.status="1"
     }
+    baseFilter.is_deleted=false;
     const clientDetails = await ClientDetails.find(baseFilter).sort({
       createdAt: -1
     });
