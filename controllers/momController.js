@@ -1,5 +1,5 @@
 import ClientSubUser from "../models/clientSubUserModel.js";
-import MomModel from "../models/momModel.js"; 
+import MomModel from "../models/momModel.js";
 import MomDocument from "../models/momDocumentModel.js";
 import User from "../models/userModel.js";
 import ClientDetails from "../models/clientModals.js";
@@ -59,7 +59,7 @@ const createMom = async (req, res) => {
 
 const getMom = async (req, res) => {
   try {
-   
+
     const { clientId, subUserId } = req.query;
     console.log("Client ID:", clientId);
     console.log("Sub-User ID:", subUserId);
@@ -197,10 +197,14 @@ const editMom = async (req, res) => {
     });
   }
 };
-const documentDelete = async (req, res) => {  
-   const { id } = req.params;
+const documentDelete = async (req, res) => {
+  const { id } = req.params;
   try {
-    const linkDetails = await MomDocument.findByIdAndDelete(id);
+    const linkDetails = await MomDocument.findByIdAndUpdate(
+      id,
+      { isDeleted: 1 },
+      { new: true }
+    );
     if (!linkDetails) {
       return res.status(404).json({ success: false, message: "Mom not found" });
     }
@@ -229,7 +233,7 @@ const momDelete = async (req, res) => {
 
 const createMomDocument = async (req, res) => {
   console.log("Files received:", req.body);
-  const {date,client,project,title,description,createdBy,status} = req.body;
+  const { date, client, project, title, description, createdBy, status } = req.body;
   const documentArray = [];
 
   if (Array.isArray(req.files)) {
@@ -252,11 +256,11 @@ const createMomDocument = async (req, res) => {
       documents: documentArray,
       createdBy,
       status
-      
+
     });
 
     const savedMomDocument = await newMomDocument.save();
-return res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "MOM created successfully",
       mom: savedMomDocument,
@@ -264,7 +268,7 @@ return res.status(201).json({
   } catch (error) {
     console.error("Error creating MOM:", error);
 
-    if (error.name === "ValidationError"){
+    if (error.name === "ValidationError") {
       const errors = {};
       for (let field in error.errors) {
         errors[field] = error.errors[field].message;
@@ -293,7 +297,7 @@ const getCreatorDetails = async (creatorId) => {
 
   const user = await User.findById(creatorId);
   console.log("User found:", user);
-if (user) return { id: creatorId, name: user.name, type: "User" };
+  if (user) return { id: creatorId, name: user.name, type: "User" };
   const client = await ClientDetails.findById(creatorId);
   console.log("Client found:", client);
   if (client) return { id: creatorId, name: client.client_name, type: "ClientDetails" };
@@ -332,17 +336,21 @@ if (user) return { id: creatorId, name: user.name, type: "User" };
 
 const getMomDocument = async (req, res) => {
   try {
-    const momDocuments = await MomDocument.find()
-      .populate("project","name")
-      .populate("client","client_name")
-      .sort({ createdAt: -1 });
+
+    const momDocuments = await MomDocument.find({ isDeleted: 0 }).populate("project", "name").populate("client", "client_name").sort({ createdAt: -1 });
+
 
     const populatedMom = await Promise.all(
       momDocuments.map(async (mom) => {
         const creatorDetails = await getCreatorDetails(mom.createdBy);
+
+        const updatedByDetails = await getCreatorDetails(mom.updatedBy);
+
         return {
           ...mom.toObject(),
           createdBy: creatorDetails,
+          updatedBy: updatedByDetails,
+
         };
       })
     );
@@ -367,7 +375,7 @@ const getMomDocument = async (req, res) => {
 const getMomDocumentById = async (req, res) => {
   const { id } = req.params;
   try {
-    const momDocument = await MomDocument.find({createdBy:id}).sort({ createdAt: -1 });
+    const momDocument = await MomDocument.find({ createdBy: id }).sort({ createdAt: -1 });
     const populatedMom = await Promise.all(
       momDocument.map(async (mom) => {
         const creatorDetails = await getCreatorDetails(mom.createdBy);
@@ -394,7 +402,7 @@ const getMomDocumentById = async (req, res) => {
 
 const editDocument = async (req, res) => {
   const { id } = req.params;
-  console.log("Editing MOM ID:", id,req.body);
+  console.log("Editing MOM ID:", id, req.body);
 
 
   try {
@@ -458,4 +466,4 @@ const editDocument = async (req, res) => {
 
 
 
-export { createMom, getMom, editMom, momDelete, getMomById,createMomDocument,getMomDocument,getMomDocumentById,editDocument,documentDelete };
+export { createMom, getMom, editMom, momDelete, getMomById, createMomDocument, getMomDocument, getMomDocumentById, editDocument, documentDelete };
