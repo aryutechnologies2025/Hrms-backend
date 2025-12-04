@@ -545,6 +545,7 @@ const editEmployee = async (req, res) => {
     const employee = await Employee.findById(req.params.id);
     if (!employee)
       return res.status(404).json({ message: "Employee not found" });
+
     // const existingProject = await Employee.findById(id);
     // if (!existingProject) {
     //   return res.status(404).json({ error: "Employee not found" });
@@ -619,6 +620,14 @@ const editEmployee = async (req, res) => {
     // console.log("req.files", req.files);
     //  Attach final document array
     updatedData.document = documentArray;
+
+    if (updatedData.employeeType === "Full Time") {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      updatedData.employeeJoiningDate = `${year}/${month}/${day}`;
+    }
 
     // Final update
     const updated = await Employee.findByIdAndUpdate(
@@ -798,7 +807,9 @@ const allEmployeesUserDetails = async (req, res) => {
           as: "role.department",
         },
       },
-      { $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true },
+      },
       // Optional: $project to shape the output
       // {
       //   $project: {
@@ -814,7 +825,9 @@ const allEmployeesUserDetails = async (req, res) => {
     ]);
 
     if (!employees || employees.length === 0) {
-      return res.status(404).json({ success: false, message: "No employees found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No employees found" });
     }
 
     res.status(200).json({ success: true, data: employees });

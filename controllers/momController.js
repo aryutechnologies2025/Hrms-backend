@@ -304,15 +304,47 @@ const getCreatorDetails = async (creatorId) => {
 
   return { id: creatorId, name: "Unknown", type: null };
 };
+// const getMomDocument = async (req, res) => {
+//   try {
+//     const momDocuments = await MomDocument.find().populate("project","name").populate("client","client_name").sort({ createdAt: -1 });
+
+//     const populatedMom = await Promise.all(
+//       momDocuments.map(async (mom) => {
+//         const creatorDetails = await getCreatorDetails(mom.createdBy);
+
+//         return {
+//           ...mom.toObject(),
+//           createdBy: creatorDetails,
+//         };
+//       })
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "MOMs fetched successfully",
+//       data: populatedMom,
+//     });
+
+//   } catch (error) {
+//     console.error("FINAL ERROR:", error.message);
+//     return res.status(500).json({
+//       success: false,
+//       error: "Internal server error",
+//     });
+//   }
+// };
+
 const getMomDocument = async (req, res) => {
   try {
+
     const momDocuments = await MomDocument.find({ isDeleted: 0 }).populate("project", "name").populate("client", "client_name").sort({ createdAt: -1 });
+
 
     const populatedMom = await Promise.all(
       momDocuments.map(async (mom) => {
         const creatorDetails = await getCreatorDetails(mom.createdBy);
-        const updatedByDetails = await getCreatorDetails(mom.updatedBy);
 
+        const updatedByDetails = await getCreatorDetails(mom.updatedBy);
 
         return {
           ...mom.toObject(),
@@ -323,12 +355,15 @@ const getMomDocument = async (req, res) => {
       })
     );
 
+    // Convert to Base64
+    const jsonString = JSON.stringify(populatedMom);
+    const encodedData = Buffer.from(jsonString).toString('base64');
+
     return res.status(200).json({
       success: true,
       message: "MOMs fetched successfully",
-      data: populatedMom,
+      data: encodedData, // Encoded string instead of plain JSON
     });
-
   } catch (error) {
     console.error("FINAL ERROR:", error.message);
     return res.status(500).json({

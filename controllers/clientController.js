@@ -138,6 +138,7 @@ const addClientDetails = async (req, res) => {
     console.log("req body", req.body);
     const {
       client_name,
+      source,
       company_name,
       email,
       phone_number,
@@ -173,6 +174,7 @@ const addClientDetails = async (req, res) => {
 
     const clientDetails = await ClientDetails.create({
       client_name,
+      source,
       company_name,
       email,
       phone_number,
