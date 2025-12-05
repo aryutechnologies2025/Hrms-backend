@@ -784,7 +784,7 @@ const allEmployeesUserDetails = async (req, res) => {
     if (type === "Intern") {
       matchCondition = { employeeType: "Intern", employeeStatus: "1" };
     } else {
-      matchCondition = { employeeType: { $ne: "Intern" }, employeeStatus: "1" };
+      matchCondition = { employeeStatus: "1" };
     }
 
     const employees = await Employee.aggregate([
