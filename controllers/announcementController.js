@@ -3,9 +3,9 @@ import Announcements from "../models/announcementModel.js";
 
 const  createAnnouncement = async (req, res) => {
         try {
-            const {date,expiryDate, message,displayStatus } = req.body;
+            const {date,expiryDate, message,visible,status } = req.body;
             const newAnnouncement = new Announcements({
-                date,expiryDate, message,displayStatus
+                date,expiryDate,visible,status, message
             })
             const savedAnnouncement = await newAnnouncement.save();
             
