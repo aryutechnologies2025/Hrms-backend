@@ -1372,6 +1372,7 @@ const getAllTasks = async (req, res) => {
 
 const getTaskById = async (req, res) => {
   const { taskId } = req.params;
+  console.log("Fetching task with ID:", taskId);
 
   try {
     const task = await Task.findOne({ taskId }).lean(); // use findOne and lean()
@@ -1412,6 +1413,10 @@ const getTaskById = async (req, res) => {
       { path: "assignedTo", select: "employeeName " },
     ]);
 
+    const comments = await TaskComments.find({ taskId: taskId }).populate([
+      { path: "createdBy", select: "employeeName " },
+    ]);
+
     const taskWithNames = {
       ...task,
       subtasks,
@@ -1420,6 +1425,7 @@ const getTaskById = async (req, res) => {
       createdById: { employeeName: createdByName },
       projectManagerId: { _id: task.projectManagerId, projectManagerName },
       projectIdFilter: project?._id,
+      comments
       // assignedToName:{},
       // createdByName,
       // projectManagerName,
