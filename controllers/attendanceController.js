@@ -853,9 +853,10 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
             const loginMinutes = loginTime.getMinutes();
             
             // Check if login time is after 10:30 AM
-            if (loginHours > 10 || (loginHours === 10 && loginMinutes > 30)) {
+            if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
               after1030LoginCount++;
             }
+            console.log("loginHours",loginHours,"loginMinutes",loginMinutes);
             if(loginEntry.reason==="Login"){
               presentDaysCount++;
             }

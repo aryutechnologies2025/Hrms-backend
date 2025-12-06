@@ -1380,6 +1380,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
 
     let activeEmployees = await Employee.find({
       employeeStatus: "1",
+      employeeId: { $nin: ["AYE201202", "AYE180301"] },
       // dutyStatus: "1",
       // last_working_date: { $lte: todayStr },
     })
@@ -3843,7 +3844,7 @@ const dashboard = async (req, res) => {
     .populate("employeeId", "employeeName");
 
   // 🔹 Active employees
-  let activeEmployees = await Employee.find({ employeeStatus: "1" })
+  let activeEmployees = await Employee.find({ employeeStatus: "1", employeeId: { $nin: ["AYE201202", "AYE180301"] } })
     .select(
       "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
     )
