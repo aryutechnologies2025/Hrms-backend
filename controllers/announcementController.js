@@ -13,6 +13,7 @@ const createAnnouncement = async (req, res) => {
     });
     const savedAnnouncement = await newAnnouncement.save();
 
+
     res.status(201).json({
       success: true,
       data: savedAnnouncement,
@@ -155,8 +156,6 @@ const getUserAnnouncements = async (req, res) => {
   }
 };
 
-
-
 export {
   createAnnouncement,
   getAllAnnouncements,
@@ -166,3 +165,4 @@ export {
   getExpiredAnnouncements, // <-- exported
   getUserAnnouncements
 };
+

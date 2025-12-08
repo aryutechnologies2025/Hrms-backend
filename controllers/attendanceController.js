@@ -429,6 +429,250 @@ const getAttendanceReport = async (req, res) => {
 };
 
 //
+// const getparticularemployeeMonthlyAttendance = async (req, res) => {
+//   const { employeeId, month } = req.query;
+
+//   const [monthNum, year] = month.toString().split("-").map(Number);
+//   console.log("monthNum", monthNum, "year", year);
+//   const start = new Date(Date.UTC(year, monthNum - 1, 1));
+//   const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
+
+//   // console.log(start, end);
+//   const calculateTime = (entries) => {
+//     let workTime = 0;
+//     let breakTime = 0;
+//     let lastInTime = null;
+//     let lastBreakOutTime = null;
+
+//     entries.sort((a, b) => new Date(a.time) - new Date(b.time));
+//     let totalBreakInCount = 0;
+//     for (let i = 0; i < entries.length; i++) {
+//       const { reason, time } = entries[i];
+//       const entryTime = new Date(time);
+
+//       if (reason === "Break In" || reason === "Login") {
+//         if (lastBreakOutTime) {
+//           totalBreakInCount++;
+//           breakTime += entryTime - lastBreakOutTime;
+//           lastBreakOutTime = null;
+//         }
+//         lastInTime = entryTime;
+//       }
+
+//       if (reason === "Break Out") {
+//         if (lastInTime) {
+//           workTime += entryTime - lastInTime;
+//           lastInTime = null;
+//         }
+//         lastBreakOutTime = entryTime;
+//       }
+
+//       if (reason === "Logout") {
+//         if (lastInTime) {
+//           workTime += entryTime - lastInTime;
+//           lastInTime = null;
+//         }
+//         if (lastBreakOutTime) {
+//           breakTime += entryTime - lastBreakOutTime;
+//           lastBreakOutTime = null;
+//         }
+//       }
+//     }
+
+//     const format = (ms) => {
+//       if (!ms || isNaN(ms)) return { hours: 0, minutes: 0, seconds: 0 };
+//       return {
+//         hours: Math.floor(ms / (1000 * 60 * 60)),
+//         minutes: Math.floor((ms / (1000 * 60)) % 60),
+//         seconds: Math.floor((ms / 1000) % 60),
+//       };
+//     };
+
+//     const totalWorkTime = workTime + breakTime;
+
+//     return {
+//       payableTime: format(workTime),
+//       breakTime: format(breakTime),
+//       totalWorkTime: format(totalWorkTime),
+//       totalBreakInCount: totalBreakInCount,
+//     };
+//   };
+
+//   try {
+//     const user = await Employee.findOne({
+//       _id: new mongoose.Types.ObjectId(employeeId),
+//       employeeStatus: "1",
+//     });
+//     if (!user) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
+
+//     const holidaysList = await UpcomingHoliday.find({});
+//     const attendanceList = await Attendance.find({
+//       employeeId: user._id,
+//       date: { $gte: start, $lte: end },
+//     }).populate(
+//       "employeeId",
+//       "_id photo employeeName phoneNumber email employeeType employeeId"
+//     );
+//     // console.log("login",attendanceList);
+//     const leaveList = await Leave.find({
+//       employeeId: user._id,
+//       leaveType: "Leave",
+//       status: "approved",
+//       startDate: { $lte: end },
+//       endDate: { $gte: start },
+//     });
+
+//     // Full days in that month
+//     const today = new Date();
+
+//     const fullDaysInMonth = new Date(year, monthNum, 0).getDate();
+
+//     let daysInMonth;
+
+//     // If this is the current month/year, show only up to today
+//     if (today.getFullYear() === year && today.getMonth() === monthNum - 1) {
+//       daysInMonth = today.getDate(); // up to today
+//     } else {
+//       daysInMonth = fullDaysInMonth; // full month
+//     }
+
+//     console.log("Days in month:", daysInMonth);
+
+//     console.log(
+//       today.getFullYear(),
+//       "daysInMonth",
+//       daysInMonth,
+//       today.getMonth(),
+//       "daysInMonth",
+//       monthNum - 1,fullDaysInMonth
+//     );
+//     const results = [];
+//     for (let day = 1; day <= daysInMonth; day++) {
+//       const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
+//       const currentDateStr = currentDate.toISOString().split("T")[0];
+//       const options = { weekday: "long", timeZone: "Asia/Kolkata" };
+//       const dayName = currentDate.toLocaleDateString("en-IN", options);
+//       const attendance = attendanceList.find((att) => {
+//         const attDate = new Date(att.date).toISOString().split("T")[0];
+//         return attDate === currentDateStr;
+//       });
+
+//       const holiday = holidaysList.find(
+//         (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
+//       );
+
+//       if (holiday || (dayName === "Sunday" && !attendance)) {
+//         results.push({
+//           date: currentDateStr,
+//           status: "Holiday",
+//           reason: holiday?.reason || "Sunday",
+//         });
+//       } else if (attendance) {
+//         const attData = attendance.toObject();
+
+//         if (attData.entries.length > 0) {
+//           attData.result = calculateTime(attData.entries);
+
+//           const loginEntry = attData.entries.find((e) => e.reason === "Login");
+//           const logoutEntry = [...attData.entries]
+//             .reverse()
+//             .find((e) => e.reason === "Logout");
+
+//           attData.loginTime = loginEntry
+//             ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
+//                 timeZone: "Asia/Kolkata",
+//                 hour: "2-digit",
+//                 minute: "2-digit",
+//                 second: "2-digit",
+//                 hour12: true,
+//               })
+//             : "-";
+
+//           attData.logout = logoutEntry
+//             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
+//                 timeZone: "Asia/Kolkata",
+//                 hour: "2-digit",
+//                 minute: "2-digit",
+//                 second: "2-digit",
+//                 hour12: true,
+//               })
+//             : "-";
+
+//           // delete attData.entries;
+//         }
+
+//         results.push({
+//           date: currentDateStr,
+//           status: "Present",
+//           ...attData,
+//         });
+//       } else {
+//         const currentDateStr = new Date(currentDate)
+//           .toISOString()
+//           .split("T")[0];
+
+//         const leave = leaveList.find((leave) => {
+//           const leaveStartStr = new Date(leave.startDate)
+//             .toISOString()
+//             .split("T")[0];
+//           const leaveEndStr = new Date(leave.endDate)
+//             .toISOString()
+//             .split("T")[0];
+
+//           return (
+//             leaveStartStr <= currentDateStr && leaveEndStr >= currentDateStr
+//           );
+//         });
+
+//         if (leave) {
+//           results.push({
+//             date: currentDateStr,
+//             status: "Leave",
+//             leaveType: leave.leaveType,
+//             reason: leave.reason,
+//           });
+//         } else {
+//           // console.log("User's date of joining:", user.dateOfJoining);
+
+//           const joiningDate = new Date(user.dateOfJoining); // Convert to Date object
+//           const currentDate = new Date(currentDateStr); // Assuming currentDateStr is already defined
+//           console.log(joiningDate, currentDate);
+//           if (currentDate < joiningDate) {
+//             results.push({
+//               date: currentDateStr,
+//               status: "-",
+//               loginTime: "-",
+//               logout: "-",
+//             });
+//           } else {
+//             results.push({
+//               date: currentDateStr,
+//               status: "Absent",
+//               loginTime: "-",
+//               logout: "-",
+//             });
+//           }
+//         }
+//       }
+//     }
+
+//     res.status(200).json({
+//       message: "Monthly attendance data",
+//       employee: {
+//         name: user.employeeName,
+//         email: user.email,
+//         photo: user.photo,
+//         phone: user.phoneNumber,
+//       },
+//       data: results,
+//     });
+//   } catch (error) {
+//     // console.error("Error fetching attendance:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 const getparticularemployeeMonthlyAttendance = async (req, res) => {
   const { employeeId, month } = req.query;
 
@@ -437,7 +681,13 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
   const start = new Date(Date.UTC(year, monthNum - 1, 1));
   const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
 
-  // console.log(start, end);
+  // Add new requirement counters
+  let lessThan8HoursCount = 0;
+  let after1030LoginCount = 0;
+  let presentDaysCount = 0;
+  let absentDaysCount = 0;
+  let totalHolidaysCount = 0;
+
   const calculateTime = (entries) => {
     let workTime = 0;
     let breakTime = 0;
@@ -569,11 +819,17 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
           status: "Holiday",
           reason: holiday?.reason || "Sunday",
         });
+        totalHolidaysCount++;
       } else if (attendance) {
         const attData = attendance.toObject();
 
         if (attData.entries.length > 0) {
           attData.result = calculateTime(attData.entries);
+
+          // Requirement 1: Check if payableTime < 8 hours
+          if (attData.result.payableTime.hours < 8) {
+            lessThan8HoursCount++;
+          }
 
           const loginEntry = attData.entries.find((e) => e.reason === "Login");
           const logoutEntry = [...attData.entries]
@@ -589,6 +845,22 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
                 hour12: true,
               })
             : "-";
+
+          // Requirement 2: Check if login was after 10:30 AM
+          if (loginEntry && loginEntry.reason === "Login") {
+            const loginTime = new Date(loginEntry.time);
+            const loginHours = loginTime.getHours();
+            const loginMinutes = loginTime.getMinutes();
+            
+            // Check if login time is after 10:30 AM
+            if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
+              after1030LoginCount++;
+            }
+            console.log("loginHours",loginHours,"loginMinutes",loginMinutes);
+            if(loginEntry.reason==="Login"){
+              presentDaysCount++;
+            }
+          }
 
           attData.logout = logoutEntry
             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
@@ -657,6 +929,17 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
         }
       }
     }
+    const workingDays = daysInMonth - totalHolidaysCount;
+
+    // Add the counts to the response
+    const summary = {
+      lessThan8HoursCount,
+      after1030LoginCount,
+      presentDaysCount,
+      totalHolidaysCount,
+      absentDaysCount: workingDays - presentDaysCount,
+      totalDays: daysInMonth - totalHolidaysCount
+    };
 
     res.status(200).json({
       message: "Monthly attendance data",
@@ -667,13 +950,13 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
         phone: user.phoneNumber,
       },
       data: results,
+      summary: summary // Add summary with the required counts
     });
   } catch (error) {
     // console.error("Error fetching attendance:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 // employee leave details cl and more
 // const getparticularemployeeMonthlyAttendanceDetails = async (req, res) => {
 //   try {

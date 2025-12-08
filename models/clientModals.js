@@ -23,6 +23,10 @@ const clientDetails = new mongoose.Schema({
             message: "Company name must not exceed 40 characters"
         }
     },
+    source:{
+        type:String,
+        required:[true,"Please provide a source"]
+    },
     email: {
         type: String,
         required: [true, "Please provide an email"],

@@ -18,9 +18,11 @@ const announcementSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please provide a message"],
   },
+
   visible:{
     type:String,
      required: [true, "Please provide a visible"],
+
   },
   status: {
     type: String,

@@ -13,7 +13,7 @@ import UpcomingHoliday from "../models/upcomingHolidayModal.js";
 import Attendance from "../models/attendanceModal.js";
 import Leave from "../models/leaveModel.js";
 import ClientDetails from "../models/clientModals.js";
-import ClientSubUser from "../models/clientSubUserModel.js";              
+import ClientSubUser from "../models/clientSubUserModel.js";
 
 const generateTaskId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -1372,6 +1372,7 @@ const getAllTasks = async (req, res) => {
 
 const getTaskById = async (req, res) => {
   const { taskId } = req.params;
+  console.log("Fetching task with ID:", taskId);
 
   try {
     const task = await Task.findOne({ taskId }).lean(); // use findOne and lean()
@@ -1383,21 +1384,44 @@ const getTaskById = async (req, res) => {
     }
 
     // Helper function to fetch user name from Employee or Admin
+    // const getUserName = async (userId) => {
+    //   console.log("Fetching user name for ID:", userId);
+    //   if (!userId) return null;
+    //   const [employee, admin, client, clientUser] = await Promise.all([
+    //     Employee.findById(userId).select("employeeName").lean(),
+    //     User.findById(userId).select("name").lean(),
+    //     ClientDetails.findById(userId).select("client_name").lean(),
+    //     ClientSubUser.findById(userId).select("name").lean(),
+    //   ]);
+    //   return (
+    //     employee?.employeeName ||
+    //     admin?.name ||
+    //     client?.client_name + " (Client)" ||
+    //     clientUser?.name + " (Client User)" ||
+    //     null
+    //   );
+    // };
+
     const getUserName = async (userId) => {
+      console.log("Fetching user name for ID:", userId);
       if (!userId) return null;
+
       const [employee, admin, client, clientUser] = await Promise.all([
         Employee.findById(userId).select("employeeName").lean(),
         User.findById(userId).select("name").lean(),
         ClientDetails.findById(userId).select("client_name").lean(),
         ClientSubUser.findById(userId).select("name").lean(),
       ]);
-      return (
-        employee?.employeeName ||
-        admin?.name ||
-        client?.client_name + " (Client)" ||
-        clientUser?.name + " (Client User)" ||
-        null
-      );
+
+      if (employee?.employeeName) return employee.employeeName;
+
+      if (admin?.name) return admin.name;
+
+      if (client?.client_name) return `${client.client_name} (Client)`;
+
+      if (clientUser?.name) return `${clientUser.name} (Client User)`;
+
+      return null;
     };
 
     const [assignedToName, createdByName, projectManagerName, project] =
@@ -1412,6 +1436,10 @@ const getTaskById = async (req, res) => {
       { path: "assignedTo", select: "employeeName " },
     ]);
 
+    const comments = await TaskComments.find({ taskId: taskId }).populate([
+      { path: "createdBy", select: "employeeName " },
+    ]);
+
     const taskWithNames = {
       ...task,
       subtasks,
@@ -1420,6 +1448,7 @@ const getTaskById = async (req, res) => {
       createdById: { employeeName: createdByName },
       projectManagerId: { _id: task.projectManagerId, projectManagerName },
       projectIdFilter: project?._id,
+      comments,
       // assignedToName:{},
       // createdByName,
       // projectManagerName,

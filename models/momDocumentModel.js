@@ -41,12 +41,16 @@ const momDocumentSchema = new mongoose.Schema(
     //   enum: ["Employee", "ClientDetails"],
     // },
 
-    editBy: {
+    updatedBy: {
       type: String,
     },
 
     deleteBy: {
       type: String,
+    },
+     isDeleted: {
+      type: String,
+      default: "0",
     },
     status: {
       type: String,

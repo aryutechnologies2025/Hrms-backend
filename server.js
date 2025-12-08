@@ -56,12 +56,14 @@ import assetCategoryRouter from "./routes/assetCategoryRouter.js";
 import statementsRouter from "./routes/statementsRouter.js";
 import announcementRouter from "./routes/announcementRouter.js";
 import subCategoryRouter from "./routes/subCategoryRouter.js";
+import projectNotesRouter from "./routes/projectNotesRouter.js";
 
 // Load environment variables
 dotenv.config();
 
 // Initialize app
 const app = express();
+
 app.use(morgan("dev"));
 
 app.use(
@@ -73,6 +75,7 @@ app.use(
 
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 const startApp = async () => {
@@ -82,6 +85,7 @@ const startApp = async () => {
   autoLogoutJob();
   // Ensure uploads directory exists
   app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
   app.use("/api/auth", userRoutes);
   app.use("/api/roles", roleRouter);
@@ -123,6 +127,7 @@ const startApp = async () => {
   app.use("/api/sub-asset-category", subCategoryRouter);
   app.use("/api/statement", statementsRouter);
   app.use("/api/announcement", announcementRouter);
+  app.use("/api/projectNotes", projectNotesRouter);
 
   // Base route
   app.get('/api', (req, res) => res.send('API is running...'));

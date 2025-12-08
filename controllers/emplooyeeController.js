@@ -546,6 +546,7 @@ const editEmployee = async (req, res) => {
     const employee = await Employee.findById(req.params.id);
     if (!employee)
       return res.status(404).json({ message: "Employee not found" });
+
     // const existingProject = await Employee.findById(id);
     // if (!existingProject) {
     //   return res.status(404).json({ error: "Employee not found" });
@@ -620,6 +621,14 @@ const editEmployee = async (req, res) => {
     // console.log("req.files", req.files);
     //  Attach final document array
     updatedData.document = documentArray;
+
+    if (updatedData.employeeType === "Full Time") {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      updatedData.employeeJoiningDate = `${year}/${month}/${day}`;
+    }
 
     // Final update
     const updated = await Employee.findByIdAndUpdate(
@@ -768,17 +777,23 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
   }
 };
 const allEmployeesUserDetails = async (req, res) => {
+  const { type } = req.query;
+
   try {
+    let matchCondition;
+
+    if (type === "Intern") {
+      matchCondition = { employeeType: "Intern", employeeStatus: "1" };
+    } else {
+      matchCondition = { employeeStatus: "1" };
+    }
+
     const employees = await Employee.aggregate([
-      {
-        $match: { employeeStatus: "1" }, // Optional match filter
-      },
-      {
-        $sort: { employeeName: -1 }, // 1 = ascending (A–Z), -1 = descending (Z–A)
-      },
+      { $match: matchCondition },
+      { $sort: { employeeName: -1 } },
       {
         $lookup: {
-          from: "employeeroles", // collection name of role model
+          from: "employeeroles",
           localField: "roleId",
           foreignField: "_id",
           as: "role",
@@ -787,7 +802,7 @@ const allEmployeesUserDetails = async (req, res) => {
       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "employeedepartments", // collection name of department model
+          from: "employeedepartments",
           localField: "role.departmentId",
           foreignField: "_id",
           as: "role.department",
@@ -796,6 +811,7 @@ const allEmployeesUserDetails = async (req, res) => {
       {
         $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true },
       },
+      // Optional: $project to shape the output
       // {
       //   $project: {
       //     employeeName: 1,
@@ -814,6 +830,7 @@ const allEmployeesUserDetails = async (req, res) => {
         .status(404)
         .json({ success: false, message: "No employees found" });
     }
+
     res.status(200).json({ success: true, data: employees });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server error", error });
@@ -1364,6 +1381,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
 
     let activeEmployees = await Employee.find({
       employeeStatus: "1",
+      employeeId: { $nin: ["AYE201202", "AYE180301"] },
       // dutyStatus: "1",
       // last_working_date: { $lte: todayStr },
     })
@@ -3828,7 +3846,7 @@ const dashboard = async (req, res) => {
     .populate("employeeId", "employeeName");
 
   // 🔹 Active employees
-  let activeEmployees = await Employee.find({ employeeStatus: "1" })
+  let activeEmployees = await Employee.find({ employeeStatus: "1", employeeId: { $nin: ["AYE201202", "AYE180301"] } })
     .select(
       "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
     )
