@@ -44,6 +44,11 @@ const TaskSchema = new mongoose.Schema(
       type: Date,
       //   required: [true, "Please provide a deadline"],
     },
+    
+    taskType:{
+      type:String,
+      required: [true, "Please provide the task type"],
+    },
     status: {
       type: String,
       // required: [true, "Please provide a status"],
