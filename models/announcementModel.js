@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 
 const announcementSchema = new mongoose.Schema({
-
     date: { 
     type: Date,
     // type:String,
@@ -10,8 +9,8 @@ const announcementSchema = new mongoose.Schema({
     required: [true, "Please provide a date"] 
   }, 
   expiryDate: { 
-    // type: Date,
-    type:String,
+    type: Date,
+    // type:String,
      default: Date.now, 
     required: [true, "Please provide a date"] 
   }, 
@@ -19,9 +18,11 @@ const announcementSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please provide a message"],
   },
-  visible: {
-    type: String,
-    required: [true, "Please provide a status"],
+
+  visible:{
+    type:String,
+     required: [true, "Please provide a visible"],
+
   },
   status: {
     type: String,

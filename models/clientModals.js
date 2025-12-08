@@ -82,7 +82,6 @@ clientDetails.pre("findOneAndUpdate", async function (next) {
     update.password = await bcrypt.hash(update.password, salt);
     this.setUpdate(update);
   }
-
   next();
 });
 

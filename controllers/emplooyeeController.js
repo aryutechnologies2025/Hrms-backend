@@ -20,6 +20,7 @@ import User from "../models/userModel.js";
 import RelivingModel from "../models/relivingCheckListModel.js";
 import RelivingList from "../models/RelivingVerifyModel.js";
 import ProjectModel from "../models/projectModel.js";
+import Announcements from "../models/announcementModel.js";
 
 // const loginEmployee = async (req, res) => {
 //   try {
@@ -3758,6 +3759,7 @@ const updateReliving = async (req, res) => {
 //   });
 // };
 const dashboard = async (req, res) => {
+  const userRole=req.query.role;
   const date = new Date().toISOString().split("T")[0];
   const today = new Date();
   const [year, month, day] = date.split("-").map(Number);
@@ -3927,6 +3929,20 @@ const dashboard = async (req, res) => {
     )
     .populate("roleId", "name");
 
+    // Announcement
+    //  const userRole = req.query.role; // e.g., "admin" or "employee"
+    const announcements = await Announcements.find({
+      visible: { $in: [userRole, "Both"] },
+      expiryDate: { $gte: new Date() }, // not expired
+      status:"1"
+    });
+
+    // res.status(200).json({
+    //   success: true,
+    //   data: announcements,
+    //   message: "Announcements fetched successfully",
+    // });
+
   //Internship End Dates
   const interns = await Employee.find({
     dateOfJoining: { $ne: null },
@@ -3986,6 +4002,7 @@ const dashboard = async (req, res) => {
             createdAt: emp.createdAt,
             recurringDays: emp.recurringDays,
             recurringEndDate: endDate,
+           
             isCurrent: today < endDate && today >= oneWeekBeforeEnd,
           };
         })
@@ -4012,6 +4029,7 @@ const dashboard = async (req, res) => {
       futureEmployees,
       interns: internsWithEnd,
       pendingRecurringReached: recurringDates,
+      announcements:announcements,
     },
   });
 };
