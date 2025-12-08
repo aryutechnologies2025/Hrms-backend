@@ -1820,7 +1820,7 @@ const getLeaveReport = async (req, res) => {
     const holidaysList = await UpcomingHoliday.find({});
 
     let activeEmployees = await Employee.find({
-      employeeStatus: "1",
+      employeeStatus: "1",employeeId: { $nin: ["AYE201202", "AYE180301"] },
     }).sort({ employeeName: 1 });
 
     const toUTCDateOnly = (date) =>
