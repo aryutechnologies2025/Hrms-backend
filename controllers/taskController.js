@@ -182,10 +182,9 @@ const createTask = async (req, res) => {
       projectId,
       projectManagerId,
       createdById,
-    taskType
-
+      taskType,
     } = req.body;
-
+    //  console.log()
     // Validation
     const errors = {};
     if (!projectName) errors.projectName = "Project name is required.";
@@ -199,7 +198,7 @@ const createTask = async (req, res) => {
     if (!projectManagerId)
       errors.projectManagerId = "Project Manager ID is required.";
     if (!startDate) errors.startDate = "Start date is required.";
-    if(!taskType) errors.taskType = "taskType date is required.";
+    if (!taskType) errors.taskType = "taskType date is required.";
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({
         success: false,
@@ -247,7 +246,7 @@ const createTask = async (req, res) => {
       document: documentArray,
       projectManagerId,
       createdById,
-      taskType
+      taskType,
     });
 
     const savedTask = await newTask.save();
@@ -327,7 +326,7 @@ const createTask = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating task:", error);
-    if (error.name === "ValidationError"){
+    if (error.name === "ValidationError") {
       const errors = {};
       for (const field in error.errors) {
         errors[field] = error.errors[field].message;
@@ -2381,7 +2380,7 @@ const updateTask = async (req, res) => {
       createdById,
       status,
       projectManagerId,
-      taskType
+      taskType,
     } = req.body;
 
     // Update only if values are provided
@@ -2393,7 +2392,7 @@ const updateTask = async (req, res) => {
     if (dueDate != "undefined") task.dueDate = dueDate;
     if (startDate) task.startDate = startDate;
     if (projectId) task.projectId = projectId || task.projectId;
-    if(taskType) task.taskType= taskType || task.taskType;
+    if (taskType) task.taskType = taskType || task.taskType;
     // if (createdById) task.createdById = createdById || task.createdById;
     // if(projectManagerId) task.projectManagerId=projectManagerId || task.projectManagerId;
     //  if (status) task.status = status || task.status;
