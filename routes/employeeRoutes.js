@@ -46,7 +46,7 @@ employeeRouter.post("/generate-employee-reset", resetPassword_employee);
 employeeRouter.post("/hr-permission", hrPermission);
 employeeRouter.get("/reliving-list", relivingList);
 employeeRouter.put("/edit-reliving-list/:id", updateReliving);
-employeeRouter.get("/dashboard",useAuth, dashboard);
+employeeRouter.get("/dashboard", dashboard);
   // const date = new Date().toISOString().split("T")[0];
 
 // employeeRouter.post(

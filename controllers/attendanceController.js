@@ -1258,7 +1258,7 @@ const getparticularemployeeMonthlyAttendanceDetails = async (req, res) => {
     const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getDate();
 
     const holidaysList = await UpcomingHoliday.find({});
-    let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
+    let activeEmployees = await Employee.find({ employeeStatus: "1", employeeId: { $nin: ["AYE201202", "AYE180301"] }, }).sort({
       employeeName: 1,
     });
 

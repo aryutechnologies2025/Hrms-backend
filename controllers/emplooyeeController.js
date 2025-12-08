@@ -3871,7 +3871,40 @@ const dashboard = async (req, res) => {
   const wfhSet = new Set();
   const presentData = [];
   const wfhData = [];
-
+  const convertToKolkataTime = (utcDate) => {
+  const date = new Date(utcDate);
+  // IST is UTC+5:30
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+  const istTime = new Date(date.getTime() + istOffset);
+  
+  return {
+    original: utcDate,
+    kolkataTime: istTime,
+    formatted: istTime.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }),
+    timeOnly: istTime.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }),
+    dateOnly: istTime.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  };
+};
   attendanceRecords.forEach((record) => {
     const loginEntry = record.entries.find(
       (e) =>
@@ -3885,11 +3918,33 @@ const dashboard = async (req, res) => {
       presentSet.add(empId);
 
       const employee = activeEmployees.find((e) => e._id.toString() === empId);
-      if (employee) presentData.push(employee);
-
+      // if (employee) presentData.push(employee);
+      if (employee) {
+      const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+      
+      // Create a copy of employee with loginDate added
+      const employeeWithLogin = {
+        ...(employee.toObject ? employee.toObject() : employee), // Handle both mongoose doc and plain object
+        login: kolkataLoginTime.kolkataTime,
+        time: kolkataLoginTime.timeOnly
+      };
+      presentData.push(employeeWithLogin);
+    }
       if (record.workType === "WFH") {
         wfhSet.add(empId);
-        if (employee) wfhData.push(employee);
+        // if (employee) wfhData.push(employee);
+        if (employee) {
+        const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+        
+        // Create a copy for WFH with loginDate added
+        const employeeWithLogin = {
+          ...(employee.toObject ? employee.toObject() : employee),
+          login: kolkataLoginTime.kolkataTime,
+          time: kolkataLoginTime.timeOnly,
+          workType: record.workType
+        };
+        wfhData.push(employeeWithLogin);
+      }
       }
     }
   });
