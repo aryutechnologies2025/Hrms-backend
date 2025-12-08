@@ -5,6 +5,7 @@ import UpcomingHoliday from "../models/upcomingHolidayModal.js";
 import mongoose from "mongoose";
 import moment from "moment";
 import Settings from "../models/settings.js";
+import Announcements from "../models/announcementModel.js";
 const markAttendance = async (req, res) => {
   // console.log("markAttendance called with body:", req.body);
 
@@ -1548,6 +1549,12 @@ function calculateTime(entries) {
 }
 
 const dashboardAttendanceAndBirthday = async (req, res) => {
+  //  const userRole=req.query.role;
+    const announcements = await Announcements.find({
+         visible: { $in: ["Employee", "Both"] },
+         expiryDate: { $gte: new Date() }, // not expired
+         status:"1"
+       });
   const today = new Date();
   const todayMonth = today.getMonth();
   const todayDate = today.getDate();
@@ -1687,6 +1694,7 @@ const dashboardAttendanceAndBirthday = async (req, res) => {
       permission: permission,
       co: co,
       employeeType: employeeType.employeeType,
+      announcements:announcements
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

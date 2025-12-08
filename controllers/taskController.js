@@ -182,6 +182,8 @@ const createTask = async (req, res) => {
       projectId,
       projectManagerId,
       createdById,
+    taskType
+
     } = req.body;
 
     // Validation
@@ -197,7 +199,7 @@ const createTask = async (req, res) => {
     if (!projectManagerId)
       errors.projectManagerId = "Project Manager ID is required.";
     if (!startDate) errors.startDate = "Start date is required.";
-
+    if(!taskType) errors.taskType = "taskType date is required.";
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({
         success: false,
@@ -245,6 +247,7 @@ const createTask = async (req, res) => {
       document: documentArray,
       projectManagerId,
       createdById,
+      taskType
     });
 
     const savedTask = await newTask.save();
@@ -317,7 +320,6 @@ const createTask = async (req, res) => {
         );
       }
     }
-
     return res.status(201).json({
       success: true,
       message: "Task created successfully",
@@ -325,15 +327,13 @@ const createTask = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating task:", error);
-
-    if (error.name === "ValidationError") {
+    if (error.name === "ValidationError"){
       const errors = {};
       for (const field in error.errors) {
         errors[field] = error.errors[field].message;
       }
       return res.status(400).json({ success: false, errors });
     }
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -2381,6 +2381,7 @@ const updateTask = async (req, res) => {
       createdById,
       status,
       projectManagerId,
+      taskType
     } = req.body;
 
     // Update only if values are provided
@@ -2392,6 +2393,7 @@ const updateTask = async (req, res) => {
     if (dueDate != "undefined") task.dueDate = dueDate;
     if (startDate) task.startDate = startDate;
     if (projectId) task.projectId = projectId || task.projectId;
+    if(taskType) task.taskType= taskType || task.taskType;
     // if (createdById) task.createdById = createdById || task.createdById;
     // if(projectManagerId) task.projectManagerId=projectManagerId || task.projectManagerId;
     //  if (status) task.status = status || task.status;
