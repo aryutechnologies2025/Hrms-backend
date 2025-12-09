@@ -14,6 +14,11 @@ import Attendance from "../models/attendanceModal.js";
 import Leave from "../models/leaveModel.js";
 import ClientDetails from "../models/clientModals.js";
 import ClientSubUser from "../models/clientSubUserModel.js";
+import { create } from "domain";
+import TaskDocument from "../models/taskDocument.js";
+
+import fs from "fs";
+import path from "path";
 
 const generateTaskId = async () => {
   const counter = await Counter.findOneAndUpdate(
@@ -198,7 +203,7 @@ const createTask = async (req, res) => {
     if (!projectManagerId)
       errors.projectManagerId = "Project Manager ID is required.";
     if (!startDate) errors.startDate = "Start date is required.";
-    if (!taskType) errors.taskType = "taskType date is required.";
+    // if (!taskType) errors.taskType = "taskType date is required.";
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({
         success: false,
@@ -243,13 +248,20 @@ const createTask = async (req, res) => {
       startDate,
       dueDate,
       projectId,
-      document: documentArray,
+      // document: documentArray,
       projectManagerId,
       createdById,
       taskType,
     });
 
     const savedTask = await newTask.save();
+
+    const taskDocumentSave = new TaskDocument({
+      taskId: newTask.taskId,
+      document: documentArray,
+    });
+    await taskDocumentSave.save();
+    console.log("taskDocumentSave", taskDocumentSave);
 
     // Create and save task log
     const taskLog = {
@@ -848,7 +860,19 @@ const allTaskList = async (req, res) => {
     pipeline.push({ $skip: (page - 1) * parseInt(limit) });
     pipeline.push({ $limit: parseInt(limit) });
 
-    const taskList = await Task.aggregate(pipeline);
+    let taskList = await Task.aggregate(pipeline);
+
+    // Attach documents for each task
+    taskList = await Promise.all(
+      taskList.map(async (task) => {
+        const docRecord = await TaskDocument.findOne({ taskId: task.taskId });
+        console.log("docRecord", docRecord?.document);
+        return {
+          ...task,
+          document: docRecord?.document || [],
+        };
+      })
+    );
 
     return res.status(200).json({
       success: true,
@@ -1439,8 +1463,13 @@ const getTaskById = async (req, res) => {
       { path: "createdBy", select: "employeeName " },
     ]);
 
+    // taskDocument
+    const docRecord = await TaskDocument.findOne({ taskId });
+   
+
     const taskWithNames = {
       ...task,
+      document: docRecord?.document || [],
       subtasks,
       assignedTo: { _id: task.assignedTo, employeeName: assignedToName },
       projectId: { name: project?.name || null },
@@ -2418,7 +2447,28 @@ const updateTask = async (req, res) => {
         }
       });
     }
-    task.document = task.document.concat(newDocuments);
+    // task.document = task.document.concat(newDocuments);
+    // edit Task adding
+    // find TaskDocument
+    // Find existing task document
+    let taskDoc = await TaskDocument.findOne({ taskId: task.taskId });
+
+    if (taskDoc) {
+      // Merge previous + new documents
+      taskDoc.document = [...taskDoc.document, ...newDocuments];
+    } else {
+      // If no document exists → create new
+      taskDoc = new TaskDocument({
+        taskId: task.taskId,
+        document: newDocuments,
+      });
+    }
+
+    // Save updated document
+    await taskDoc.save();
+
+    /////////////////////
+
     // Save updated task
     const updatedTask = await task.save();
 
@@ -4011,57 +4061,200 @@ const particularMonthlyReport = async (req, res) => {
   }
 };
 
+// const deleteTaskFileByIndex = async (req, res) => {
+//   const { id, index } = req.params;
+//   // console.log("Deleting file from project:", id, "at index:", index);
+//   // console.log("employeeId", id, "fileIndex", index);
+//   try {
+//     // console.log("Fetching project with ID:", id);
+//     const task = await Task.findById({ _id: id });
+
+//     if (!task) {
+//       return res.status(404).json({ message: "TaskModel not found" });
+//     }
+//     // console.log("employee", task.document);
+
+//     // Search all documents to find the index
+//     if (Array.isArray(task.document) && task.document.length > index) {
+//       // Optional: Delete all files inside the document (from disk)
+//       //   const targetDoc = employee.document[index];
+
+//       //  if (targetDoc.files && Array.isArray(targetDoc.files)) {
+//       //   targetDoc.files.forEach(file => {
+//       //     const fs = require("fs");
+//       //     const path = require("path");
+//       //     const filePath = path.join("uploads", file.fileName); // adjust path if needed
+//       //     if (fs.existsSync(filePath)) {
+//       //       fs.unlinkSync(filePath); // delete file from disk
+//       //     }
+//       //   });
+//       // }
+
+//       //  Delete the document object at index
+//       task.document.splice(index, 1);
+
+//       // Save changes to DB
+//       await task.save();
+
+//       res.status(200).json({
+//         message: `Document at index ${index} deleted successfully.`,
+//         updatedDocuments: task.document,
+//       });
+//     } else {
+//       res.status(404).json({
+//         message: `Document not found at index ${index}.`,
+//       });
+//     }
+
+//     // return res.status(404).json({ message: "File index not found in any document" });
+//   } catch (error) {
+//     // console.error("Delete error:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+// const deleteTaskFileByIndex = async (req, res) => {
+//   try {
+//     const { id, index } = req.params; // id = taskId
+
+//     // 1️ Fetch task document record
+//     const docRecord = await TaskDocument.findOne({ taskId: id });
+
+//     if (!docRecord) {
+//       return res.status(404).json({ message: "TaskDocument not found" });
+//     }
+
+//     // 2️ Validate document index
+//     if (!Array.isArray(docRecord.document) || index >= docRecord.document.length) {
+//       return res.status(404).json({
+//         message: `Document not found at index ${index}.`,
+//       });
+//     }
+
+//     // 3️ Get file information before deletion
+//     const targetDoc = docRecord.document[index];
+
+//     const filePath = path.join("uploads", "others", targetDoc.filepath);
+//     // Example: /uploads/others/1754040299799-Validation.png
+//     console.log("filePath",filePath);
+//     // 4️ Delete the file from disk
+//     if (fs.existsSync(filePath)) {
+//       fs.unlinkSync(filePath);
+//       console.log("Deleted file:", filePath);
+//     } else {
+//       console.log("File not found on disk:", filePath);
+//     }
+
+//     // 5️ Remove the document entry from array
+//     docRecord.document.splice(index, 1);
+
+//     // 6 Save update
+//     await docRecord.save();
+
+//     return res.status(200).json({
+//       message: "File deleted successfully",
+//       updatedDocuments: docRecord.document,
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const deleteTaskFileByIndex = async (req, res) => {
-  const { id, index } = req.params;
-  // console.log("Deleting file from project:", id, "at index:", index);
-  // console.log("employeeId", id, "fileIndex", index);
   try {
-    // console.log("Fetching project with ID:", id);
-    const task = await Task.findById({ _id: id });
+    const { id, index } = req.params; // id = taskId (or TaskDocument._id depending on your routing)
 
-    if (!task) {
-      return res.status(404).json({ message: "TaskModel not found" });
+    // 1) Fetch the TaskDocument record (use findOne for single-record-per-task)
+    const docRecord = await TaskDocument.findOne({ taskId: id });
+    if (!docRecord) {
+      return res.status(404).json({ message: "TaskDocument not found" });
     }
-    // console.log("employee", task.document);
 
-    // Search all documents to find the index
-    if (Array.isArray(task.document) && task.document.length > index) {
-      // Optional: Delete all files inside the document (from disk)
-      //   const targetDoc = employee.document[index];
+    // 2) Validate index
+    if (
+      !Array.isArray(docRecord.document) ||
+      index < 0 ||
+      index >= docRecord.document.length
+    ) {
+      return res
+        .status(404)
+        .json({ message: `Document not found at index ${index}.` });
+    }
 
-      //  if (targetDoc.files && Array.isArray(targetDoc.files)) {
-      //   targetDoc.files.forEach(file => {
-      //     const fs = require("fs");
-      //     const path = require("path");
-      //     const filePath = path.join("uploads", file.fileName); // adjust path if needed
-      //     if (fs.existsSync(filePath)) {
-      //       fs.unlinkSync(filePath); // delete file from disk
-      //     }
-      //   });
-      // }
+    // 3) Target document entry
+    const targetDoc = docRecord.document[index];
+    const storedPath = targetDoc.filepath || targetDoc.path || "";
 
-      //  Delete the document object at index
-      task.document.splice(index, 1);
+    // 4) Build absolute path robustly
+    // If storedPath already includes 'uploads' assume it's relative to project root (or absolute)
+    // Otherwise assume it's just filename and placed in uploads/others/
+    let absolutePath;
+    if (!storedPath) {
+      // No filepath stored — just remove DB entry
+      docRecord.document.splice(index, 1);
+      await docRecord.save();
+      return res
+        .status(200)
+        .json({
+          message: "Document entry removed (no file path stored).",
+          updatedDocuments: docRecord.document,
+        });
+    }
 
-      // Save changes to DB
-      await task.save();
-
-      res.status(200).json({
-        message: `Document at index ${index} deleted successfully.`,
-        updatedDocuments: task.document,
-      });
+    // Normalize separators and handle absolute/relative
+    const normalized = storedPath.replace(/\\/g, "/"); // unify
+    if (normalized.includes("uploads/")) {
+      // e.g. 'uploads/others/name.png' or '/uploads/others/name.png'
+      absolutePath = path.resolve(process.cwd(), normalized);
     } else {
-      res.status(404).json({
-        message: `Document not found at index ${index}.`,
-      });
+      // fallback: assume file is in uploads/others/<filename>
+      absolutePath = path.resolve(
+        process.cwd(),
+        "uploads",
+        "others",
+        path.basename(normalized)
+      );
     }
 
-    // return res.status(404).json({ message: "File index not found in any document" });
+    // 5) Attempt deletion with better logging
+    try {
+      const exists = fs.existsSync(absolutePath);
+      console.log("delete: checking path:", absolutePath, "exists:", exists);
+
+      if (exists) {
+        // use promise-based unlink
+        await fs.promises.unlink(absolutePath);
+        console.log("Deleted file:", absolutePath);
+      } else {
+        console.log("File not found on disk (no delete):", absolutePath);
+      }
+    } catch (fsErr) {
+      // Log detailed fs error but continue to remove DB entry if that's desired
+      console.error("File deletion error:", fsErr);
+      // you can choose to return error here; I prefer to continue and remove DB entry to avoid stale refs:
+      // return res.status(500).json({ message: "Failed to delete file from disk", error: fsErr.message });
+    }
+    // 6) Remove DB entry from documents array and save
+    docRecord.document.splice(index, 1);
+    await docRecord.save();
+
+    return res.status(200).json({
+      message: "File entry removed successfully (and file deleted if present).",
+      updatedDocuments: docRecord.document,
+    });
   } catch (error) {
-    // console.error("Delete error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("deleteTaskFileByIndex error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 export {
   createTask,
   getAllTasks,

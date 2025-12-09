@@ -6,12 +6,11 @@ import { type } from "os";
 const TaskSchema = new mongoose.Schema(
   {
     taskId: { type: String, unique: true }, // Auto-increment field
-    document: [
-      {
-        type: Object, // Can be enhanced with detailed structure if needed
-      },
-    ],
-
+    // document: [
+    //   {
+    //     type: Object, // Can be enhanced with detailed structure if needed
+    //   },
+    // ],
     // Task details
     title: {
       type: String,
@@ -83,6 +82,9 @@ const TaskSchema = new mongoose.Schema(
       },
     ],
     testerStatus: { type: String, default: "0" },
+    taskType:{
+      type:String
+    }
     // note:[{
     //   type: String,
     //   default: "",
