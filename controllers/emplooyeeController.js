@@ -3866,8 +3866,11 @@ const dashboard = async (req, res) => {
         time: { $gte: startOfDay, $lte: endOfDay },
       },
     },
-    employeeId: { $in: activeEmployees.map((e) => e._id) },
-  }).select("employeeId entries workType");
+
+    // employeeId: { $in: activeEmployees.map((e) => e._id) },
+  })
+  .sort({ createdAt: -1 })
+  .select("employeeId entries workType");
 
   const presentSet = new Set();
   const wfhSet = new Set();
