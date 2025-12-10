@@ -2670,7 +2670,7 @@ const updateTask = async (req, res) => {
 // };
 const updateTaskStatus = async (req, res) => {
   try {
-    const { status, startTime, endTime, updatedBy, assignedTo } = req.body;
+    const { status, startTime, endTime, updatedBy, assignedTo, taskType } = req.body;
     const { id } = req.params;
 
     console.log("Request Body:", req.body);
@@ -2730,6 +2730,7 @@ const updateTaskStatus = async (req, res) => {
         taskId: updatedTask.taskId,
         status,
         updatedBy,
+        taskType,
         startTime: new Date(), // You could also use startTime from req.body
       });
 
@@ -2776,9 +2777,9 @@ const updateTaskStatus = async (req, res) => {
         }
       }
 
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status value" });
-      }
+      // if (!allowedStatuses.includes(status)) {
+      //   return res.status(400).json({ message: "Invalid status value" });
+      // }
 
       // Step 2: Find the task
       const findTask = await Task.findOne({ taskId: id });
@@ -2928,6 +2929,7 @@ const updateTaskStatus = async (req, res) => {
         status,
         startTime,
         endTime,
+        taskType
       };
 
       // If task not assigned yet, assign it to updatedBy
