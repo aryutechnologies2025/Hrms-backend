@@ -37,16 +37,16 @@ import useAuth from "../middlewares/userAuth.js";
 
 const employeeRouter = express.Router();
 
-employeeRouter.post("/forgot-password", forgotPassword);
+employeeRouter.post("/forgot-password",useAuth, forgotPassword);
 employeeRouter.post("/reset-password/:id", resetPassword);
 employeeRouter.post("/login-employee", loginEmployee);
-employeeRouter.post("/isdelete-employee", checkEmployeeIsdelete);
+employeeRouter.post("/isdelete-employee",useAuth, checkEmployeeIsdelete);
 employeeRouter.post("/generate-employee-forgot", forgotPassword_employee);
 employeeRouter.post("/generate-employee-reset", resetPassword_employee);
-employeeRouter.post("/hr-permission", hrPermission);
-employeeRouter.get("/reliving-list", relivingList);
-employeeRouter.put("/edit-reliving-list/:id", updateReliving);
-employeeRouter.get("/dashboard", dashboard);
+employeeRouter.post("/hr-permission", useAuth,hrPermission);
+employeeRouter.get("/reliving-list", useAuth,relivingList);
+employeeRouter.put("/edit-reliving-list/:id",useAuth, updateReliving);
+employeeRouter.get("/dashboard",useAuth, dashboard);
   // const date = new Date().toISOString().split("T")[0];
 
 // employeeRouter.post(

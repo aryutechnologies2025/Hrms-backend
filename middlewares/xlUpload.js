@@ -61,7 +61,6 @@ const xlUpload = multer({
       file.mimetype ===
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       file.mimetype === "application/vnd.ms-excel";
-
     cb(null, allowed);
   },
 });
