@@ -74,7 +74,7 @@ employeeRouter.post(
       // Proceed to controller
       next();
     });
-  },
+  },useAuth,
   createEmployee
 );
 // employeeRouter.post("/create-employee",upload.single("photo"), createEmployee);
@@ -99,24 +99,24 @@ employeeRouter.put(
       // Proceed to controller
       next();
     });
-  },
+  },useAuth,
   editEmployee
 );
-employeeRouter.delete("/delete-employees/:id", deleteEmployee);
-employeeRouter.get("/all-employees", allActiveDropDownEmployeesUserDetails);
-employeeRouter.get("/all-active-employees",allEmployeesUserDetails);
-employeeRouter.get("/all-employees-filterdate/:date",FilterByDateActiveEmployee);
-employeeRouter.get("/all-active-reliving-employees",allActiveAndRelievingEmployeesUserDetails);
+employeeRouter.delete("/delete-employees/:id",useAuth, deleteEmployee);
+employeeRouter.get("/all-employees",useAuth, allActiveDropDownEmployeesUserDetails);
+employeeRouter.get("/all-active-employees",useAuth,allEmployeesUserDetails);
+employeeRouter.get("/all-employees-filterdate/:date",useAuth,FilterByDateActiveEmployee);
+employeeRouter.get("/all-active-reliving-employees",useAuth,allActiveAndRelievingEmployeesUserDetails);
 // employeeRouter.get("/employee-document-delete/:id",EmployeesUserDetails);
-employeeRouter.get("/view-employee/:id", particularEmployeeUserDetails);
-employeeRouter.post("/generate-employeeid", generateEmployeeId);
-employeeRouter.get("/today-logs/:date", AllLoginEmployeeDetails);
+employeeRouter.get("/view-employee/:id",useAuth, particularEmployeeUserDetails);
+employeeRouter.post("/generate-employeeid",useAuth, generateEmployeeId);
+employeeRouter.get("/today-logs/:date",useAuth, AllLoginEmployeeDetails);
 employeeRouter.delete(
   "/delete-employee-file/:id/:index",
-  deleteEmployeeFileByIndex
+  useAuth,deleteEmployeeFileByIndex
 );
-employeeRouter.post('/change-password', changePassword);
-employeeRouter.get("/get-revision-history/:id", getRevisionHistoryById);
+employeeRouter.post('/change-password',useAuth, changePassword);
+employeeRouter.get("/get-revision-history/:id",useAuth, getRevisionHistoryById);
 // employeeRouter.get("/particular-employee-original-password/:email",getParticularUserOriginalPassword);
-employeeRouter.get("/calculate-salary",payroll);
+employeeRouter.get("/calculate-salary",useAuth,payroll);
 export default employeeRouter;
