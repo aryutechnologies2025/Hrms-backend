@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 //   console.log(req)
 //   const authHeader = req.headers["authorization"];
 //   console.log("Authorization Header:", authHeader);
-  
+
 //   if (!authHeader || !authHeader.startsWith("Bearer")) {
 //     return res.status(401).json({ message: "Unauthorized: No token provided" });
 //   }
@@ -28,8 +28,6 @@ import jwt from "jsonwebtoken";
 //   }
 // };
 
-
-
 const useAuth = (req, res, next) => {
   console.log("Cookies:", req.cookies);
   // 1. Get token from cookies
@@ -38,16 +36,15 @@ const useAuth = (req, res, next) => {
 
   // 2. Check if token exists
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    return res.status(401).json({ message: "Unauthorized: No token provided" });
   }
-
   try {
     // 3. Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 4. Optional: extra check
     if (!decoded) {
-      return res.status(401).json({ message: 'Unauthorized: Invalid token' });
+      return res.status(401).json({ message: "Unauthorized: Invalid token" });
     }
 
     // 5. Attach user info to request
@@ -56,10 +53,10 @@ const useAuth = (req, res, next) => {
     // 6. Call next middleware
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expired' });
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
     }
-    return res.status(401).json({ message: 'Invalid token' });
+    return res.status(401).json({ message: "Invalid token" });
   }
 };
 
