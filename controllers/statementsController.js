@@ -1,174 +1,13 @@
-// import XLSX from "xlsx";
-// import Statement from "../models/statementsModel.js";
-
-
-//  const importExcel = async (req, res) => {
-
-//   try {
-//     if (!req.file) {
-//       return res.status(400).json({ message: "Excel file is required" });
-//     }
-
-
-//     // read file from disk
-//     const workbook = XLSX.readFile(req.file.path);
-
-//     // extract the data in sheet
-//     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-//     // convert the data to json
-//     const excelData = XLSX.utils.sheet_to_json(sheet);
-
-//      console.log(excelData);
-
-//     const formattedData = excelData.map((row) => {
-//       let amount = 0;
-//       let type = "";
-
-//       if (row["Withdrawal Amt."]) {
-//         amount = row["Withdrawal Amt."];
-//         type = "debit";
-//       } else if (row["Deposit Amt."]) {
-//         amount = row["Deposit Amt."];
-//         type = "credit";
-//       }
-
-//       return {
-//         date: row.Date || null,
-//         narration: row.Narration || "",
-//         ledger: row.Ledger || "",
-//         reason: row.Reason || "",
-//         type: type,
-//         // closingAmount: closingAmount,
-//         createdBy: "system",
-//         dateTime: row.Date ? new Date(row.Date) : null,
-//       };
-//     });
-
-//     const result = await Statement.insertMany(formattedData);
-
-//     res.status(200).json({
-//       message: "Excel Imported Successfully",
-//       count: result.length,
-//       data: result,
-//     });
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({ message: "Error importing Excel", error: err });
-//   }
-
-// };
-
-// export default importExcel;
 
 
 
-
-// import XLSX from "xlsx";
-// import Statement from "../models/statementsModel.js";
-
-// export const importExcel = async (req, res) => {
-//   try {
-//     console.log("INSIDE CONTROLLER");
-//     console.log("FILE:", req.file);
-
-//     if (!req.file) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "File not received. Upload via form-data → file.",
-//       });
-//     }
-
-//     // Read Excel from buffer
-//     const workbook = XLSX.read(req.file.buffer, { type: "buffer", cellDates: true });
-
-//     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-//     console.log("00test   -----",sheet)
-
-//     // Read all rows as array of arrays
-//     const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-
-// console.log("---- DEBUG: RAW ROWS ----");
-// // for (let i = 0; i < rawRows.length; i++) {
-// //   console.log(i, rawRows[i]);
-// // }
-// console.log("---- END RAW ----");
-
-
-
-//     // Find header row index dynamically
-//     const headerIndex = rawRows.findIndex((row) => {
-//   if (!row) return false;
-//   const rowText = row.join(" ").toLowerCase();
-
-//   return (
-//     rowText.includes("date") &&
-//     rowText.includes("narration") &&
-//     (rowText.includes("withdraw") || rowText.includes("deposit"))
-//   );
-// });
-
-//     if (headerIndex === -1) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Transaction header not found. Check console for exact values.",
-//       });
-//     }
-
-//     console.log("Header Found At Row:", headerIndex + 1);
-
-//     // Convert using header row
-//     const jsonData = XLSX.utils.sheet_to_json(sheet, { range: headerIndex });
-
-//     const finalData = [];
-
-//     for (let row of jsonData) {
-//       if (!row["Date"]) continue;
-
-//       const withdrawal = Number(row["Withdrawal Amt."]) || 0;
-//       const deposit = Number(row["Deposit Amt."]) || 0;
-
-//       let type = "";
-//       if (withdrawal > 0) type = "debit";
-//       if (deposit > 0) type = "credit";
-
-//       if (!type) continue;
-
-//       finalData.push({
-//         date: new Date(row["Date"]),
-//         narration: row["Narration"] || "",
-//         ledger: row["Ledger"] || "",
-//         reason: row["Reason"] || "",
-//         type,
-//         withdrawalAmount: withdrawal,
-//         depositAmount: deposit,
-//         createdBy: "system",
-//       });
-//     }
-
-//     console.log("Final rows:", finalData.length);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Excel parsed successfully",
-//       total: finalData.length,
-//       sample: finalData.slice(0, 5),
-//     });
-
-//   } catch (error) {
-//     console.error("Import error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error importing Excel",
-//       error: error.message,
-//     });
-//   }
-// };
 
 
 import XLSX from "xlsx";
+import csv from 'csv-parser'
+import { Readable } from 'stream';
 import Statement from "../models/statementsModel.js";
+import mongoose from "mongoose";
 
 /* --------- DATE HELPERS ------------ */
 
@@ -197,13 +36,13 @@ import Statement from "../models/statementsModel.js";
 
 /*...........if use date as date type in model ........*/
 
-function formatExcelDate(value) {
-  if (!value) return null;
+ function formatExcelDate(value) {
+  if (value == null || value === "") return null;
 
   // If Excel gives a number (Excel serial date)
   if (typeof value === "number") {
     const excelDate = new Date((value - 25569) * 86400 * 1000);
-    return excelDate;
+    return isNaN(excelDate) ? null : excelDate;
   }
 
   // If "dd-mm-yyyy"
@@ -227,14 +66,67 @@ function formatExcelDate(value) {
 
 /* ----IMPORT EXCEL ----- */
 
+// Header alias map for Excel
+const headerMap = {
+  date: 
+  ["date", "txn date", "transaction date", 
+    "value dt", "value date", "value date.", "value dt",
+   "dt"],
+  narration: ["narration", "description", "particulars", "remarks","remark", "narration.",
+     "transaction details",   
+    "transaction detail",
+    "details", "detail", "txn details", "txn detail"
+  ],
+  ledger: ["ledger", "account", "ledger name", "account name"],
+  reason: ["reason", "remarks", "comment", "narration remark"],
+  withdrawal: ["withdrawal amt.", "withdrawal", "debit", "dr amount", "withdrawal amount", "withdrawal_amt", "withdrawal amt"],
+  deposit: ["deposit amt.", "deposit", "credit", "cr amount", "deposit amount", "deposit_amt", "deposit amt"]
+};
+
+// helper: normalize header string
+ function normalizeHeader(h) {
+  if (h == null) return "";
+  return String(h).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+
+// build reverse lookup from sheet headers
+ function mapSheetHeaders(sheetHeaders) {
+  const normalizedHeaders = sheetHeaders.map(h => ({ raw: h, norm: normalizeHeader(h) }));
+  const found = {};
+
+  for (const [key, aliasList] of Object.entries(headerMap)) {
+    const normAliases = aliasList.map(a => normalizeHeader(a));
+    // find raw header whose normalized form matches any alias or contains alias token
+    const match = normalizedHeaders.find(h =>
+      normAliases.includes(h.norm) ||
+      normAliases.some(a => h.norm.includes(a)) // allow partial matches
+    );
+    if (match) found[key] = match.raw;
+    else found[key] = null;
+  }
+
+  return found;
+}
 const importExcel = async (req, res) => {
   try {
-    const { account } = req.body;
+    const { account,date } = req.body;
 
     if (!account) {
-      return res.status(400).json({ error: "Account ID is required" });
+      return res.status(400).json({ error: "Account is required" });
     }
 
+      // Accept account name also
+    if (!mongoose.Types.ObjectId.isValid(account)) {
+      const company = await FinanceCompany.findOne({ name: account });
+
+      if (!company) {
+        return res.status(400).json({ error: "Invalid account name" });
+      }
+
+      account = company._id; // replace with ID
+    }
+  console.log("file",req.file)
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -245,46 +137,191 @@ const importExcel = async (req, res) => {
     // Read Excel
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheetName = workbook.SheetNames[0];
-    const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    const sheet = workbook.Sheets[sheetName];
+    const sheetData = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: false });
 
-    // Transform sheet rows → DB Rows
-    const parsed = sheetData.map((row) => {
-      const withdrawal = row["Withdrawal Amt."] || 0;
-      const deposit = row["Deposit Amt."] || 0;
+     if (!sheetData || sheetData.length === 0) {
+        return res.status(400).json({ success: false, message: "Empty Excel sheet" });
+      }
 
-      const type = withdrawal > 0 ? "debit" : "credit";
+       // Get header keys from first row
+      const sheetHeaders = Object.keys(sheetData[0]);
 
-      return {
-        date: formatExcelDate(row["Date"]), // Always dd-mm-yyyy
-        narration: row["Narration"],
-        ledger: row["Ledger"],
-        reason: row["Reason"],
-        type,
-        withdrawalAmount: withdrawal,
-        depositAmount: deposit,
-        amount: type === "debit" ? withdrawal : deposit,
-        account,
-      };
-    });
+      // Map sheet headers to DB fields
+      const headerLookup = mapSheetHeaders(sheetHeaders);
 
-    // Save all rows
-    await Statement.insertMany(parsed);
+      // Check for minimum required column detection: date, narration, and (withdrawal|deposit)
+      const missingRequiredColumns = [];
+      if (!headerLookup.date) missingRequiredColumns.push("Date");
+      if (!headerLookup.narration) missingRequiredColumns.push("Narration");
+      if (!headerLookup.withdrawal && !headerLookup.deposit) missingRequiredColumns.push("Withdrawal or Deposit");
 
-    return res.status(200).json({
-      success: true,
-      message: "Excel imported successfully",
-      total: parsed.length,
-    });
+      if (missingRequiredColumns.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Incorrect Excel format",
+          error: `Missing required columns: ${missingRequiredColumns.join(", ")}`,
+          foundHeaders: sheetHeaders,
+          expectedAliases: headerMap
+        });
+      }
 
-  } catch (error) {
-    console.error("Import error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error importing Excel",
-      error: error.message,
-    });
+ // Validate rows
+      const rowErrors = [];
+      const documents = [];
+
+      sheetData.forEach((row, idx) => {
+        const rowNum = idx + 2; // Excel row (assuming header is row 1). Adjust if needed.
+        const get = (key) => {
+          const rawKey = headerLookup[key];
+          return rawKey ? row[rawKey] : null;
+        };
+
+        const dateVal = formatExcelDate(get("date"));
+        const narrationVal = get("narration") ? String(get("narration")).trim() : null;
+
+        let withdrawalRaw = get("withdrawal");
+        let depositRaw = get("deposit");
+
+        // Normalize numbers: remove commas, parentheses, and parse to number
+        const toNumber = (v) => {
+          if (v == null || v === "") return 0;
+          const s = String(v).replace(/[, ]+/g, "").replace(/\((.*)\)/, "-$1");
+          const n = Number(s);
+          return isNaN(n) ? null : n;
+        };
+
+          const withdrawal = toNumber(withdrawalRaw);
+        const deposit = toNumber(depositRaw);
+
+         // Compute amount and type
+        let amount = null || 0;
+        let type = null;
+        if (withdrawal && withdrawal !== 0) {
+          amount = withdrawal;
+          type = "debit";
+        } else if (deposit && deposit !== 0) {
+          amount = deposit;
+          type = "credit";
+        } else {
+          // Some statements may have a single 'Amount' column - optional to detect
+          const maybeAmount = toNumber(get("amount"));
+          if (maybeAmount !== null && maybeAmount !== 0) {
+            amount = maybeAmount;
+            type = maybeAmount < 0 ? "debit" : "credit";
+          }
+        }
+
+        // ledger & reason (optional)
+        const ledgerVal = get("ledger") ? String(get("ledger")).trim() : null;
+        const reasonVal = get("reason") ? String(get("reason")).trim() : null;
+
+        // Row-level validations
+        const localErrors = [];
+        if (!dateVal) localErrors.push("Invalid or missing Date");
+        if (!narrationVal) localErrors.push("Missing Narration");
+        if (amount === null || amount === 0) localErrors.push("Missing amount (withdrawal/deposit)");
+
+        if (localErrors.length) {
+          rowErrors.push({ row: rowNum, errors: localErrors, raw: row });
+          return; // skip constructing doc for this row
+        }
+
+         // Build doc for insert
+        documents.push({
+          date: dateVal,
+          narration: narrationVal,
+          ledger: ledgerVal || undefined,
+          reason: reasonVal || undefined,
+          amount: amount,
+          type: type,
+          account,
+        
+        });
+      });
+
+         if (rowErrors.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation failed for some rows",
+          rowErrors,
+          totalRows: sheetData.length
+        });
+      }
+
+      // Insert into DB
+      const inserted = await Statement.insertMany(documents, { ordered: false });
+
+      return res.status(200).json({
+        success: true,
+        message: "Excel imported successfully",
+        total: inserted.length
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error importing Excel",
+        error: error.message
+      });
+    }
   }
-};
+
+      
+//     // Transform sheet rows → DB Rows
+//     const parsed = sheetData.map((row) => {
+//       const withdrawal = row["Withdrawal Amt."] || 0;
+//       const deposit = row["Deposit Amt."] || 0;
+
+//       const type = withdrawal > 0 ? "debit" : "credit";
+
+//       return {
+//         date: formatExcelDate(row["Date"]), // Always dd-mm-yyyy
+//         narration: row["Narration"],
+//         ledger: row["Ledger"],
+//         reason: row["Reason"],
+//         type,
+//         withdrawalAmount: withdrawal,
+//         depositAmount: deposit,
+//         amount: type === "debit" ? withdrawal : deposit,
+//         account,
+//       };
+//     });
+
+//     // Save all rows
+//     await Statement.insertMany(parsed);
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Excel imported successfully",
+//       total: parsed.length,
+//     });
+
+//   } catch (error) {
+//     console.error("Import error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error importing Excel",
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+
+// Helper function to parse CSV
+function parseCSV(buffer) {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const stream = Readable.from(buffer.toString());
+    
+    stream
+      .pipe(csv())
+      .on('data', (data) => results.push(data))
+      .on('end', () => resolve(results))
+      .on('error', (error) => reject(error));
+  });
+}
 
 /* ------- GET ALL STATEMENTS ----------- */
 
@@ -362,7 +399,7 @@ console.log("endDate : ",endDate)
       };
     }
 
-    const all = await Statement.find(filter).populate("account", "name");
+    const all = await Statement.find(filter).populate("account", "name").sort({createdAt:-1});
 
     return res.status(200).json({
       success: true,

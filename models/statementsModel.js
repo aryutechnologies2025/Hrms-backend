@@ -12,10 +12,11 @@ const statementSchema = new mongoose.Schema(
     },
     ledger: { 
       type: String,
-      required: [true, "Please provide a ledger"]
+      required: false  // optional because many statements don't include
     },
     reason: { 
       type: String,
+      required: false  
       
      },
     amount: { 

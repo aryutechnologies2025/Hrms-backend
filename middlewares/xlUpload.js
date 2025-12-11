@@ -1,54 +1,4 @@
-// // import multer from 'multer';
 
-
-// // const storage=multer.memoryStorage();//sore in memory
-// // const xlUpload = multer({storage,
-   
-// //   fileFilter: (req, file, cb) => {
-// //     if (
-// //       file.mimetype ===
-// //         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-// //       file.mimetype === "application/vnd.ms-excel"
-// //     ) {
-// //       cb(null, true);
-// //     } else {
-// //       cb(new Error("Only Excel files are allowed!"), false);
-// //     }
-// //   },
-// // }) ; 
-
-// // export default xlUpload
-
-// import multer from "multer";
-// import path from "path";
-
-// // Storage config
-// const storage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     cb(null, "uploads/others"); // store in uploads/others
-//   },
-//   filename: function (req, file, cb) {
-//     const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-//     cb(null, unique + path.extname(file.originalname));
-//   },
-// });
-
-// // File filter for Excel
-// const fileFilter = (req, file, cb) => {
-//   if (
-//     file.mimetype ===
-//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-//     file.mimetype === "application/vnd.ms-excel"
-//   ) {
-//     cb(null, true);
-//   } else {
-//     cb(new Error("Only Excel files allowed"), false);
-//   }
-// };
-
-// const xlUpload = multer({ storage, fileFilter });
-
-// export default xlUpload;
 
 import multer from "multer";
 
@@ -66,3 +16,40 @@ const xlUpload = multer({
 });
 
 export default xlUpload;
+
+
+// xlUpload.js
+// import multer from "multer";
+
+// const storage = multer.memoryStorage();
+
+// const xlUpload = multer({
+//   storage,
+//   fileFilter: (req, file, cb) => {
+//     const allowedMimeTypes = [
+//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+//       "application/vnd.ms-excel", // .xls
+//       "text/csv", // CSV files
+//       "application/csv", // Alternative CSV mime type
+//       "text/plain" // Sometimes CSV files are sent as text/plain
+//     ];
+    
+//     const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+    
+//     const isMimeTypeAllowed = allowedMimeTypes.includes(file.mimetype);
+//     const isExtensionAllowed = allowedExtensions.some(ext => 
+//       file.originalname.toLowerCase().endsWith(ext)
+//     );
+    
+//     if (isMimeTypeAllowed || isExtensionAllowed) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error(`Invalid file type. Allowed: ${allowedExtensions.join(', ')}`));
+//     }
+//   },
+//   limits: {
+//     fileSize: 10 * 1024 * 1024, // 10MB limit
+//   }
+// });
+
+// export default xlUpload;
