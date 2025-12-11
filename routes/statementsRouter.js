@@ -11,7 +11,20 @@ import  {
 
 const statementsRouter = express.Router();
 
-statementsRouter.post("/import", xlUpload.single("file"),importExcel);
+statementsRouter.post("/import",xlUpload.single('file'), (req, res,next) => {
+    console.log("Uploaded File:", req.file);     // 👈 logs file details
+    console.log("Body:", req.body);              // 👈 logs other form fields
+    
+   next();
+},importExcel);
+// router.js
+// statementsRouter.post("/import", xlUpload.single('file'), (req, res, next) => {
+//     console.log("===== REQUEST DETAILS =====");
+//     console.log("Uploaded File:", req.file);
+//     console.log("Request Body:", req.body);
+//     console.log("===========================");
+//     next();
+// }, importExcel);
 statementsRouter.get("/getAllStatementDetails", getAllStatementDetails);
 statementsRouter.get("/getAllStatementDetailsById/:id", getStatementDetailsById);
 statementsRouter.put("/editStatementDetails/:id", editStatementDetails);
