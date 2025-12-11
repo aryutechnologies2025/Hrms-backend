@@ -103,7 +103,7 @@ employeeRouter.put(
   editEmployee
 );
 employeeRouter.delete("/delete-employees/:id",useAuth, deleteEmployee);
-employeeRouter.get("/all-employees",useAuth, allActiveDropDownEmployeesUserDetails);
+employeeRouter.get("/all-employees", allActiveDropDownEmployeesUserDetails);
 employeeRouter.get("/all-active-employees",useAuth,allEmployeesUserDetails);
 employeeRouter.get("/all-employees-filterdate/:date",useAuth,FilterByDateActiveEmployee);
 employeeRouter.get("/all-active-reliving-employees",useAuth,allActiveAndRelievingEmployeesUserDetails);

@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
+import http from "http";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +59,8 @@ import announcementRouter from "./routes/announcementRouter.js";
 import subCategoryRouter from "./routes/subCategoryRouter.js";
 import projectNotesRouter from "./routes/projectNotesRouter.js";
 import useAuth from "./middlewares/userAuth.js";
+import  startSocketServer  from "./socket.js";
+import channelRouter from "./routes/channelRouter.js";
 
 // Load environment variables
 dotenv.config();
@@ -128,11 +131,15 @@ const startApp = async () => {
   app.use("/api/statement", useAuth,statementsRouter);
   app.use("/api/announcement",useAuth, announcementRouter);
   app.use("/api/projectNotes",useAuth, projectNotesRouter);
-
+  app.use("/api/channel",channelRouter);
+  
+  // socket sever
+  const server = http.createServer(app);
+   startSocketServer(server);
   // Base route
   app.get('/api', (req, res) => res.send('API is running...'));
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 };
 
 startApp(); 
