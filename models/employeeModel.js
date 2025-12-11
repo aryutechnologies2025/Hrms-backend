@@ -86,7 +86,7 @@ const employee = new mongoose.Schema(
     // Emergency Contact
     employeeStatus: { type: String, default: "1" },
     relivingDate: { type: Date },
-    emergencyContact: {
+    emergencyContact:[ {
       fullName: { type: String },
       contact: {
         type: String,
@@ -99,7 +99,7 @@ const employee = new mongoose.Schema(
       relation: {
         type: String,
       },
-    },
+    }],
     employeeType: { type: String },
     // Education Info
     education: [
