@@ -100,7 +100,8 @@ const startApp = async () => {
   app.use("/api/invoice",useAuth, invoiceRouter);
   app.use("/api/upcomingholiday",useAuth, upcomingHolidayRouter);
   app.use("/api/income",useAuth, incomeRouter);
-  app.use("/api/category",useAuth, categoryRouter);
+  // app.use("/api/category",useAuth, categoryRouter);
+  app.use("/api/category", categoryRouter);
   app.use("/api/link",useAuth, linkRouter);
   app.use("/api/revision",useAuth, revisionRouter);
   app.use("/api/leaveType",useAuth, leaveTypeRouter);
