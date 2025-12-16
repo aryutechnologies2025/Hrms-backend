@@ -1,5 +1,5 @@
 import Settings from "../models/settings.js";
-
+import SettingInvoices from "../models/invoiceSettingModel.js";
 const createSetting = async (req, res) => {
   try {
     const {
@@ -142,4 +142,112 @@ const getSettingDetails = async (req, res) => {
   }
 };
 
-export { createSetting, getSettingDetails };
+
+const createInvoiceSetting = async (req, res) => {
+  try {
+    const {
+      invoiceAddress,
+      invoiceState,
+      invoiceCity,
+      invoiceGstin,
+      invoiceEmail,
+      invoicePhone,
+      accountName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
+      invoiceTerms,
+      cgst,
+      sgst,
+      isgt,
+      igst,
+
+
+    } = req.body;
+
+    console.log("Incoming data:", req.body);
+
+    // Check if settings already exist
+    let settings = await SettingInvoices.findOne();
+
+    if (settings) {
+      // Update existing settings
+      settings.invoiceAddress = invoiceAddress;
+      settings.invoiceState = invoiceState;
+      settings.invoiceCity = invoiceCity;
+      settings.invoiceGstin = invoiceGstin;
+      settings.invoiceEmail = invoiceEmail;
+      settings.invoicePhone = invoicePhone;
+      settings.accountName = accountName;
+      settings.bankName = bankName;
+      settings.accountNumber = accountNumber;
+      settings.ifscCode = ifscCode;
+      settings.branchName = branchName;
+      settings.invoiceTerms = invoiceTerms;
+      settings.cgst = cgst;
+      settings.sgst = sgst;
+      settings.isgt = isgt;
+      settings.igst = igst;
+      
+    
+      await settings.save();
+
+      return res.status(200).json({
+        message: "Invoice updated successfully",
+        settings,
+      });
+    } else {
+      // Create new settings
+      settings = new SettingInvoices({
+       invoiceAddress,
+      invoiceState,
+      invoiceCity,
+      invoiceGstin,
+      invoiceEmail,
+      invoicePhone,
+      accountName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
+      invoiceTerms,
+      cgst,
+      sgst,
+      isgt,
+      igst,
+      });
+
+      await settings.save();
+
+      return res.status(201).json({
+        message: "Invoice created successfully",
+        settings,
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    if (error.name === "ValidationError") {
+      const errors = {};
+      for (let field in error.errors) {
+        errors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({ errors });
+    } else {
+      return res
+        .status(500)
+        .json({ success: false, error: "Internal Server Error" });
+    }
+  }
+};
+
+const getSettingInvoiceDetails = async (req, res) => {
+  try {
+    const settingDetails = await SettingInvoices.find();
+    res.status(200).json({ success: true, data: settingDetails });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export { createSetting, getSettingDetails, createInvoiceSetting,getSettingInvoiceDetails };
