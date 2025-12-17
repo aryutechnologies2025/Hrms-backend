@@ -21,7 +21,7 @@ const createAssetCategory = async (req, res) => {
       data: savedAsset,
     });
   } catch (error) {
-    console.error("Error:", error);
+    // console.error("Error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -60,7 +60,7 @@ const assetCategoryDelete = async (req, res) => {
     }
     res.status(200).json({ success: true, message: "Asset CategoryDetails deleted successfully" });
   } catch (err) {
-    console.error("Error:", err);
+    // console.error("Error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -89,7 +89,7 @@ const editAssetCategoryDetails = async (req, res) => {
       }
       return res.status(400).json({ success: false, errors });
     }
-    console.error("Error:", error);
+    // console.error("Error:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };

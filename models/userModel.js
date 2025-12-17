@@ -51,6 +51,7 @@ userSchema.pre("save", async function (next) {
 //   this.password = await bcrypt.hash(this.password, salt);
 //   next();
 // });
+
 userSchema.index({ email: 1 });
 const User = mongoose.model("AdminUser", userSchema);
 export default User;

@@ -2670,11 +2670,11 @@ const updateTask = async (req, res) => {
 // };
 const updateTaskStatus = async (req, res) => {
   try {
-    const { status, startTime, endTime, updatedBy, assignedTo } = req.body;
+    const { status, startTime, endTime, updatedBy, assignedTo,taskType } = req.body;
     const { id } = req.params;
 
     console.log("Request Body:", req.body);
-
+    
     // Step 1: Validate status
     const allowedStatuses = [
       "todo",
@@ -2687,6 +2687,19 @@ const updateTaskStatus = async (req, res) => {
     const task = await Task.findOne({ taskId: id });
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
+    }
+     if (taskType && task.taskType !== taskType) {
+      const updatedTask = await Task.findOneAndUpdate(
+        { taskId: id },
+        { $set: { taskType } },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Task type updated successfully",
+        task: updatedTask,
+      });
     }
 
     if (assignedTo) {

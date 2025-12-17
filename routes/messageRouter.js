@@ -8,30 +8,59 @@
 
 // export default messageRouter;
 // routes/message.js
+// import express from "express";
+// import { fetchChannelMessages, fetchDmMessages, uploadFiles, deleteUploadedFile } from "../controllers/messageController.js";
+// import multer from "multer";
+// import path from "path";
+// import fs from "fs";
+// import useAuth from "../middlewares/userAuth.js";
+
+// const router = express.Router();
+
+// // ensure upload folder exists
+// const uploadDir = path.resolve(process.cwd(), "uploads", "others");
+// if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => cb(null, uploadDir),
+//   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+// });
+// const upload = multer({ storage });
+
+// router.get("/channel/:channelId", useAuth, fetchChannelMessages);
+// router.get("/dm/:userId/:otherId", useAuth, fetchDmMessages);
+
+// // upload files for messages
+// router.post("/upload", useAuth, upload.array("files", 6), uploadFiles);
+// router.post("/upload/delete", useAuth, deleteUploadedFile);
+
+// export default router;
+
+
+// 2. GET DM CHAT between two users
+//  import express from "express";
+// import { sendMessage } from "../controllers/messageController";
+//  const messageRouter = express.Router();
+ 
+// messageRouter.get("/messages",getMeassage);
+
+// /**
+//  * 🟦 3. SEND a DM
+//  */
+// messageRouter.post("/send",sendMessage);
+
+
+// export default messageRouter;
+
+
+
 import express from "express";
-import { fetchChannelMessages, fetchDmMessages, uploadFiles, deleteUploadedFile } from "../controllers/messageController.js";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import useAuth from "../middlewares/userAuth.js";
+import { getDMHistory, getUnreadCounts, markMessagesSeen } from "../controllers/messageController.js";
 
-const router = express.Router();
+const messageRouter = express.Router();
 
-// ensure upload folder exists
-const uploadDir = path.resolve(process.cwd(), "uploads", "others");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+messageRouter.get("/dm/:userId/:otherUserId", getDMHistory);
+messageRouter.get("/unread/:userId", getUnreadCounts);
+messageRouter.post("/seen", markMessagesSeen);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({ storage });
-
-router.get("/channel/:channelId", useAuth, fetchChannelMessages);
-router.get("/dm/:userId/:otherId", useAuth, fetchDmMessages);
-
-// upload files for messages
-router.post("/upload", useAuth, upload.array("files", 6), uploadFiles);
-router.post("/upload/delete", useAuth, deleteUploadedFile);
-
-export default router;
+export default messageRouter;

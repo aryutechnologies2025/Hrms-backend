@@ -1,89 +1,82 @@
-// import Message from "../models/messageModel.js";
 
-// const fetchChannelMessages = async (req, res) => {
-//   const { channelId } = req.params;
-//   const messages = await Message.find({ channelId })
-//     .sort({ createdAt: 1 })
-//     .limit(500);
-//   res.json(messages);
-// };
-
-// const fetchDmMessages = async (req, res) => {
-//   const { userId, otherId } = req.params;
-//   const messages = await Message.find({
-//     $or: [
-//       { senderId: userId, receiverId: otherId },
-//       { senderId: otherId, receiverId: userId },
-//     ],
-//   })
-//     .sort({ createdAt: 1 })
-//     .limit(500);
-//   res.json(messages);
-// };
-// export { fetchChannelMessages, fetchDmMessages };
+import mongoose from "mongoose";
+import Message from "../models/messageModel.js";
 
 
-// controllers/messageController.js
-
-import path from "path";
-import fs from "fs";
-import Message from "../models/messageModel";
-
-export const fetchChannelMessages = async (req, res) => {
+/**
+ * GET DM HISTORY
+ */
+const getDMHistory = async (req, res) => {
   try {
-    const { channelId } = req.params;
-    const msgs = await Message.find({ channelId }).sort({ createdAt: 1 }).limit(500);
-    res.json(msgs);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+    const { userId, otherUserId } = req.params;
 
-export const fetchDmMessages = async (req, res) => {
-  try {
-    const { userId, otherId } = req.params;
-    const msgs = await Message.find({
+    const messages = await Message.find({
+      channelId: null,
       $or: [
-        { senderId: userId, receiverId: otherId },
-        { senderId: otherId, receiverId: userId }
-      ]
-    }).sort({ createdAt: 1 }).limit(500);
-    res.json(msgs);
+        { senderId: userId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: userId },
+      ],
+    }).sort({ createdAt: 1 });
+    console.log("message,",messages);
+    res.status(200).json({ success: true, data: messages });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// file upload uses multer in route; req.files present
-export const uploadFiles = async (req, res) => {
+/**
+ * GET UNREAD COUNTS (SIDEBAR)
+ */
+ const getUnreadCounts = async (req, res) => {
   try {
-    const files = (req.files || []).map(f => ({
-      filepath: f.filename,
-      originalName: f.originalname,
-      size: f.size,
-    }));
-    res.json({ files });
+    const { userId } = req.params;
+
+    const unread = await Message.aggregate([
+      {
+        $match: {
+          receiverId: new mongoose.Types.ObjectId(userId),
+          seenBy: { $ne: new mongoose.Types.ObjectId(userId) },
+        },
+      },
+      {
+        $group: {
+          _id: "$senderId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json({ success: true, data: unread });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// delete uploaded file (local)
-export const deleteUploadedFile = async (req, res) => {
+/**
+ * MARK MESSAGES AS SEEN
+ */
+ const markMessagesSeen = async (req, res) => {
   try {
-    const { filename } = req.body;
-    if (!filename) return res.status(400).json({ message: "filename required" });
+    const { senderId, receiverId } = req.body;
 
-    const filePath = path.resolve(process.cwd(), "uploads", "others", filename);
+    await Message.updateMany(
+      {
+        senderId,
+        receiverId,
+        seenBy: { $ne: receiverId },
+      },
+      { $addToSet: { seenBy: receiverId } }
+    );
 
-    if (fs.existsSync(filePath)) {
-      await fs.promises.unlink(filePath);
-      return res.json({ message: "Deleted" });
-    } else {
-      return res.status(404).json({ message: "File not found" });
-    }
+    res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
+export{
+  getDMHistory,
+  getUnreadCounts,
+  markMessagesSeen
+
+}

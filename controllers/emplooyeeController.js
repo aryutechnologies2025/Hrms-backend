@@ -4091,6 +4091,34 @@ const dashboard = async (req, res) => {
     },
   });
 };
+
+const allUserAdminAndEmployee=async(req, res) => {
+  try {
+    const employees = await Employee.find({}, "employeeName photo dutyStatus");
+    const admin = await User.find({dutyStatus:"1"},"name email");
+
+    const formatted = [
+      ...employees.map((e) => ({
+        _id: e._id,
+        name: e.employeeName,
+        photo: e.photo,
+        online: e.dutyStatus == "1",
+        type: "employee",
+      })),
+      ...admin.map((a) => ({
+        _id: a._id,
+        name: a.name,
+        photo: "",
+        online: true,
+        type: "admin",
+      })),
+    ];
+
+    res.json({ success: true, data: formatted });
+  } catch (err) {
+    res.status(500).json({ success: false, err });
+  }
+};
 export {
   forgotPassword,
   resetPassword,
@@ -4117,4 +4145,5 @@ export {
   relivingList,
   updateReliving,
   dashboard,
+  allUserAdminAndEmployee
 };

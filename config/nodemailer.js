@@ -4,9 +4,9 @@ import nodemailer from 'nodemailer';
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  // service: 'gmail',
   host: 'smtp.gmail.com',
-  port: 587, // Use 465 for SSL if needed
+  port: 465, // Use 465 for SSL if needed
   secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
@@ -14,12 +14,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendEmail = async ({to, subject, html}) => {
+const sendEmail = async ({to, subject, html}) =>{
   console.log('Preparing to send email to:',to);
   try {
     const mailOptions = {
-      // from: process.env.EMAIL_USER,
-      from:"",
+      from: process.env.EMAIL_USER,
+      // from:"",
       to,
       subject,
       html,
