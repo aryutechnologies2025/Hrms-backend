@@ -1,5 +1,4 @@
-
-
+import Channel from "../models/channelModel.js";
 
  const createChannel = async (req, res) => {
   const { name, description, isPrivate, members } = req.body;
@@ -15,6 +14,5 @@
 };
 export {
     createChannel,
-    listChannels,
-    
+    listChannels,  
 }

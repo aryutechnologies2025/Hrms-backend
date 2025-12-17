@@ -20,7 +20,7 @@ const createAnnouncement = async (req, res) => {
       message: "Announcement created successfully",
     });
   } catch (error) {
-    console.log("error", error);
+    // console.log("error", error);
     res.status(400).json({
       success: false,
       message: "Internal server error",
@@ -48,7 +48,7 @@ const getAllAnnouncements = async (req, res) => {
       message: "Announcements fetched successfully",
     });
   } catch (error) {
-    console.error("error", error);
+    // console.error("error", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -137,7 +137,7 @@ const getExpiredAnnouncements = async (req, res) => {
   }
 };
 const getUserAnnouncements = async (req, res) => {
-    console.log("req ",req.query);
+    // console.log("req ",req.query);
   try {
     const userRole = req.query.role; // e.g., "admin" or "employee"
     const announcements = await Announcements.find({

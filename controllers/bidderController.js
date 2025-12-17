@@ -367,7 +367,7 @@ const getEmployeeBidder = async (req, res) => {
       reply: reply,
     });
   } catch (error) {
-    console.error("Error in getEmployeeBidder:", error);
+    // console.error("Error in getEmployeeBidder:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -390,7 +390,7 @@ const viewEmployeeBidderById = async (req, res) => {
     }
     res.status(200).json({ success: true, data: bidder });
   } catch (error) {
-    console.error("Error in viewEmployeeBidderById:", error);
+    // console.error("Error in viewEmployeeBidderById:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
@@ -439,7 +439,7 @@ const deleteEmployeeBidder = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Bidder deleted successfully" });
   } catch (error) {
-    console.error("Error in deleteEmployeeBidder:", error);
+    // console.error("Error in deleteEmployeeBidder:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
@@ -645,7 +645,7 @@ const getAccountWise = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -684,7 +684,7 @@ const getBidderByMultipleIds = async (req, res) => {
       data: records,
     });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
