@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 const categoryDetails = new mongoose.Schema({
     title:{type:String,required:[true,"Please provide a title"]},
     status:{type:String, required: [true, "Please provide a status"]},
-
+    orders:{type: Number, 
+        required: [true, "Please provide a order"],
+        unique: true},
    
 } ,{
     timestamps:true,

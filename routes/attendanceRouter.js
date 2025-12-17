@@ -7,6 +7,7 @@ import {
   dashboardAttendanceAndBirthday,
   updateAttendanceEntry,
   getparticularemployeeMonthlyAttendanceDetails,
+  getparticularemployeeMonthlyAttendanceWithTop5,
   payroll,
   addAttendance,
   getODAttendanceList
@@ -23,6 +24,7 @@ attendanceRouter.put("/update-entry", updateAttendanceEntry);
 attendanceRouter.get("/report", getAttendanceReport);
 // Add any additional routes related to attendance here
 attendanceRouter.get("/particular-month-attendancelist",getparticularemployeeMonthlyAttendance);
+attendanceRouter.get("/particular-month-attendancelist-top5",getparticularemployeeMonthlyAttendanceWithTop5);
 attendanceRouter.get("/particular-month-attendancelist-details",getparticularemployeeMonthlyAttendanceDetails);
 attendanceRouter.get("/dashboard-attendance-birthday",dashboardAttendanceAndBirthday); // Assuming this is the correct route for dashboard attendance and birthday
 attendanceRouter.get("/payroll",payroll);

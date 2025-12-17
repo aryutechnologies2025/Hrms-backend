@@ -101,10 +101,32 @@ const getTitleFromCategory = async (req, res) => {
 
 const getLinkByCategory = async (req, res) => {
   try {
-    const linksByCategory = await LinkDetails.aggregate([
+    const data = await LinkDetails.aggregate([
+      // Join category details
+      {
+        $lookup: {
+          from: "categorydetails", // collection name (IMPORTANT)
+          localField: "category",
+          foreignField: "title",
+          as: "categoryInfo"
+        }
+      },
+
+      { $unwind: "$categoryInfo" },
+
+      // Sort by category order + link order (if exists)
+      {
+        $sort: {
+          "categoryInfo.orders": 1,
+          orders: 1
+        }
+      },
+
+      // Group by category
       {
         $group: {
           _id: "$category",
+          categoryOrder: { $first: "$categoryInfo.orders" },
           links: {
             $push: {
               _id: "$_id",
@@ -114,28 +136,38 @@ const getLinkByCategory = async (req, res) => {
           }
         }
       },
+
+      // Final projection
       {
         $project: {
           _id: 0,
           category: "$_id",
+          orders: "$categoryOrder",
           links: 1
         }
       },
+
+      // Final sort by category order
       {
-        $sort: { category: 1 }
+        $sort: { orders: 1 }
       }
     ]);
 
-    if (!linksByCategory.length) {
-      return res.status(404).json({ success: false, message: "No link details found" });
+    if (!data.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No link details found"
+      });
     }
 
-    res.status(200).json({ success: true, data: linksByCategory });
+    res.status(200).json({ success: true, data });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
+
 
 
 
