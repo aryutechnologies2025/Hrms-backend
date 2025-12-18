@@ -283,7 +283,7 @@ const logoutUser = (req, res) => {
 
 const loginUser = async (req, res) => {
   const { type } = req.params;
-  console.log("Login type:", type);
+  // console.log("Login type:", type);
   try {
     const { email, password } = req.body;
 
@@ -362,7 +362,7 @@ const loginUser = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
     });
-    console.log("userType", userType);
+    // console.log("userType", userType);
     // 7️ Respond based on user type
     if (userType === "user") {
       return res.status(200).json({
@@ -395,7 +395,7 @@ const loginUser = async (req, res) => {
         token,
       });
     } else if (userType === "subuser") {
-      console.log("userData in subuser login:", userData);
+      // console.log("userData in subuser login:", userData);
 
       if (userData) {
         const ischeckClient = await ClientDetails.findOne({
@@ -429,7 +429,7 @@ const loginUser = async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("Login Error:", err);
+    // console.error("Login Error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -437,7 +437,7 @@ const loginUser = async (req, res) => {
 const sendVerifyOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log("vvv", req.body);
+    // console.log("vvv", req.body);
 
     // Check if user exists
     const user = await User.findOne({ email });
@@ -465,7 +465,7 @@ const sendVerifyOtp = async (req, res) => {
       otp: process.env.NODE_ENV === "development" ? otp : undefined,
     });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -495,7 +495,7 @@ const verifyOtp = async (req, res) => {
 
     res.status(200).json({ message: "Account verified successfully" });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -531,7 +531,7 @@ const sendResetOtp = async (req, res) => {
       otp: process.env.NODE_ENV === "development" ? otp : undefined,
     });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -566,7 +566,7 @@ const resetPassword = async (req, res) => {
 
     res.status(200).json({ message: "Password reset successful" });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -627,8 +627,8 @@ const resetPasswordWithToken = async (req, res) => {
 // change password functionality
 const adminChangePassword = async (req, res) => {
   const { id, newPassword } = req.body;
-  console.log(req.body);
-  console;
+  // console.log(req.body);
+
   try {
     // 1. Find user
     const user = await User.findById(id);
@@ -640,7 +640,7 @@ const adminChangePassword = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Password changed successfully" });
   } catch (err) {
-    console.error(err);
+    // console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

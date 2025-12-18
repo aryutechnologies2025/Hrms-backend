@@ -26,7 +26,7 @@ console.log("object")
     // } = req.body;
 
     let fileNames = [];
-console.log("fileUpload: ",req.fileUpload)
+// console.log("fileUpload: ",req.fileUpload)
 // if (req.files) {
 //   fileName = req.file.filename;          // single upload
 // } else if (req.files && req.files.fileUpload) {
@@ -37,7 +37,7 @@ if (req.files && req.files.length > 0) {
 }
 const data = req.body;
 
-console.log("data",data)
+// console.log("data",data)
 
 // Convert numeric values
     const quantity = Number(data.quantity);
@@ -92,7 +92,7 @@ console.log("data",data)
     disposedDate: formatDate(obj.disposedDate)}
     });
   } catch (error) {
-    console.error("Error:", error);
+    // console.error("Error:", error);
     res.status(500).json({
       success: false,
       // message: "Internal server error",
@@ -152,7 +152,7 @@ const getAssetDetailsById = async (req, res) => {
     res.status(200).json({ success: true, data: formatted });
 
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
@@ -249,7 +249,7 @@ const editAssetDetails = async (req, res) => {
       }
       return res.status(400).json({ success: false, errors });
     }
-    console.error("Error:", error);
+    // console.error("Error:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
