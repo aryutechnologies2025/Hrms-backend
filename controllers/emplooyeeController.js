@@ -1149,52 +1149,90 @@ const allActiveAndRelievingEmployeesUserDetails = async (req, res) => {
   }
 };
 
-const particularEmployeeUserDetails = async (req, res) => {
-  const emp = await Employee.aggregate([
-    {
-      $match: {
-        employeeStatus: "1",
-        _id: new mongoose.Types.ObjectId(req.params.id),
-      }, // Optional match filter
-    },
-    {
-      $lookup: {
-        from: "employeeroles", // collection name of role model
-        localField: "roleId",
-        foreignField: "_id",
-        as: "role",
-      },
-    },
-    { $unwind: "$role" },
-    {
-      $lookup: {
-        from: "employeedepartments", // collection name of department model
-        localField: "role.departmentId",
-        foreignField: "_id",
-        as: "role.department",
-      },
-    },
-    { $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true } },
-    // {
-    //   $project: {
-    //     employeeName: 1,
-    //     email: 1,
-    //     role: {
-    //       name: "$role.name",
-    //       status: "$role.status",
-    //       department: "$role.department"
-    //     }
-    //   }
-    // }
-  ]);
+// const particularEmployeeUserDetails = async (req, res) => {
+//   const emp = await Employee.aggregate([
+//     {
+//       $match: {
+//         employeeStatus: "1",
+//         _id: new mongoose.Types.ObjectId(req.params.id),
+//       }, // Optional match filter
+//     },
+//     {
+//       $lookup: {
+//         from: "employeeroles", // collection name of role model
+//         localField: "roleId",
+//         foreignField: "_id",
+//         as: "role",
+//       },
+//     },
+//     { $unwind: "$role",preserveNullAndEmptyArrays: true },
+//     {
+//       $lookup: {
+//         from: "employeedepartments", // collection name of department model
+//         localField: "role.departmentId",
+//         foreignField: "_id",
+//         as: "role.department",
+//       },
+//     },
+//     { $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true } },
+//     // {
+//     //   $project: {
+//     //     employeeName: 1,
+//     //     email: 1,
+//     //     role: {
+//     //       name: "$role.name",
+//     //       status: "$role.status",
+//     //       department: "$role.department"
+//     //     }
+//     //   }
+//     // }
+//   ]);
 
-  const userDetails = emp[0];
-  if (emp.document && emp.document.length > 0)
-    if (!emp) return res.status(404).json({ message: "Employee not found" });
-  res.status(200).json({ success: true, data: userDetails });
+//   const userDetails = emp[0];
+//   if (emp.document && emp.document.length > 0)
+//     if (!emp) return res.status(404).json({ message: "Employee not found" });
+//   res.status(200).json({ success: true, data: userDetails });
+// };
+
+const particularEmployeeUserDetails = async (req, res) => {
+
+
+  console.log("req.params.id",req.params.id);
+  try {
+    const emp = await Employee.findOne({
+      _id: req.params.id,
+      employeeStatus: "1",
+    })
+      .populate({
+        path: "roleId",
+        select: "name status departmentId",
+        populate: {
+          path: "departmentId",
+          select: "name status",
+        },
+      })
+      .select("-password");
+
+    if (!emp) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: emp,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
 };
 
-// GET /api/format-date?date=2024-12-03
 
 const generateEmployeeId = async (req, res) => {
   const { dateofjoining } = req.body;

@@ -39,351 +39,307 @@ export default async function startSocketServer(httpServer) {
   // --- Attach Redis Adapter ---
   io.adapter(getRedisAdapter());
 
-  // --- Socket Connections ---
-  // io.on("connection", async (socket) => {
-  //   console.log("Socket Connected:", socket.id);
+  
+const onlineUsers = new Map();
 
-  //   // Validate JWT
-  //   const token =
-  //     socket.handshake.auth?.token || socket.handshake.query?.token;
-  //   const payload = verifyToken(token);
-  //   console.log("payload",payload);
+//   io.on("connection", (socket) => {
+//     console.log("Connected:", socket.id);
 
-  //   if (!payload) {
-  //     socket.disconnect(true);
-  //     return;
-  //   }
+  
+//     /* ---------------- USER ONLINE ---------------- */
+// // socket.on("user_online", (userId) => {
+// //   onlineUsers.set(userId.toString(), socket.id);
+// //   socket.userId = userId.toString();
 
-  //   const userId = payload.userId;
-  //   socket.join(`user_${userId}`);
+// //   // 🔥 send updated list to all clients
+// //   io.emit("online_users", Array.from(onlineUsers.keys()));
+// // });
+// socket.on("user_online", async (userId) => {
+//   onlineUsers.set(userId.toString(), socket.id);
+//   socket.userId = userId.toString();
 
-  //   // Auto join user channels
-  //   try {
-  //     const channels = await Channel.find({ members: userId }).select("_id");
-  //     channels.forEach((c) => socket.join(`channel_${c._id}`));
-  //   } catch (err) {
-  //     console.error("Auto-join channels error:", err.message);
-  //   }
+//   // 🔥 mark old messages as delivered
+//   await Message.updateMany(
+//     {
+//       receiverId: userId,
+//       deliveredAt: null,
+//     },
+//     { deliveredAt: new Date() }
+//   );
 
-  //   // Notify connected
-  //   io.to(socket.id).emit("connected", {
-  //     socketId: socket.id,
-  //     userId,
-  //   });
+//   io.emit("online_users", Array.from(onlineUsers.keys()));
+// });
 
-  //   // Broadcast presence
-  //   io.emit("presence:update", { userId, online: true });
 
-  //   // Join channel manually
-  //   socket.on("joinChannel", (channelId) => {
-  //     socket.join(`channel_${channelId}`);
-  //   });
 
-  //   // Leave channel
-  //   socket.on("leaveChannel", (channelId) => {
-  //     socket.leave(`channel_${channelId}`);
-  //   });
 
-  //   // Typing indicator
-  //   socket.on("typing", ({ channelId, receiverId, typing }) => {
-  //     if (channelId) {
-  //       socket
-  //         .to(`channel_${channelId}`)
-  //         .emit("typing", { userId, typing });
-  //     }
 
-  //     if (receiverId) {
-  //       socket.to(`user_${receiverId}`).emit("typing", { userId, typing });
-  //     }
-  //   });
 
-  //   // Send Message
-  //   socket.on("sendMessage", async (payload) => {
-  //     try {
-  //       const newMsg = await Message.create({
-  //         senderId: userId,
-  //         channelId: payload.channelId || null,
-  //         receiverId: payload.receiverId || null,
-  //         text: payload.text || "",
-  //         files: payload.files || [],
-  //       });
-
-  //       if (payload.channelId) {
-  //         io.to(`channel_${payload.channelId}`).emit("receiveMessage", newMsg);
-  //       } else if (payload.receiverId) {
-  //         io.to(`user_${payload.receiverId}`).emit("receiveMessage", newMsg);
-  //         io.to(`user_${userId}`).emit("receiveMessage", newMsg);
-  //       }
-  //     } catch (err) {
-  //       console.error("sendMessage error:", err.message);
-  //       socket.emit("error", { message: "Failed to send message" });
-  //     }
-  //   });
-
-  //   // Message Seen
-  //   socket.on("messageSeen", async ({ messageId }) => {
-  //     try {
-  //       await Message.findByIdAndUpdate(messageId, {
-  //         $addToSet: { seenBy: userId },
-  //       });
-  //     } catch (err) {
-  //       console.error("messageSeen error:", err.message);
-  //     }
-  //   });
-
-  //   // Disconnect
-  //   socket.on("disconnect", () => {
-  //     io.emit("presence:update", { userId, online: false });
-  //   });
-  // });
-  //   io.on("connection", (socket) => {
-  //   console.log("Socket Connected:", socket.id);
-
-  //   // Join room for DM
-  //   socket.on("join_dm", ({ senderId, receiverId }) => {
-  //     const roomId = [senderId, receiverId].sort().join("_");
-  //     socket.join(roomId);
-  //   });
-
-  //   // Send DM
-  //   socket.on("send_dm", async ({ senderId, receiverId, text, files }) => {
-  //     const msg = await Message.create({
-  //       senderId,
-  //       receiverId,
-  //       text,
-  //       files,
-  //     });
-  //     console.log("send_dm",msg);
-
-  //     const roomId = [senderId, receiverId].sort().join("_");
-
-  //     io.to(roomId).emit("receive_dm", msg);
-  //   });
-  // });
-//    io.on("connection", (socket) => {
-//     console.log("Socket Connected:", socket.id);
-
-//     // JOIN DM ROOM
+//     /* ---------------- JOIN DM ROOM ---------------- */
 //     socket.on("join_dm", ({ senderId, receiverId }) => {
 //       const roomId = [senderId, receiverId].sort().join("_");
 //       socket.join(roomId);
 //     });
 
-//     // TYPING INDICATOR
-//     socket.on("typing", ({ senderId, receiverId, typing }) => {
-//       const roomId = [senderId, receiverId].sort().join("_");
-//       socket.to(roomId).emit("typing", {
-//         senderId,
-//         typing,
-//       });
-//     });
+//     /* ---------------- SEND DM ---------------- */
+    
+// //  socket.on("send_dm", async ({ clientId, senderId, receiverId, text, file }) => {
+// //   try {
+// //     const msg = await Message.create({
+// //       senderId,
+// //       receiverId,
+// //       text,
+// //       file,
+// //     });
 
-//     // SEND DM (NO ROLE CHECK)
-//     // socket.on("send_dm", async ({ senderId, receiverId, text, files }) => {
+// //     const receiverOnline = onlineUsers.has(receiverId.toString());
+// //     const roomId = [senderId, receiverId].sort().join("_");
+
+// //     io.to(roomId).emit("receive_dm", {
+// //       ...msg.toObject(),
+// //       clientId,
+// //       receiverOnline,   // ✅ IMPORTANT
+// //     });
+// //   } catch (err) {
+// //     console.error("send_dm error:", err.message);
+// //   }
+// // });
+// socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
+//   const isOnline = onlineUsers.has(receiverId.toString());
+
+//   const msg = await Message.create({
+//     senderId,
+//     receiverId,
+//     text,
+//     deliveredAt: isOnline ? new Date() : null,
+//   });
+
+//   const roomId = [senderId, receiverId].sort().join("_");
+
+//   io.to(roomId).emit("receive_dm", {
+//     ...msg.toObject(),
+//     clientId,
+//   });
+// });
+
+
+//     /* ---------------- MARK SEEN ---------------- */
+//     // socket.on("mark_seen", async ({ senderId, receiverId }) => {
 //     //   try {
-//     //     const msg = await Message.create({
-//     //       senderId,
-//     //       receiverId,
-//     //       text,
-//     //       files,
-//     //     });
-//     //     console.log("send ",msg)
+//     //     await Message.updateMany(
+//     //       {
+//     //         senderId,
+//     //         receiverId,
+//     //         seenBy: { $ne: receiverId },
+//     //       },
+//     //       { $addToSet: { seenBy: receiverId } }
+//     //     );
 
 //     //     const roomId = [senderId, receiverId].sort().join("_");
-//     //     io.to(roomId).emit("receive_dm", msg);
-//     //   } catch (err) {
-//     //     console.error("send_dm error:", err.message);
-//     //   }
-//     // });
-//     socket.on("send_dm", async ({ clientId, senderId, receiverId, text,files }) => {
-      
-//       const msg = await Message.create({
-//         senderId,
-//         receiverId,
-//         text,
-//         files
-//       });
 
-//       const room = [senderId, receiverId].sort().join("_");
-
-//       io.to(room).emit("receive_dm", {
-//         ...msg.toObject(),
-//         clientId, // 🔑 important
-//       });
-//     });
-  
-
-//     // MARK MESSAGES AS SEEN
-//     // socket.on("mark_seen", async ({ senderId, receiverId }) => {
-//     //   await Message.updateMany(
-//     //     {
+//     //     io.to(roomId).emit("messages_seen", {
 //     //       senderId,
 //     //       receiverId,
-//     //       seenBy: { $ne: receiverId },
-//     //     },
-//     //     { $addToSet: { seenBy: receiverId } }
-//     //   );
-
-//     //   const roomId = [senderId, receiverId].sort().join("_");
-//     //   io.to(roomId).emit("messages_seen", { senderId });
+//     //     });
+//     //   } catch (err) {
+//     //     console.error("mark_seen error:", err.message);
+//     //   }
 //     // });
-//     socket.on("mark_seen", async ({ senderId, receiverId }) => {
+// socket.on("mark_seen", async ({ senderId, receiverId }) => {
 //   await Message.updateMany(
 //     {
 //       senderId,
 //       receiverId,
-//       seenBy: { $ne: receiverId },
+//       seenAt: null,
 //     },
-//     { $addToSet: { seenBy: receiverId } }
+//     { seenAt: new Date() }
 //   );
 
 //   const roomId = [senderId, receiverId].sort().join("_");
 
 //   io.to(roomId).emit("messages_seen", {
 //     senderId,
-//     receiverId, // IMPORTANT
+//     receiverId,
 //   });
 // });
 
+//     /* ---------------- DISCONNECT ---------------- */
+//     // socket.on("disconnect", () => {
+//     //   if (socket.userId) {
+//     //     onlineUsers.delete(socket.userId);
+//     //   }
+//     //   console.log("Disconnected:", socket.id);
+//     // });
+//     socket.on("disconnect", () => {
+//   if (socket.userId) {
+//     onlineUsers.delete(socket.userId);
+
+//     //  update everyone
+//     io.emit("online_users", Array.from(onlineUsers.keys()));
+//   }
+// });
+
+
+
 //   });
-const onlineUsers = new Map();
+//  io.on("connection", (socket) => {
+//     console.log("Connected:", socket.id);
 
-  io.on("connection", (socket) => {
-    console.log("Connected:", socket.id);
+//     /* USER ONLINE */
+//     socket.on("user_online", async (userId) => {
+//       socket.userId = userId.toString();
+//       onlineUsers.set(socket.userId, socket.id);
 
-    /* ---------------- USER ONLINE ---------------- */
-    // socket.on("user_online", (userId) => {
-    //   onlineUsers.set(userId.toString(), socket.id);
-    //   socket.userId = userId.toString();
-    // });
-    /* ---------------- USER ONLINE ---------------- */
-socket.on("user_online", (userId) => {
-  onlineUsers.set(userId.toString(), socket.id);
-  socket.userId = userId.toString();
+//       // mark undelivered messages as delivered
+//       await Message.updateMany(
+//         { receiverId: userId, deliveredAt: null },
+//         { deliveredAt: new Date() }
+//       );
 
-  // 🔥 send updated list to all clients
-  io.emit("online_users", Array.from(onlineUsers.keys()));
-});
+//       io.emit("online_users", [...onlineUsers.keys()]);
+//     });
 
-// socket.on("user_online", async (userId) => {
-//   onlineUsers.set(userId.toString(), socket.id);
-//   socket.userId = userId.toString();
+//     /* JOIN DM */
+//     socket.on("join_dm", ({ senderId, receiverId }) => {
+//       const room = [senderId, receiverId].sort().join("_");
+//       socket.join(room);
+//     });
 
-//   io.emit("online_users", Array.from(onlineUsers.keys()));
+//     /* SEND MESSAGE */
+//     socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
+//       const isOnline = onlineUsers.has(receiverId.toString());
 
-//   // 🔥 NEW: notify senders that messages are delivered
-//   const undeliveredMessages = await Message.find({
-//     receiverId: userId,
-//     seenBy: { $ne: userId },
-//   });
+//       const msg = await Message.create({
+//         senderId,
+//         receiverId,
+//         text,
+//         deliveredAt: isOnline ? new Date() : null,
+//       });
 
-//   undeliveredMessages.forEach((msg) => {
-//     const roomId = [msg.senderId, msg.receiverId].sort().join("_");
+//       const room = [senderId, receiverId].sort().join("_");
 
-//     io.to(roomId).emit("message_delivered", {
-//       senderId: msg.senderId,
-//       receiverId: msg.receiverId,
+//       io.to(room).emit("receive_dm", {
+//         ...msg.toObject(),
+//         clientId,
+//       });
+//     });
+
+//     /* MARK SEEN */
+//     socket.on("mark_seen", async ({ senderId, receiverId }) => {
+//       await Message.updateMany(
+//         { senderId, receiverId, seenAt: null },
+//         {
+//           $set: { seenAt: new Date() },
+//           $addToSet: { seenBy: receiverId },
+//         }
+//       );
+
+//       const room = [senderId, receiverId].sort().join("_");
+//       io.to(room).emit("messages_seen", { senderId, receiverId });
+//     });
+
+//     /* DISCONNECT */
+//     socket.on("disconnect", () => {
+//       if (socket.userId) {
+//         onlineUsers.delete(socket.userId);
+//         io.emit("online_users", [...onlineUsers.keys()]);
+//       }
 //     });
 //   });
-// });
+ io.on("connection", (socket) => {
+    console.log("Connected:", socket.id);
 
+    /* USER ONLINE */
+    socket.on("user_online", async (userId) => {
+      socket.userId = userId.toString();
+      onlineUsers.set(socket.userId, socket.id);
 
+      // mark delivered
+      await Message.updateMany(
+        { receiverId: userId, deliveredAt: null },
+        { deliveredAt: new Date() }
+      );
 
-    /* ---------------- JOIN DM ROOM ---------------- */
-    socket.on("join_dm", ({ senderId, receiverId }) => {
-      const roomId = [senderId, receiverId].sort().join("_");
-      socket.join(roomId);
+      io.emit("online_users", [...onlineUsers.keys()]);
     });
 
-    /* ---------------- SEND DM ---------------- */
-    // socket.on("send_dm", async ({ clientId, senderId, receiverId, text,file }) => {
-    //   try {
-    //     const msg = await Message.create({
+    /* JOIN ROOM */
+    socket.on("join_dm", ({ senderId, receiverId }) => {
+      const room = [senderId, receiverId].sort().join("_");
+      socket.join(room);
+    });
+
+    /* SEND MESSAGE */
+    socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
+      const isOnline = onlineUsers.has(receiverId.toString());
+
+      const msg = await Message.create({
+        senderId,
+        receiverId,
+        text,
+        deliveredAt: isOnline ? new Date() : null,
+      });
+
+      const room = [senderId, receiverId].sort().join("_");
+
+      io.to(room).emit("receive_dm", {
+        ...msg.toObject(),
+        clientId,
+      });
+    });
+
+    /* SEEN */
+    // socket.on("mark_seen", async ({ senderId, receiverId }) => {
+    //   const now = new Date();
+
+    //   const result = await Message.updateMany(
+    //     { senderId, receiverId, seenAt: null },
+    //     {
+    //       $set: { seenAt: now },
+    //       $addToSet: { seenBy: receiverId },
+    //     }
+    //   );
+
+    //   if (result.modifiedCount > 0) {
+    //     const room = [senderId, receiverId].sort().join("_");
+    //     io.to(room).emit("messages_seen", {
     //       senderId,
     //       receiverId,
-    //       text,
-    //       file
-          
+    //       seenAt: now,
     //     });
-
-    //     const receiverOnline = onlineUsers.has(receiverId.toString());
-
-    //     const roomId = [senderId, receiverId].sort().join("_");
-
-    //     io.to(roomId).emit("receive_dm", {
-    //       ...msg.toObject(),
-    //       clientId,
-    //       delivered: receiverOnline, // 🔑 key
-    //     });
-    //   } catch (err) {
-    //     console.error("send_dm error:", err.message);
     //   }
     // });
- socket.on("send_dm", async ({ clientId, senderId, receiverId, text, file }) => {
-  try {
-    const msg = await Message.create({
-      senderId,
-      receiverId,
-      text,
-      file,
-    });
+socket.on("mark_seen", async ({ senderId, receiverId }) => {
+  const now = new Date();
 
-    const receiverOnline = onlineUsers.has(receiverId.toString());
-    const roomId = [senderId, receiverId].sort().join("_");
+  const result = await Message.updateMany(
+    { senderId, receiverId, seenAt: null },
+    {
+      $set: { seenAt: now },
+      $addToSet: { seenBy: receiverId },
+    }
+  );
 
-    io.to(roomId).emit("receive_dm", {
-      ...msg.toObject(),
-      clientId,
-      receiverOnline,   // ✅ IMPORTANT
-    });
-  } catch (err) {
-    console.error("send_dm error:", err.message);
+  if (result.modifiedCount > 0) {
+    // 🔥 SEND DIRECTLY TO SENDER SOCKET
+    const senderSocketId = onlineUsers.get(senderId.toString());
+
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messages_seen", {
+        senderId,
+        receiverId,
+        seenAt: now,
+      });
+    }
   }
 });
 
-
-    /* ---------------- MARK SEEN ---------------- */
-    socket.on("mark_seen", async ({ senderId, receiverId }) => {
-      try {
-        await Message.updateMany(
-          {
-            senderId,
-            receiverId,
-            seenBy: { $ne: receiverId },
-          },
-          { $addToSet: { seenBy: receiverId } }
-        );
-
-        const roomId = [senderId, receiverId].sort().join("_");
-
-        io.to(roomId).emit("messages_seen", {
-          senderId,
-          receiverId,
-        });
-      } catch (err) {
-        console.error("mark_seen error:", err.message);
+    socket.on("disconnect", () => {
+      if (socket.userId) {
+        onlineUsers.delete(socket.userId);
+        io.emit("online_users", [...onlineUsers.keys()]);
       }
     });
-
-    /* ---------------- DISCONNECT ---------------- */
-    // socket.on("disconnect", () => {
-    //   if (socket.userId) {
-    //     onlineUsers.delete(socket.userId);
-    //   }
-    //   console.log("Disconnected:", socket.id);
-    // });
-    socket.on("disconnect", () => {
-  if (socket.userId) {
-    onlineUsers.delete(socket.userId);
-
-    //  update everyone
-    io.emit("online_users", Array.from(onlineUsers.keys()));
-  }
-});
-
-
-
   });
-
   return io;
 }

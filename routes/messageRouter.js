@@ -54,13 +54,28 @@
 
 
 
+// import express from "express";
+// import { getDMHistory, getUnreadCounts, markMessagesSeen } from "../controllers/messageController.js";
+
+// const messageRouter = express.Router();
+
+// messageRouter.get("/dm/:userId/:otherUserId", getDMHistory);
+// messageRouter.get("/unread/:userId", getUnreadCounts);
+// messageRouter.post("/seen", markMessagesSeen);
+
+// export default messageRouter;
+// routes/messageRoutes.js
 import express from "express";
-import { getDMHistory, getUnreadCounts, markMessagesSeen } from "../controllers/messageController.js";
+import {
+  getDMHistory,
+  getUnreadCounts,
+  markMessagesSeen,
+} from "../controllers/messageController.js";
 
-const messageRouter = express.Router();
+const router = express.Router();
 
-messageRouter.get("/dm/:userId/:otherUserId", getDMHistory);
-messageRouter.get("/unread/:userId", getUnreadCounts);
-messageRouter.post("/seen", markMessagesSeen);
+router.get("/dm/:userId/:otherUserId", getDMHistory);
+router.get("/unread/:userId", getUnreadCounts);
+router.post("/seen", markMessagesSeen);
 
-export default messageRouter;
+export default router;
