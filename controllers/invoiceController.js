@@ -28,8 +28,8 @@ const createInvoice = async (req, res) => {
       invoice_type,
       status,
       igst,
-      cgst,sgst,
-      
+      cgst,
+      sgst,
     } = req.body;
 
     const newInvoice = new Invoice({
@@ -46,7 +46,8 @@ const createInvoice = async (req, res) => {
       invoice_type,
       status,
       igst,
-      cgst,sgst
+      cgst,
+      sgst,
     });
 
     const savedInvoice = await newInvoice.save();
@@ -72,9 +73,12 @@ const createInvoice = async (req, res) => {
 };
 const getInvoiceDetails = async (req, res) => {
   try {
-    const invoiceDetails = await Invoice.find({ is_deleted: "0" }).sort({
-      createdAt: -1,
-    }).populate("clientId", 'client_name').populate("project", 'name');
+    const invoiceDetails = await Invoice.find({ is_deleted: "0" })
+      .sort({
+        createdAt: -1,
+      })
+      .populate("clientId", "client_name")
+      .populate("project", "name");
     res.status(200).json({ success: true, data: invoiceDetails });
   } catch (error) {
     console.error("Error:", error);
@@ -134,13 +138,23 @@ const uploadClientInvoice = async (req, res) => {
       }));
     }
 
+    // const updatedInvoice = await Invoice.findOneAndUpdate(
+    //   { _id: id },
+    //   {
+    //     $set: { invoice_type },
+    //     ...(invoiceDocs.length && {
+    //       $push: { documents: { $each: invoiceDocs } },
+    //     }),
+    //   },
+    //   { new: true }
+    // );
     const updatedInvoice = await Invoice.findOneAndUpdate(
       { _id: id },
       {
-        $set: { invoice_type },
-        ...(invoiceDocs.length && {
-          $push: { documents: { $each: invoiceDocs } },
-        }),
+        $set: {
+          invoice_type,
+          ...(invoiceDocs.length && { documents: invoiceDocs }),
+        },
       },
       { new: true }
     );
@@ -166,27 +180,25 @@ const uploadClientInvoice = async (req, res) => {
   }
 };
 
-
 const clientInvoiceById = async (req, res) => {
   const { id } = req.query;
   console.log(id, "id");
   try {
     const invoiceSetting = await InvoiceSettings.findOne({});
-    const invoiceDetails = await Invoice
-      .findById(id)
+    const invoiceDetails = await Invoice.findById(id)
       .populate("clientId")
-      .populate("project", 'name');
+      .populate("project", "name");
 
-     res.status(200).json({
+    res.status(200).json({
       success: true,
       data: invoiceDetails,
-      setting: invoiceSetting
+      setting: invoiceSetting,
     });
   } catch (error) {
     console.error("Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error"
+      message: "Internal Server Error",
     });
   }
 };
@@ -195,38 +207,33 @@ const clientDashboard = async (req, res) => {
   const { clientId } = req.query;
 
   try {
-    const invoiceDetails = await Invoice
-      .find({ clientId })
+    const invoiceDetails = await Invoice.find({ clientId })
       .populate("clientId", "client_name")
       .populate("project", "name");
 
-    const mappedData = invoiceDetails.map(invoice => {
+    const mappedData = invoiceDetails.map((invoice) => {
       return {
         invoiceId: invoice._id,
         clientName: invoice.clientId?.client_name,
         projectName: invoice.project?.name,
         invoiceType: invoice?.invoice_type,
         document: invoice?.documents,
-        status:invoice?.status
+        status: invoice?.status,
       };
     });
 
     res.status(200).json({
       success: true,
-      data: mappedData
+      data: mappedData,
     });
-
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal Server Error"
+      message: "Internal Server Error",
     });
   }
 };
-
-
-
 
 const deleteInvoiceDetails = async (req, res) => {
   const { id } = req.params;
@@ -319,5 +326,5 @@ export {
   getProjectNameWithClient,
   uploadClientInvoice,
   clientInvoiceById,
-  clientDashboard
+  clientDashboard,
 };
