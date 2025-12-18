@@ -94,6 +94,7 @@ const startApp = async () => {
   app.use("/api/auth", userRoutes);
   app.use("/api/roles", roleRouter);
   app.use("/api/employees", employeeRoutes);
+
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/leave", leaveRoutes);
   app.use("/api/department", DepartmentRouter);
@@ -138,6 +139,48 @@ const startApp = async () => {
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);
+
+//   app.use("/api/attendance",useAuth, attendanceRoutes);
+//   app.use("/api/leave",useAuth, leaveRoutes);
+//   app.use("/api/department",useAuth, DepartmentRouter);
+//   app.use("/api/project",useAuth, projectRouter);
+//   app.use("/api/task",useAuth, taskRouter);
+//   app.use("/api/client",useAuth, ClientRouter);
+//   app.use("/api/clientsubuser",useAuth,clientSubuser);
+//   app.use("/api/invoice",useAuth, invoiceRouter);
+//   app.use("/api/upcomingholiday",useAuth, upcomingHolidayRouter);
+//   app.use("/api/income",useAuth, incomeRouter);
+//   // app.use("/api/category",useAuth, categoryRouter);
+//   app.use("/api/category", categoryRouter);
+//   app.use("/api/link",useAuth, linkRouter);
+//   app.use("/api/revision",useAuth, revisionRouter);
+//   app.use("/api/leaveType",useAuth, leaveTypeRouter);
+//   app.use("/api/expense",useAuth, expenseRouter);
+//   app.use("/api/employeeRequest",useAuth, employeeRequestRouter);
+//   app.use("/api/communication",useAuth, communicationRouter);
+//   app.use("/api/payroll",useAuth, payrollRouter);
+//   app.use("/api/joining",useAuth, joiningRouter);
+//   app.use("/api/joining-verify",useAuth, joiningVerifyRouter);
+//   app.use("/api/reliving",useAuth, relivingRouter);
+//   app.use("/api/reliving-verify",useAuth, relivingVerifyRouter);
+//   app.use("/api/hr-permission",useAuth, hrPermissionRouter);
+//   app.use("/api/declaration",useAuth, declarationRouter);
+//   app.use("/api/letter",useAuth, letterRouter);
+//   app.use("/api/payment-type",useAuth, paymentTypeRouter);
+//   app.use("/api/setting",useAuth, settingRouter);
+//   app.use("/api/bidder",useAuth, bidder);
+//   app.use("/api/job-type",useAuth, jobTypeRouter);
+//   app.use("/api/social-media",useAuth, socialMediaRouter);
+//   app.use("/api/subtasks",useAuth,subtaskRouter);
+//   app.use("/api/mom",useAuth, momRouter);
+//   app.use("/api/asset-mannagement",useAuth, assetRouter);
+//   app.use("/api/asset-mannagement-category",useAuth, assetCategoryRouter);
+//   app.use("/api/sub-asset-category",useAuth, subCategoryRouter);
+//   app.use("/api/statement", useAuth,statementsRouter);
+//   app.use("/api/announcement",useAuth, announcementRouter);
+//   app.use("/api/projectNotes",useAuth, projectNotesRouter);
+
+
   // Base route
   app.get('/api', (req, res) => res.send('API is running...'));
   const PORT = process.env.PORT || 5000;

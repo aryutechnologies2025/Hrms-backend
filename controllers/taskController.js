@@ -861,7 +861,7 @@ const allTaskList = async (req, res) => {
     pipeline.push({ $limit: parseInt(limit) });
 
     let taskList = await Task.aggregate(pipeline);
-    
+
     const getUserName = async (userId) => {
       console.log("Fetching user name for ID:", userId);
       if (!userId) return null;
@@ -2771,6 +2771,7 @@ const updateTaskStatus = async (req, res) => {
         taskId: updatedTask.taskId,
         status,
         updatedBy,
+        taskType,
         startTime: new Date(), // You could also use startTime from req.body
       });
 
@@ -2817,9 +2818,9 @@ const updateTaskStatus = async (req, res) => {
         }
       }
 
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status value" });
-      }
+      // if (!allowedStatuses.includes(status)) {
+      //   return res.status(400).json({ message: "Invalid status value" });
+      // }
 
       // Step 2: Find the task
       const findTask = await Task.findOne({ taskId: id });
@@ -2969,6 +2970,7 @@ const updateTaskStatus = async (req, res) => {
         status,
         startTime,
         endTime,
+        taskType
       };
 
       // If task not assigned yet, assign it to updatedBy
