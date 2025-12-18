@@ -219,6 +219,9 @@ const clientDashboard = async (req, res) => {
         invoiceType: invoice?.invoice_type,
         document: invoice?.documents,
         status: invoice?.status,
+        due:invoice?.due_date,
+        invoiceNumber:invoice?.invoice_number,
+        invoiceDate:invoice?.invoice_date
       };
     });
 
