@@ -19,16 +19,11 @@ import {
   hrPermission,
   relivingList,
   updateReliving,
-
   allActiveDropDownEmployeesUserDetails,
   FilterByDateActiveEmployee,
-  
-
   dashboard,
   allActiveAndRelievingEmployeesUserDetails,
-  
-
-
+  allUserAdminAndEmployee,
 } from "../controllers/emplooyeeController.js";
 
 import upload from "../middlewares/upload.js";
@@ -37,17 +32,17 @@ import useAuth from "../middlewares/userAuth.js";
 
 const employeeRouter = express.Router();
 
-employeeRouter.post("/forgot-password",useAuth, forgotPassword);
+employeeRouter.post("/forgot-password", forgotPassword);
 employeeRouter.post("/reset-password/:id", resetPassword);
 employeeRouter.post("/login-employee", loginEmployee);
-employeeRouter.post("/isdelete-employee",useAuth, checkEmployeeIsdelete);
+employeeRouter.post("/isdelete-employee", checkEmployeeIsdelete);
 employeeRouter.post("/generate-employee-forgot", forgotPassword_employee);
 employeeRouter.post("/generate-employee-reset", resetPassword_employee);
-employeeRouter.post("/hr-permission", useAuth,hrPermission);
-employeeRouter.get("/reliving-list", useAuth,relivingList);
-employeeRouter.put("/edit-reliving-list/:id",useAuth, updateReliving);
-employeeRouter.get("/dashboard",useAuth, dashboard);
-  // const date = new Date().toISOString().split("T")[0];
+employeeRouter.post("/hr-permission", hrPermission);
+employeeRouter.get("/reliving-list", relivingList);
+employeeRouter.put("/edit-reliving-list/:id", updateReliving);
+employeeRouter.get("/dashboard", useAuth, dashboard);
+// const date = new Date().toISOString().split("T")[0];
 
 // employeeRouter.post(
 //   "/create-employee",
@@ -74,7 +69,7 @@ employeeRouter.post(
       // Proceed to controller
       next();
     });
-  },useAuth,
+  },
   createEmployee
 );
 // employeeRouter.post("/create-employee",upload.single("photo"), createEmployee);
@@ -99,24 +94,33 @@ employeeRouter.put(
       // Proceed to controller
       next();
     });
-  },useAuth,
+  },
   editEmployee
 );
-employeeRouter.delete("/delete-employees/:id",useAuth, deleteEmployee);
-employeeRouter.get("/all-employees",useAuth, allActiveDropDownEmployeesUserDetails);
-employeeRouter.get("/all-active-employees",useAuth,allEmployeesUserDetails);
-employeeRouter.get("/all-employees-filterdate/:date",useAuth,FilterByDateActiveEmployee);
-employeeRouter.get("/all-active-reliving-employees",useAuth,allActiveAndRelievingEmployeesUserDetails);
+employeeRouter.delete("/delete-employees/:id", deleteEmployee);
+employeeRouter.get("/all-employees", allActiveDropDownEmployeesUserDetails);
+employeeRouter.get("/all-active-employees", allEmployeesUserDetails);
+employeeRouter.get(
+  "/all-employees-filterdate/:date",
+  FilterByDateActiveEmployee
+);
+employeeRouter.get(
+  "/all-active-reliving-employees",
+  allActiveAndRelievingEmployeesUserDetails
+);
 // employeeRouter.get("/employee-document-delete/:id",EmployeesUserDetails);
-employeeRouter.get("/view-employee/:id",useAuth, particularEmployeeUserDetails);
-employeeRouter.post("/generate-employeeid",useAuth, generateEmployeeId);
-employeeRouter.get("/today-logs/:date",useAuth, AllLoginEmployeeDetails);
+employeeRouter.get("/view-employee/:id", particularEmployeeUserDetails);
+employeeRouter.post("/generate-employeeid", generateEmployeeId);
+employeeRouter.get("/today-logs/:date", AllLoginEmployeeDetails);
 employeeRouter.delete(
   "/delete-employee-file/:id/:index",
-  useAuth,deleteEmployeeFileByIndex
+  deleteEmployeeFileByIndex
 );
-employeeRouter.post('/change-password',useAuth, changePassword);
-employeeRouter.get("/get-revision-history/:id",useAuth, getRevisionHistoryById);
+employeeRouter.post("/change-password", changePassword);
+employeeRouter.get("/get-revision-history/:id", getRevisionHistoryById);
 // employeeRouter.get("/particular-employee-original-password/:email",getParticularUserOriginalPassword);
-employeeRouter.get("/calculate-salary",useAuth,payroll);
+employeeRouter.get("/calculate-salary", payroll);
+employeeRouter.get("/all-users",allUserAdminAndEmployee); 
+
+
 export default employeeRouter;

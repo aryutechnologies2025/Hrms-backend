@@ -32,7 +32,7 @@ const useAuth = (req, res, next) => {
   console.log("Cookies:", req.cookies);
   // 1. Get token from cookies
   const token = req.cookies?.token;
-  console.log("Token from cookies:", token);
+  // console.log("Token from cookies:", token);
 
   // 2. Check if token exists
   if (!token) {

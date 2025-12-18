@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
+import http from "http";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,6 +59,9 @@ import announcementRouter from "./routes/announcementRouter.js";
 import subCategoryRouter from "./routes/subCategoryRouter.js";
 import projectNotesRouter from "./routes/projectNotesRouter.js";
 import useAuth from "./middlewares/userAuth.js";
+import  startSocketServer  from "./socket.js";
+import channelRouter from "./routes/channelRouter.js";
+import messageRouter from "./routes/messageRouter.js";
 
 // Load environment variables
 dotenv.config();
@@ -90,6 +94,7 @@ const startApp = async () => {
   app.use("/api/auth", userRoutes);
   app.use("/api/roles", roleRouter);
   app.use("/api/employees", employeeRoutes);
+
   app.use("/api/attendance", attendanceRoutes);
   app.use("/api/leave", leaveRoutes);
   app.use("/api/department", DepartmentRouter);
@@ -100,7 +105,6 @@ const startApp = async () => {
   app.use("/api/invoice", invoiceRouter);
   app.use("/api/upcomingholiday", upcomingHolidayRouter);
   app.use("/api/income", incomeRouter);
-  // app.use("/api/category",useAuth, categoryRouter);
   app.use("/api/category", categoryRouter);
   app.use("/api/link", linkRouter);
   app.use("/api/revision", revisionRouter);
@@ -130,10 +134,59 @@ const startApp = async () => {
   app.use("/api/announcement", announcementRouter);
   app.use("/api/projectNotes", projectNotesRouter);
 
+  app.use("/api/channel",channelRouter);
+  app.use("/api/messages",messageRouter);
+  
+  // socket sever
+  const server = http.createServer(app);
+   startSocketServer(server);
+
+//   app.use("/api/attendance",useAuth, attendanceRoutes);
+//   app.use("/api/leave",useAuth, leaveRoutes);
+//   app.use("/api/department",useAuth, DepartmentRouter);
+//   app.use("/api/project",useAuth, projectRouter);
+//   app.use("/api/task",useAuth, taskRouter);
+//   app.use("/api/client",useAuth, ClientRouter);
+//   app.use("/api/clientsubuser",useAuth,clientSubuser);
+//   app.use("/api/invoice",useAuth, invoiceRouter);
+//   app.use("/api/upcomingholiday",useAuth, upcomingHolidayRouter);
+//   app.use("/api/income",useAuth, incomeRouter);
+//   // app.use("/api/category",useAuth, categoryRouter);
+//   app.use("/api/category", categoryRouter);
+//   app.use("/api/link",useAuth, linkRouter);
+//   app.use("/api/revision",useAuth, revisionRouter);
+//   app.use("/api/leaveType",useAuth, leaveTypeRouter);
+//   app.use("/api/expense",useAuth, expenseRouter);
+//   app.use("/api/employeeRequest",useAuth, employeeRequestRouter);
+//   app.use("/api/communication",useAuth, communicationRouter);
+//   app.use("/api/payroll",useAuth, payrollRouter);
+//   app.use("/api/joining",useAuth, joiningRouter);
+//   app.use("/api/joining-verify",useAuth, joiningVerifyRouter);
+//   app.use("/api/reliving",useAuth, relivingRouter);
+//   app.use("/api/reliving-verify",useAuth, relivingVerifyRouter);
+//   app.use("/api/hr-permission",useAuth, hrPermissionRouter);
+//   app.use("/api/declaration",useAuth, declarationRouter);
+//   app.use("/api/letter",useAuth, letterRouter);
+//   app.use("/api/payment-type",useAuth, paymentTypeRouter);
+//   app.use("/api/setting",useAuth, settingRouter);
+//   app.use("/api/bidder",useAuth, bidder);
+//   app.use("/api/job-type",useAuth, jobTypeRouter);
+//   app.use("/api/social-media",useAuth, socialMediaRouter);
+//   app.use("/api/subtasks",useAuth,subtaskRouter);
+//   app.use("/api/mom",useAuth, momRouter);
+//   app.use("/api/asset-mannagement",useAuth, assetRouter);
+//   app.use("/api/asset-mannagement-category",useAuth, assetCategoryRouter);
+//   app.use("/api/sub-asset-category",useAuth, subCategoryRouter);
+//   app.use("/api/statement", useAuth,statementsRouter);
+//   app.use("/api/announcement",useAuth, announcementRouter);
+//   app.use("/api/projectNotes",useAuth, projectNotesRouter);
+
+
+
   // Base route
   app.get('/api', (req, res) => res.send('API is running...'));
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 };
 
 startApp(); 
