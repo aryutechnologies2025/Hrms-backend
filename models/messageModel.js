@@ -1,13 +1,102 @@
-import mongoose from "mongoose";
+// import mongoose from "mongoose";
 
-const FileSchema = new mongoose.Schema(
-  {
-    filepath: String,
-    originalName: String,
-    size: Number,
-  },
-  { _id: false }
-);
+// /* ---------------- FILE SCHEMA ---------------- */
+// const FileSchema = new mongoose.Schema(
+//   {
+//     filepath: String,
+//     originalName: String,
+//     size: Number,
+//   },
+//   { _id: false }
+// );
+
+// /* ---------------- MESSAGE SCHEMA ---------------- */
+// const MessageSchema = new mongoose.Schema(
+//   {
+//     /* 🔹 WHO SENT */
+//     senderId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Employee",
+//       required: true,
+//     },
+
+//     /* 🔹 WHO RECEIVES (DM) */
+//     receiverId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Employee",
+//       default: null,
+//     },
+
+//     /* 🔹 CHANNEL (GROUP / SLACK STYLE) */
+//     channelId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Channel",
+//       default: null,
+//     },
+
+//     /* 🔹 MESSAGE CONTENT */
+//     text: {
+//       type: String,
+//       default: "",
+//     },
+
+//     files: [FileSchema],
+
+//     /* =================================================
+//        DELIVERY + SEEN (VERY IMPORTANT)
+//        ================================================= */
+
+//     /**
+//      * deliveredAt
+//      * ✔ single tick  -> null
+//      * ✔✔ double tick -> date exists
+//      */
+//     deliveredAt: {
+//       type: Date,
+//       default: null,
+//     },
+
+//     /**
+//      * seenAt
+//      * ✔✔ blue tick -> date exists
+//      */
+//     seenAt: {
+//       type: Date,
+//       default: null,
+//     },
+
+//     /* =================================================
+//        OPTIONAL (FUTURE / GROUP CHAT SAFE)
+//        ================================================= */
+
+//     /**
+//      * For group chat / advanced tracking
+//      * NOT used for tick logic
+//      */
+//     seenBy: [
+//       {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Employee",
+//       },
+//     ],
+
+//     /* 🔹 MESSAGE EDIT */
+//     edited: {
+//       type: Boolean,
+//       default: false,
+//     },
+//   },
+//   {
+//     timestamps: true, // createdAt, updatedAt
+//   }
+// );
+
+// /* ---------------- MODEL ---------------- */
+// const Message = mongoose.model("Message", MessageSchema);
+// export default Message;
+
+// models/messageModel.js
+import mongoose from "mongoose";
 
 const MessageSchema = new mongoose.Schema(
   {
@@ -19,22 +108,28 @@ const MessageSchema = new mongoose.Schema(
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
+      required: true,
+    },
+    text: String,
+
+    deliveredAt: {
+      type: Date,
       default: null,
     },
-    channelId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Channel",
+
+    seenAt: {
+      type: Date,
       default: null,
     },
-    text: { type: String, default: "" },
-    files: [FileSchema],
-    seenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "Employee" }],
-    edited: { type: Boolean, default: false },
+
+    seenBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Employee",
+      },
+    ],
   },
   { timestamps: true }
 );
 
-const Message = mongoose.model("Message", MessageSchema);
-export default Message;
-
-
+export default mongoose.model("Message", MessageSchema);

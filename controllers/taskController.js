@@ -861,15 +861,43 @@ const allTaskList = async (req, res) => {
     pipeline.push({ $limit: parseInt(limit) });
 
     let taskList = await Task.aggregate(pipeline);
+    
+    const getUserName = async (userId) => {
+      console.log("Fetching user name for ID:", userId);
+      if (!userId) return null;
 
-    // Attach documents for each task
+      const [employee, admin, client, clientUser] = await Promise.all([
+        Employee.findById(userId).select("employeeName").lean(),
+        User.findById(userId).select("name").lean(),
+        ClientDetails.findById(userId).select("client_name").lean(),
+        ClientSubUser.findById(userId).select("name").lean(),
+      ]);
+
+      if (employee?.employeeName) return employee.employeeName;
+
+      if (admin?.name) return admin.name;
+
+      if (client?.client_name) return `${client.client_name} (Client)`;
+
+      if (clientUser?.name) return `${clientUser.name} (Client User)`;
+
+      return null;
+    };
+
+  
     taskList = await Promise.all(
       taskList.map(async (task) => {
-        const docRecord = await TaskDocument.findOne({ taskId: task.taskId });
-        console.log("docRecord", docRecord?.document);
+        const [docRecord, createdByName] = await Promise.all([
+          TaskDocument.findOne({ taskId: task.taskId }).lean(),
+          getUserName(task.createdById),
+         
+        ]);
+         console.log(task.createdById,createdByName)
+
         return {
           ...task,
           document: docRecord?.document || [],
+          createdByName, // 👈 added
         };
       })
     );
@@ -1465,7 +1493,6 @@ const getTaskById = async (req, res) => {
 
     // taskDocument
     const docRecord = await TaskDocument.findOne({ taskId });
-   
 
     const taskWithNames = {
       ...task,
@@ -2670,11 +2697,12 @@ const updateTask = async (req, res) => {
 // };
 const updateTaskStatus = async (req, res) => {
   try {
-    const { status, startTime, endTime, updatedBy, assignedTo,taskType } = req.body;
+    const { status, startTime, endTime, updatedBy, assignedTo, taskType } =
+      req.body;
     const { id } = req.params;
 
     console.log("Request Body:", req.body);
-    
+
     // Step 1: Validate status
     const allowedStatuses = [
       "todo",
@@ -2688,7 +2716,7 @@ const updateTaskStatus = async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
-     if (taskType && task.taskType !== taskType) {
+    if (taskType && task.taskType !== taskType) {
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
         { $set: { taskType } },
@@ -4210,12 +4238,10 @@ const deleteTaskFileByIndex = async (req, res) => {
       // No filepath stored — just remove DB entry
       docRecord.document.splice(index, 1);
       await docRecord.save();
-      return res
-        .status(200)
-        .json({
-          message: "Document entry removed (no file path stored).",
-          updatedDocuments: docRecord.document,
-        });
+      return res.status(200).json({
+        message: "Document entry removed (no file path stored).",
+        updatedDocuments: docRecord.document,
+      });
     }
 
     // Normalize separators and handle absolute/relative
