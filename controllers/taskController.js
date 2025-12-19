@@ -892,7 +892,7 @@ const allTaskList = async (req, res) => {
           getUserName(task.createdById),
          
         ]);
-         console.log(task.createdById,createdByName)
+        
 
         return {
           ...task,

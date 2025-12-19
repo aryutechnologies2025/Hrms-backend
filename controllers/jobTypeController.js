@@ -388,47 +388,231 @@ const createCandidate = async (req, res) => {
   }
 };
 
-const getCandidate = async (req, res) => {
-  const { id } = req.query;
-  if (id) {
-    try {
-      const records = await Candidate.find({ interviewStatus: id })
-        .populate("interviewStatus", "name")
-        .populate("platform", "name")
-        .populate("source", "name")
-        
-        .populate("createdBy", "name")
-        .sort({ createdAt: -1 });
+// const getCandidate = async (req, res) => {
+//   const { id } = req.query;
+//   if (id) {
+//     try {
+//       const records = await Candidate.find({ interviewStatus: id })
+//         .populate("interviewStatus", "name")
+//         .populate("platform", "name")
+//         .populate("source", "name")
+//         .populate("createdBy", "name")
+//         .sort({ createdAt: -1 });
 
-      res.status(200).json({
-        success: true,
-        data: records,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Server Error" });
+//       res.status(200).json({
+//         success: true,
+//         data: records,
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ success: false, message: "Server Error" });
+//     }
+//   } else {
+//     try {
+//       const getJobCandidate = await Candidate.find()
+//         .populate("interviewStatus", "name")
+//         .populate("platform", "name")
+//         .populate("createdBy", "name")
+//         .populate("source", "name")
+//         .sort({ createdAt: -1 });
+//       if (!getJobCandidate.length) {
+//         return res.status(404).json({ message: "Job Candidate not found" });
+//       }
+//       res.status(200).json({
+//         message: "Job Candidate fetched successfully",
+//         data: getJobCandidate,
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ success: false, message: "Server Error" });
+//     }
+//   }
+// };
+
+
+const getCandidate = async (req, res) => {
+
+  try {
+    const {
+      id,
+      status,
+      source,
+      technology,
+      candidateName,
+      createdByName,
+      search,
+      fromDate,
+      toDate,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const match = {};
+
+    /* ===== ID FILTER ===== */
+    if (id && mongoose.Types.ObjectId.isValid(id)) {
+      match._id = new mongoose.Types.ObjectId(id);
     }
-  } else {
-    try {
-      const getJobCandidate = await Candidate.find()
-        .populate("interviewStatus", "name")
-        .populate("platform", "name")
-        .populate("createdBy", "name")
-        .populate("source", "name")
-        .sort({ createdAt: -1 });
-      if (!getJobCandidate.length) {
-        return res.status(404).json({ message: "Job Candidate not found" });
+
+    /* ===== DATE FILTER ===== */
+    // if (fromDate || toDate) {
+    //   match.createdAt = {};
+    //   if (fromDate) match.createdAt.$gte = new Date(fromDate);
+    //   if (toDate) match.createdAt.$lte = new Date(toDate);
+    // }
+      if (fromDate || toDate) {
+      match.createdAt = {};
+
+      if (fromDate) {
+        const [y, m, d] = fromDate.split("-");
+        match.createdAt.$gte = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
       }
-      res.status(200).json({
-        message: "Job Candidate fetched successfully",
-        data: getJobCandidate,
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Server Error" });
+
+      if (toDate) {
+        const [y, m, d] = toDate.split("-");
+        match.createdAt.$lte = new Date(
+          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+        );
+      }
     }
+
+    /* ===== CANDIDATE NAME FILTER ===== */
+    if (candidateName) {
+      match.$or = [
+        { firstName: { $regex: candidateName, $options: "i" } },
+        { lastName: { $regex: candidateName, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const pipeline = [
+      /* ===== INTERVIEW STATUS ===== */
+      {
+        $lookup: {
+          from: "jobinterviews",
+          localField: "interviewStatus",
+          foreignField: "_id",
+          as: "interviewStatus",
+        },
+      },
+      { $unwind: { path: "$interviewStatus", preserveNullAndEmptyArrays: true } },
+
+      /* ===== PLATFORM ===== */
+      {
+        $lookup: {
+          from: "jobsources",
+          localField: "platform",
+          foreignField: "_id",
+          as: "platform",
+        },
+      },
+      { $unwind: { path: "$platform", preserveNullAndEmptyArrays: true } },
+
+      /* ===== CREATED BY (ADMIN USERS) ===== */
+      {
+        $lookup: {
+          from: "adminusers",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "createdBy",
+        },
+      },
+      { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
+
+      /* ===== SOURCE ===== */
+      {
+        $lookup: {
+          from: "sources",
+          localField: "source",
+          foreignField:"_id",
+          as: "source",
+        },
+      },
+      { $unwind: { path: "$source", preserveNullAndEmptyArrays: true } },
+    ];
+    /* ===== LOOKUP BASED FILTERS ===== */
+    if (status) {
+      pipeline.push({
+        $match: { "interviewStatus.name": { $regex: status, $options: "i" } },
+      });
+    }
+
+    if (technology) {
+      pipeline.push({
+        $match: { "platform.name": { $regex: technology, $options: "i" } },
+      });
+    }
+
+    if (source) {
+      pipeline.push({
+        $match: { "source.name": { $regex: source, $options: "i" } },
+      });
+    }
+
+    if (createdByName) {
+      pipeline.push({
+        $match: { "createdBy.name": { $regex: createdByName, $options: "i" } },
+      });
+    }
+
+    /* ===== GLOBAL SEARCH (ALL FIELDS) ===== */
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { firstName: { $regex: search, $options: "i" } },
+            { lastName: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+            { phoneNumber: { $regex: search, $options: "i" } },
+            { "createdBy.name": { $regex: search, $options: "i" } },
+            { "interviewStatus.name": { $regex: search, $options: "i" } },
+            { "platform.name": { $regex: search, $options: "i" } },
+            { "source.name": { $regex: search, $options: "i" } },
+          ],
+        },
+      });
+    }
+
+    /* ===== BASE MATCH (CANDIDATE FIELDS) ===== */
+    if (Object.keys(match).length) {
+      pipeline.push({ $match: match });
+    }
+
+    /* ===== SORT & PAGINATION ===== */
+    pipeline.push(
+      { $sort: { createdAt: -1 } },
+      {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: Number(limit) }],
+          total: [{ $count: "count" }],
+        },
+      }
+    );
+
+    const result = await Candidate.aggregate(pipeline);
+
+    res.status(200).json({
+      success: true,
+      data: result[0].data,
+      pagination: {
+        total: result[0].total[0]?.count || 0,
+        page: Number(page),
+        limit: Number(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Candidate Filter Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
   }
 };
+
+export default getCandidate;
+
+
 
 const editCandidate = async (req, res) => {
   try {
