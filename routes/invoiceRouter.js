@@ -10,7 +10,8 @@ import {
   getProjectNameWithClient,
   uploadClientInvoice,
   clientInvoiceById,
-  clientDashboard
+  clientDashboard,
+  selectInvoiceDocument
 } from "../controllers/invoiceController.js";
 import upload from "../middlewares/upload.js";
 
@@ -25,10 +26,11 @@ invoiceRouter.get("/get-project-name", getProjectName);
 invoiceRouter.get("/get-project-details/:type", getProjectDetails);
 invoiceRouter.get("/get-project-name-with-client", getProjectNameWithClient);
 invoiceRouter.post(
-  "/upload-client-invoice",
-  upload.fields([{ name: "clientInvoice", maxCount: 10 }]),
+  "/upload-client-invoice",upload.single("clientInvoice"),
+  // upload.fields([{ name: "clientInvoice", maxCount: 10 }]),
   uploadClientInvoice
 );
 invoiceRouter.get("/client-invoice", clientInvoiceById);
 invoiceRouter.get("/client-invoice-dashboard", clientDashboard);
+invoiceRouter.post("/select-invoice-document", selectInvoiceDocument);
 export default invoiceRouter;

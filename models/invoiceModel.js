@@ -35,6 +35,10 @@ const invoice = new mongoose.Schema(
       type: String,
       required: [false, "please provide a total amount"],
     },
+    subTotal: {
+      type: String,
+      required: [false, "please provide a sub total"],
+    },
     igst: { type: String, required: [false, "please provide a igst"] },
     cgst: { type: String, required: [false, "please provide a cgst"] },
     sgst: { type: String, required: [false, "please provide a sgst"] },
@@ -49,6 +53,11 @@ const invoice = new mongoose.Schema(
       path: String,
       mimetype: String,
       size: Number,
+      invoice_document_type: String,
+      select: {
+      type: Boolean,
+      default: false,
+    },
       uploadedAt: {
         type: Date,
         default: Date.now,

@@ -30,6 +30,7 @@ const createInvoice = async (req, res) => {
       igst,
       cgst,
       sgst,
+      subTotal,
     } = req.body;
 
     const newInvoice = new Invoice({
@@ -48,6 +49,7 @@ const createInvoice = async (req, res) => {
       igst,
       cgst,
       sgst,
+      subTotal,
     });
 
     const savedInvoice = await newInvoice.save();
@@ -114,9 +116,74 @@ const editInvoiceDetails = async (req, res) => {
   }
 };
 
+// const uploadClientInvoice = async (req, res) => {
+//   try {
+//     const { id, invoice_type } = req.body;
+
+//     if (!id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invoice id is required",
+//       });
+//     }
+
+//     let invoiceDocs = [];
+
+//     if (req.files?.clientInvoice?.length) {
+//       invoiceDocs = req.files.clientInvoice.map((file) => ({
+//         fieldname: file.fieldname,
+//         originalName: file.originalname,
+//         filename: file.filename,
+//         path: file.path,
+//         mimetype: file.mimetype,
+//         size: file.size,
+//       }));
+//     }
+
+//     const updatedInvoice = await Invoice.findOneAndUpdate(
+//       { _id: id },
+//       {
+//         $set: { invoice_type },
+//         ...(invoiceDocs.length && {
+//           $push: { documents: { $each: invoiceDocs } },
+//         }),
+//       },
+//       { new: true }
+//     );
+//     // const updatedInvoice = await Invoice.findOneAndUpdate(
+//     //   { _id: id },
+//     //   {
+//     //     $set: {
+//     //       invoice_type,
+//     //       ...(invoiceDocs.length && { documents: invoiceDocs }),
+//     //     },
+//     //   },
+//     //   { new: true }
+//     // );
+
+//     if (!updatedInvoice) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Invoice not found",
+//       });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Invoice updated successfully",
+//       data: updatedInvoice,
+//     });
+//   } catch (error) {
+//     console.error("Upload Error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 const uploadClientInvoice = async (req, res) => {
   try {
-    const { id, invoice_type } = req.body;
+    const { id, invoice_document_type } = req.body;
 
     if (!id) {
       return res.status(400).json({
@@ -125,36 +192,28 @@ const uploadClientInvoice = async (req, res) => {
       });
     }
 
-    let invoiceDocs = [];
-
-    if (req.files?.clientInvoice?.length) {
-      invoiceDocs = req.files.clientInvoice.map((file) => ({
-        fieldname: file.fieldname,
-        originalName: file.originalname,
-        filename: file.filename,
-        path: file.path,
-        mimetype: file.mimetype,
-        size: file.size,
-      }));
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "File is required",
+      });
     }
 
-    // const updatedInvoice = await Invoice.findOneAndUpdate(
-    //   { _id: id },
-    //   {
-    //     $set: { invoice_type },
-    //     ...(invoiceDocs.length && {
-    //       $push: { documents: { $each: invoiceDocs } },
-    //     }),
-    //   },
-    //   { new: true }
-    // );
+    const invoiceDoc = {
+      fieldname: req.file.fieldname,
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      path: req.file.path,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      invoice_document_type: invoice_document_type,
+      select: false,
+    };
+
     const updatedInvoice = await Invoice.findOneAndUpdate(
       { _id: id },
       {
-        $set: {
-          invoice_type,
-          ...(invoiceDocs.length && { documents: invoiceDocs }),
-        },
+        $push: { documents: invoiceDoc },
       },
       { new: true }
     );
@@ -168,11 +227,52 @@ const uploadClientInvoice = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Invoice updated successfully",
+      message: "Document uploaded successfully",
       data: updatedInvoice,
     });
   } catch (error) {
     console.error("Upload Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+const selectInvoiceDocument = async (req, res) => {
+  try {
+    const { invoiceId, documentId } = req.body;
+
+    if (!invoiceId || !documentId) {
+      return res.status(400).json({
+        success: false,
+        message: "invoiceId and documentId are required",
+      });
+    }
+
+    const invoiceExists = await Invoice.updateOne(
+      { _id: invoiceId },
+      { $set: { "documents.$[].select": false } }
+    );
+
+    if (!invoiceExists.matchedCount) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    await Invoice.updateOne(
+      { _id: invoiceId, "documents._id": documentId },
+      { $set: { "documents.$.select": true } }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Document selected successfully",
+    });
+  } catch (error) {
+    console.error("Select Error:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -212,16 +312,21 @@ const clientDashboard = async (req, res) => {
       .populate("project", "name");
 
     const mappedData = invoiceDetails.map((invoice) => {
+      const selectedDocument = invoice.documents?.find(
+        (doc) => doc.select === true
+      );
+
       return {
         invoiceId: invoice._id,
-        clientName: invoice.clientId?.client_name,
-        projectName: invoice.project?.name,
-        invoiceType: invoice?.invoice_type,
-        document: invoice?.documents,
-        status: invoice?.status,
-        due:invoice?.due_date,
-        invoiceNumber:invoice?.invoice_number,
-        invoiceDate:invoice?.invoice_date
+        clientName: invoice.clientId?.client_name || null,
+        projectName: invoice.project?.name || null,
+
+        document: selectedDocument || null,
+
+        status: invoice.status,
+        due: invoice.due_date,
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date,
       };
     });
 
@@ -230,7 +335,7 @@ const clientDashboard = async (req, res) => {
       data: mappedData,
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Client Dashboard Error:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -330,4 +435,5 @@ export {
   uploadClientInvoice,
   clientInvoiceById,
   clientDashboard,
+  selectInvoiceDocument,
 };
