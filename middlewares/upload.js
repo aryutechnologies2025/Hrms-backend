@@ -75,8 +75,6 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let destPath;
     console.log("file.fieldname", file.fieldname);
-    console.log("hhhhhh", file.fieldname);
-
     console.log("Incoming fields:", file);
 
     if (file.fieldname === "photo") {
