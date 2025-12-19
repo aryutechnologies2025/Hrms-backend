@@ -453,27 +453,21 @@ const getCandidate = async (req, res) => {
       match._id = new mongoose.Types.ObjectId(id);
     }
 
-    /* ===== DATE FILTER ===== */
-    // if (fromDate || toDate) {
-    //   match.createdAt = {};
-    //   if (fromDate) match.createdAt.$gte = new Date(fromDate);
-    //   if (toDate) match.createdAt.$lte = new Date(toDate);
-    // }
      if (fromDate || toDate) {
-      matchStage.$match.createdAt = {};
+      match.createdAt = {};
+
       if (fromDate) {
-        const [year, month, date] = fromDate.split("-");
-         match.createdAt.$gte = new Date(
-          Date.UTC(year, month - 1, date, 0, 0, 0)
-        );
+        const [y, m, d] = fromDate.split("-");
+        match.createdAt.$gte = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
       }
+
       if (toDate) {
-        const [year, month, date] = toDate.split("-");
+        const [y, m, d] = toDate.split("-");
         match.createdAt.$lte = new Date(
-          Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
         );
       }
-    } 
+    }
 
     /* ===== CANDIDATE NAME FILTER ===== */
     if (candidateName) {
