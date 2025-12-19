@@ -431,6 +431,7 @@ const createCandidate = async (req, res) => {
 
 
 const getCandidate = async (req, res) => {
+
   try {
     const {
       id,
@@ -453,7 +454,16 @@ const getCandidate = async (req, res) => {
       match._id = new mongoose.Types.ObjectId(id);
     }
 
-     if (fromDate || toDate) {
+
+   
+    /* ===== DATE FILTER ===== */
+    // if (fromDate || toDate) {
+    //   match.createdAt = {};
+    //   if (fromDate) match.createdAt.$gte = new Date(fromDate);
+    //   if (toDate) match.createdAt.$lte = new Date(toDate);
+    // }
+      if (fromDate || toDate) {
+
       match.createdAt = {};
 
       if (fromDate) {

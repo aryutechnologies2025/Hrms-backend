@@ -133,6 +133,7 @@ const startApp = async () => {
   app.use("/api/statement",statementsRouter);
   app.use("/api/announcement", announcementRouter);
   app.use("/api/projectNotes", projectNotesRouter);
+
   app.use("/api/channel",channelRouter);
   app.use("/api/messages",messageRouter);
   
@@ -179,6 +180,7 @@ const startApp = async () => {
 //   app.use("/api/statement", useAuth,statementsRouter);
 //   app.use("/api/announcement",useAuth, announcementRouter);
 //   app.use("/api/projectNotes",useAuth, projectNotesRouter);
+
 
 
   // Base route
