@@ -396,6 +396,7 @@ const getCandidate = async (req, res) => {
         .populate("interviewStatus", "name")
         .populate("platform", "name")
         .populate("source", "name")
+        
         .populate("createdBy", "name")
         .sort({ createdAt: -1 });
 
