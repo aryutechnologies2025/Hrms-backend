@@ -7,11 +7,7 @@ const invoice = new mongoose.Schema(
       type: String,
       required: [true, "Please provide a invoice number"],
     },
-    client: { type: String, required: [true, "Please provide a client name"] },
-    project: {
-      type: String,
-      required: [false, "Please provide a project name"],
-    },
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
     invoice_date: {
       type: Date,
       required: [true, "Please provide a invoice date"],
@@ -20,6 +16,7 @@ const invoice = new mongoose.Schema(
     currency: { type: String, required: [false, "Please provide a currency"] },
     items: [
       {
+        hsnCode: { type: String, required: [false, "Please provide a hsnCode"] },
         description: {
           type: String,
           required: [false, "Please provide a description"],
@@ -32,18 +29,42 @@ const invoice = new mongoose.Schema(
         amount: { type: Number, required: [false, "Please provide a amount"] },
       },
     ],
-    sub_total: {
-      type: String,
-      required: [false, "please provide a sub total"],
-    },
+
     tax: { type: String, required: [false, "please provide a tax"] },
     total_amount: {
       type: String,
       required: [false, "please provide a total amount"],
     },
+    subTotal: {
+      type: String,
+      required: [false, "please provide a sub total"],
+    },
+    igst: { type: String, required: [false, "please provide a igst"] },
+    cgst: { type: String, required: [false, "please provide a cgst"] },
+    sgst: { type: String, required: [false, "please provide a sgst"] },
     notes:{type:String,required:[false,"Please provide a notes"]},
+    invoice_type:{type:String,required:[false,"Please provide a invoice type"]},
     status: { type: String, required: [true, "Please select a status"] },
-    is_deleted: { type: Boolean, default: false },
+    documents: [
+         {
+      fieldname: String,
+      originalName: String,
+      filename: String,
+      path: String,
+      mimetype: String,
+      size: Number,
+      invoice_document_type: String,
+      select: {
+      type: Boolean,
+      default: false,
+    },
+      uploadedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+    is_deleted: { type: Boolean, default: '0' },
   },
   {
     timestamps: true,

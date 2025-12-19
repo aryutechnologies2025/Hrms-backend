@@ -4,65 +4,65 @@ import bcrypt from "bcryptjs";
 const settingsInvoiceSchema = new mongoose.Schema(
   {
 
-    invoiceAddress: { type: Number, required: [false, "Please provide a invoiceAddress"] },
+    invoiceAddress: { type: String, required: [false, "Please provide a invoiceAddress"] },
     invoiceState: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a invoice state"],
     },
     invoiceCity: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a invoice city"],
     },
     invoiceGstin: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a invoice GstIn"],
     },
     invoiceEmail: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a invoice Email"],
     },
     invoicePhone: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a  invoice Phone"],
     },
     accountName: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a account Name"],
     },
     bankName: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a bank Name"],
     },
     accountNumber: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a account Number"],
     },
     ifscCode: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a Ifsc Code"],
     },
     branchName: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a branch Name"],
     },
     invoiceTerms: {
-      type: Number,
+      type: String,
       required: [false, "Please provide a invoice Terms"],
     },
     cgst : {
-      type: Number,
+      type: String,
       required: [false, "Please provide a CGST "],
     },
     sgst : {
-      type: Number,
+      type: String,
       required: [false, "Please provide a SGST "],
     },
     isgt : {
-      type: Number,
+      type: String,
       required: [false, "Please provide a ISGT "],
     },
     igst : {
-      type: Number,
+      type: String,
       required: [false, "Please provide a IGST "],
     },
 

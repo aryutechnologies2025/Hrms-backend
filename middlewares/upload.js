@@ -86,6 +86,11 @@ const storage = multer.diskStorage({
     else if (file.fieldname === "fileUpload") {
       destPath = path.join(__dirname, "../uploads/assets");
     }
+    else if(file.fieldname === 'clientInvoice'){
+      destPath =path.join(__dirname,'../uploads/clientInvoices');
+    }else if (file.fieldname === "originalDocument") {
+      destPath = path.join(__dirname, "../uploads/originalDocuments");
+    }
     // else if (file.fieldname === 'files'){
     //   console.log("download 123");
     //   destPath =path.join(__dirname,'../uploads/documents');
