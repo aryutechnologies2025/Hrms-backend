@@ -11,11 +11,26 @@ const createDeclaration = async (req, res) => {
     } = req.body;
     console.log("Files received:", req.body);
     const documentArray = [];
-
-    if (Array.isArray(req.files)) {
+    const originalDocumentsArray = [];
+    // if (Array.isArray(req.files)) {
+    //   req.files.forEach((file) => {
+    //     if (file.fieldname === "document[]") {
+    //       documentArray.push({
+    //         filepath: file.filename,
+    //         originalName: file.originalname,
+    //       });
+    //     }
+    //   });
+    // }
+     if (Array.isArray(req.files)) {
       req.files.forEach((file) => {
-        if (file.fieldname === "document[]") {
-          documentArray.push({
+        if (file.fieldname === "document") {
+          documentsArray.push({
+            filepath: file.filename,
+            originalName: file.originalname,
+          });
+        } else if (file.fieldname === "originalDocument") {
+          originalDocumentsArray.push({
             filepath: file.filename,
             originalName: file.originalname,
           });
@@ -30,6 +45,7 @@ const createDeclaration = async (req, res) => {
       certificateName,
       certificateNo,
       documents: documentArray,
+      originalDocuments: originalDocumentsArray,
     });
 
     const savedDeclaration = await newDeclaration.save();
@@ -67,10 +83,26 @@ const editDeclaration = async (req, res) => {
 
     // Handle uploaded new documents
     const newDocuments = [];
-    if (req.files && req.files.length > 0) {
+    const newOriginalDocuments = [];
+    // if (req.files && req.files.length > 0) {
+    //   req.files.forEach((file) => {
+    //     if (file.fieldname === "document[]") {
+    //       newDocuments.push({
+    //         filepath: file.filename,
+    //         originalName: file.originalname,
+    //       });
+    //     }
+    //   });
+    // }
+      if (req.files && req.files.length > 0) {
       req.files.forEach((file) => {
         if (file.fieldname === "document[]") {
           newDocuments.push({
+            filepath: file.filename,
+            originalName: file.originalname,
+          });
+        } else if (file.fieldname === "originalDocument") {
+          newOriginalDocuments.push({
             filepath: file.filename,
             originalName: file.originalname,
           });
@@ -92,6 +124,17 @@ const editDeclaration = async (req, res) => {
       } else {
         // Replace all old docs
         updatedData.documents = newDocuments;
+      }
+    }
+
+    if (newOriginalDocuments.length > 0) {
+      if (req.body.appendOriginalDocuments === "true") {
+        updatedData.originalDocuments = [
+          ...(existingDeclaration.originalDocuments || []),
+          ...newOriginalDocuments
+        ];
+      } else {
+        updatedData.originalDocuments = newOriginalDocuments;
       }
     }
 

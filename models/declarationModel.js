@@ -13,6 +13,12 @@ const declarationModel = new mongoose.Schema(
         required:[false,"Please provide documents"]
       },
     ],
+    originalDocuments: [
+      {
+        type: Object,
+        required:[false,"Please provide documents"]
+      },
+    ],
   },{
     timestamps: true,
   });

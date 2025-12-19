@@ -264,6 +264,7 @@ const selectInvoiceDocument = async (req, res) => {
 
     await Invoice.updateOne(
       { _id: invoiceId, "documents._id": documentId },
+      
       { $set: { "documents.$.select": true } }
     );
 
