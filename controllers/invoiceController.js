@@ -239,17 +239,65 @@ const uploadClientInvoice = async (req, res) => {
   }
 };
 
+// const selectInvoiceDocument = async (req, res) => {
+//   try {
+//     const { invoiceId, documentId } = req.body;
+
+//     if (!invoiceId || !documentId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "invoiceId and documentId are required",
+//       });
+//     }
+
+//     const invoiceExists = await Invoice.updateOne(
+//       { _id: invoiceId },
+//       { $set: { "documents.$[].select": false } }
+//     );
+
+//     if (!invoiceExists.matchedCount) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Invoice not found",
+//       });
+//     }
+
+//     await Invoice.updateOne(
+//       { _id: invoiceId, "documents._id": documentId },
+      
+//       { $set: { "documents.$.select": true } }
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Document selected successfully",
+//     });
+//   } catch (error) {
+//     console.error("Select Error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 const selectInvoiceDocument = async (req, res) => {
   try {
-    const { invoiceId, documentId } = req.body;
+    const { invoiceId, documentId } = req.body; // documentId is now an array
 
-    if (!invoiceId || !documentId) {
+    if (
+      !invoiceId ||
+      !documentId ||
+      !Array.isArray(documentId) ||
+      documentId.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "invoiceId and documentId are required",
+        message: "invoiceId and documentId (array) are required",
       });
     }
 
+    // Reset all documents to select = false
     const invoiceExists = await Invoice.updateOne(
       { _id: invoiceId },
       { $set: { "documents.$[].select": false } }
@@ -262,15 +310,18 @@ const selectInvoiceDocument = async (req, res) => {
       });
     }
 
+    // Select multiple documents
     await Invoice.updateOne(
-      { _id: invoiceId, "documents._id": documentId },
-      
-      { $set: { "documents.$.select": true } }
+      { _id: invoiceId },
+      { $set: { "documents.$[doc].select": true } },
+      {
+        arrayFilters: [{ "doc._id": { $in: documentId } }],
+      }
     );
 
     res.status(200).json({
       success: true,
-      message: "Document selected successfully",
+      message: "Document(s) selected successfully",
     });
   } catch (error) {
     console.error("Select Error:", error);
@@ -280,6 +331,7 @@ const selectInvoiceDocument = async (req, res) => {
     });
   }
 };
+
 
 const clientInvoiceById = async (req, res) => {
   const { id } = req.query;
