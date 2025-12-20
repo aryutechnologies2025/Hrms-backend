@@ -74,19 +74,49 @@ const createInvoice = async (req, res) => {
   }
 };
 const getInvoiceDetails = async (req, res) => {
+  const { client, project, status } = req.query;
+
   try {
-    const invoiceDetails = await Invoice.find({ is_deleted: "0" })
-      .sort({
-        createdAt: -1,
-      })
+
+    const filter = { is_deleted: "0" };
+
+
+    if (client) filter.clientId = client;
+    if (project) filter.project = project;
+    if (status) filter.status = status;
+
+    const invoiceDetails = await Invoice.find(filter)
+      .sort({ createdAt: -1 })
       .populate("clientId", "client_name")
       .populate("project", "name");
-    res.status(200).json({ success: true, data: invoiceDetails });
+
+    res.status(200).json({
+      success: true,
+      data: invoiceDetails,
+    });
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
+
+// const getInvoiceDetails = async (req, res) => {
+//   try {
+//     const invoiceDetails = await Invoice.find({ is_deleted: "0" })
+//       .sort({
+//         createdAt: -1,
+//       })
+//       .populate("clientId", "client_name")
+//       .populate("project", "name");
+//     res.status(200).json({ success: true, data: invoiceDetails });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).json({ success: false, message: "Internal Server Error" });
+//   }
+// };
 
 const editInvoiceDetails = async (req, res) => {
   const { id } = req.params;
@@ -365,7 +395,7 @@ const clientDashboard = async (req, res) => {
       .populate("project", "name");
 
     const mappedData = invoiceDetails.map((invoice) => {
-      const selectedDocument = invoice.documents?.find(
+      const selectedDocument = invoice.documents?.filter(
         (doc) => doc.select === true
       );
 
