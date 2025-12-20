@@ -61,23 +61,61 @@ const editUpcomingHoliday = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
-const getUpcomingHoliday = async (req, res) => {
-  try {
-    const upcomingHoliday = await UpcomingHoliday.find({})
-      .sort({ date: 1 });
 
-    res.status(200).json({ success: true, data: upcomingHoliday });
-  } catch (error) {
-    if (error.name === "ValidationError") {
-      const errors = {};
-      for (let field in error.errors) {
-        errors[field] = error.errors[field].message;
-      }
-      return res.status(400).json({ errors });
-    } else {
-      console.error("Error:", error);
-      res.status(500).json({ success: false, message: "Internal Server Error" });
+// const getUpcomingHoliday = async (req, res) => {
+//   const {year}=req.body;
+//   try {
+//     const upcomingHoliday = await UpcomingHoliday.find({})
+//       .sort({ date: 1 });
+
+//     res.status(200).json({ success: true, data: upcomingHoliday });
+//   } catch (error) {
+//     if (error.name === "ValidationError") {
+//       const errors = {};
+//       for (let field in error.errors) {
+//         errors[field] = error.errors[field].message;
+//       }
+//       return res.status(400).json({ errors });
+//     } else {
+//       console.error("Error:", error);
+//       res.status(500).json({ success: false, message: "Internal Server Error" });
+//     }
+//   }
+// };
+
+const getUpcomingHoliday = async (req, res) => {
+  const { years } = req.query; // example: 2025
+
+  try {
+    if (!years) {
+      return res.status(400).json({
+        success: false,
+        message: "Year is required",
+      });
     }
+
+    // Start & End of the year
+    const startDate = new Date(`${years}-01-01T00:00:00.000Z`);
+    const endDate = new Date(`${years}-12-31T23:59:59.999Z`);
+
+    const upcomingHoliday = await UpcomingHoliday.find({
+      date: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    }).sort({ date: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: upcomingHoliday.length,
+      data: upcomingHoliday,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
 
@@ -110,6 +148,42 @@ const deleteUpcomingHoliday = async (req, res) => {
     });
   }
 };
+const getHolidayYears = async (req, res) => {
+  try {
+    const years = await UpcomingHoliday.aggregate([
+      {
+        $project: {
+          year: { $year: "$date" },
+        },
+      },
+      {
+        $group: {
+          _id: "$year",
+        },
+      },
+      {
+        $sort: { _id: 1 }, // ascending order
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id",
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: years.map((y) => y.year),
+    });
+  } catch (error) {
+    console.error("getHolidayYears error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
 
 
 
@@ -117,5 +191,6 @@ export {
   createUpcomingHoliday,
   editUpcomingHoliday,
   getUpcomingHoliday,
- deleteUpcomingHoliday
+ deleteUpcomingHoliday,
+ getHolidayYears
 };

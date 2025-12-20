@@ -778,20 +778,51 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
   }
 };
 const allEmployeesUserDetails = async (req, res) => {
-  const { type } = req.query;
-
   try {
-    let matchCondition;
+    const {
+      _id,
+      employeeStatus,
+      employeeType,
+      roleId,
+      departmentId,
+      search,
+      fromDate,
+      toDate,
+    } = req.query;
 
-    if (type === "Intern") {
-      matchCondition = { employeeType: "Intern", employeeStatus: "1" };
-    } else {
-      matchCondition = { employeeStatus: "1" };
+    /* ================= BASE MATCH ================= */
+    const baseMatch = {};
+
+    if (_id && mongoose.Types.ObjectId.isValid(_id)) {
+      baseMatch._id = new mongoose.Types.ObjectId(_id);
     }
 
-    const employees = await Employee.aggregate([
-      { $match: matchCondition },
-      { $sort: { employeeName: -1 } },
+    if (employeeStatus) {
+      baseMatch.employeeStatus = employeeStatus;
+    }
+
+    if (employeeType) {
+      baseMatch.employeeType = employeeType;
+    }
+
+    if (fromDate || toDate) {
+      baseMatch.dateOfJoining = {};
+      if (fromDate) {
+        const [y, m, d] = fromDate.split("-");
+        baseMatch.dateOfJoining.$gte = new Date(Date.UTC(y, m - 1, d));
+      }
+      if (toDate) {
+        const [y, m, d] = toDate.split("-");
+        baseMatch.dateOfJoining.$lte = new Date(
+          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+        );
+      }
+    }
+
+    const pipeline = [
+      { $match: baseMatch },
+
+      /* ================= ROLE LOOKUP ================= */
       {
         $lookup: {
           from: "employeeroles",
@@ -801,6 +832,19 @@ const allEmployeesUserDetails = async (req, res) => {
         },
       },
       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
+
+      /* ================= ROLE FILTER ================= */
+      ...(roleId
+        ? [
+            {
+              $match: {
+                "role._id": new mongoose.Types.ObjectId(roleId),
+              },
+            },
+          ]
+        : []),
+
+      /* ================= DEPARTMENT LOOKUP ================= */
       {
         $lookup: {
           from: "employeedepartments",
@@ -810,33 +854,177 @@ const allEmployeesUserDetails = async (req, res) => {
         },
       },
       {
-        $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true },
+        $unwind: {
+          path: "$role.department",
+          preserveNullAndEmptyArrays: true,
+        },
       },
-      // Optional: $project to shape the output
-      // {
-      //   $project: {
-      //     employeeName: 1,
-      //     email: 1,
-      //     role: {
-      //       name: "$role.name",
-      //       status: "$role.status",
-      //       department: "$role.department"
-      //     }
-      //   }
-      // }
-    ]);
 
-    if (!employees || employees.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No employees found" });
-    }
+      /* ================= DEPARTMENT FILTER ================= */
+      ...(departmentId
+        ? [
+            {
+              $match: {
+                "role.department._id": new mongoose.Types.ObjectId(
+                  departmentId
+                ),
+              },
+            },
+          ]
+        : []),
 
-    res.status(200).json({ success: true, data: employees });
+      /* ================= GLOBAL SEARCH ================= */
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { employeeName: { $regex: search, $options: "i" } },
+                  { email: { $regex: search, $options: "i" } },
+                  { phoneNumber: { $regex: search, $options: "i" } },
+                  { employeeId: { $regex: search, $options: "i" } },
+                  { employeeType: { $regex: search, $options: "i" } },
+                  { "role.name": { $regex: search, $options: "i" } },
+                  {
+                    "role.department.name": {
+                      $regex: search,
+                      $options: "i",
+                    },
+                  },
+                ],
+              },
+            },
+          ]
+        : []),
+
+      /* ================= EXPERIENCE CALCULATION ================= */
+      {
+        $addFields: {
+          totalYears: {
+            $dateDiff: {
+              startDate: "$dateOfJoining",
+              endDate: "$$NOW",
+              unit: "year",
+            },
+          },
+          totalMonths: {
+            $dateDiff: {
+              startDate: "$dateOfJoining",
+              endDate: "$$NOW",
+              unit: "month",
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          remainingMonths: {
+            $subtract: [
+              "$totalMonths",
+              { $multiply: ["$totalYears", 12] },
+            ],
+          },
+          remainingDaysRaw: {
+            $dateDiff: {
+              startDate: {
+                $dateAdd: {
+                  startDate: "$dateOfJoining",
+                  unit: "month",
+                  amount: "$totalMonths",
+                },
+              },
+              endDate: "$$NOW",
+              unit: "day",
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          adjustedMonths: {
+            $cond: [
+              { $lt: ["$remainingDaysRaw", 0] },
+              { $subtract: ["$remainingMonths", 1] },
+              "$remainingMonths",
+            ],
+          },
+          adjustedDays: {
+            $cond: [
+              { $lt: ["$remainingDaysRaw", 0] },
+              {
+                $add: [
+                  "$remainingDaysRaw",
+                  {
+                    $dateDiff: {
+                      startDate: {
+                        $dateSubtract: {
+                          startDate: "$$NOW",
+                          unit: "month",
+                          amount: 1,
+                        },
+                      },
+                      endDate: "$$NOW",
+                      unit: "day",
+                    },
+                  },
+                ],
+              },
+              "$remainingDaysRaw",
+            ],
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          experience: {
+            years: "$totalYears",
+            months: "$adjustedMonths",
+            days: "$adjustedDays",
+          },
+          experienceText: {
+            $concat: [
+              { $toString: "$totalYears" },
+              " Years ",
+              { $toString: "$adjustedMonths" },
+              " Months ",
+              { $toString: "$adjustedDays" },
+              " Days",
+            ],
+          },
+        },
+      },
+
+      {
+        $project: {
+          totalYears: 0,
+          totalMonths: 0,
+          remainingDaysRaw: 0,
+        },
+      },
+
+      /* ================= SORT ================= */
+      { $sort: { employeeName: 1 } },
+    ];
+
+    const employees = await Employee.aggregate(pipeline);
+
+    res.status(200).json({
+      success: true,
+      total: employees.length,
+      data: employees,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error", error });
+    console.error("Employee aggregation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
+
 
 // const FilterByDateActiveEmployee = async (req, res) => {
 //   // Get today's date at 00:00:00
@@ -938,6 +1126,264 @@ const allEmployeesUserDetails = async (req, res) => {
 // };
 
 // router.get('/employees/:id',
+
+// const allEmployeesUserDetails = async (req, res) => {
+//   try {
+//     const {
+//       _id,
+//       employeeStatus,
+//       employeeType,
+//       roleId,
+//       departmentId,
+//       search,
+//       fromDate,
+//       toDate,
+//       page = 1,
+//       limit = 10,
+//     } = req.query;
+
+//     const pageNum = Number(page);
+//     const limitNum = Number(limit);
+//     const skip = (pageNum - 1) * limitNum;
+
+//     /* ================= BASE MATCH ================= */
+//     const baseMatch = {};
+
+//     if (_id && mongoose.Types.ObjectId.isValid(_id)) {
+//       baseMatch._id = new mongoose.Types.ObjectId(_id);
+//     }
+
+//     if (employeeStatus) {
+//       baseMatch.employeeStatus = employeeStatus;
+//     }
+
+//     if (employeeType) {
+//       baseMatch.employeeType = employeeType;
+//     }
+
+//     // Date filter
+//     if (fromDate || toDate) {
+//       match.createdAt = {};
+
+//       if (fromDate) {
+//         const [y, m, d] = fromDate.split("-");
+//         match.createdAt.$gte = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+//       }
+
+//       if (toDate) {
+//         const [y, m, d] = toDate.split("-");
+//         match.createdAt.$lte = new Date(
+//           Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+//         );
+//       }
+//     }
+
+
+//     const pipeline = [
+//       { $match: baseMatch },
+
+//       /* ================= ROLE ================= */
+//       {
+//         $lookup: {
+//           from: "employeeroles",
+//           localField: "roleId",
+//           foreignField: "_id",
+//           as: "role",
+//         },
+//       },
+//       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
+
+//       ...(roleId
+//         ? [{ $match: { "role._id": new mongoose.Types.ObjectId(roleId) } }]
+//         : []),
+
+//       /* ================= DEPARTMENT ================= */
+//       {
+//         $lookup: {
+//           from: "employeedepartments",
+//           localField: "role.departmentId",
+//           foreignField: "_id",
+//           as: "role.department",
+//         },
+//       },
+//       {
+//         $unwind: {
+//           path: "$role.department",
+//           preserveNullAndEmptyArrays: true,
+//         },
+//       },
+
+//       ...(departmentId
+//         ? [
+//             {
+//               $match: {
+//                 "role.department._id": new mongoose.Types.ObjectId(
+//                   departmentId
+//                 ),
+//               },
+//             },
+//           ]
+//         : []),
+
+//       /* ================= SEARCH ================= */
+//       ...(search
+//         ? [
+//             {
+//               $match: {
+//                 $or: [
+//                   { employeeName: { $regex: search, $options: "i" } },
+//                   { email: { $regex: search, $options: "i" } },
+//                   { phoneNumber: { $regex: search, $options: "i" } },
+//                   { employeeId: { $regex: search, $options: "i" } },
+//                   { employeeType: { $regex: search, $options: "i" } },
+//                   { "role.name": { $regex: search, $options: "i" } },
+//                   {
+//                     "role.department.name": {
+//                       $regex: search,
+//                       $options: "i",
+//                     },
+//                   },
+//                 ],
+//               },
+//             },
+//           ]
+//         : []),
+
+//       /* ================= EXPERIENCE ================= */
+//       {
+//         $addFields: {
+//           totalYears: {
+//             $dateDiff: {
+//               startDate: "$dateOfJoining",
+//               endDate: "$$NOW",
+//               unit: "year",
+//             },
+//           },
+//           totalMonths: {
+//             $dateDiff: {
+//               startDate: "$dateOfJoining",
+//               endDate: "$$NOW",
+//               unit: "month",
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $addFields: {
+//           remainingMonths: {
+//             $subtract: [
+//               "$totalMonths",
+//               { $multiply: ["$totalYears", 12] },
+//             ],
+//           },
+//           remainingDaysRaw: {
+//             $dateDiff: {
+//               startDate: {
+//                 $dateAdd: {
+//                   startDate: "$dateOfJoining",
+//                   unit: "month",
+//                   amount: "$totalMonths",
+//                 },
+//               },
+//               endDate: "$$NOW",
+//               unit: "day",
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $addFields: {
+//           adjustedMonths: {
+//             $cond: [
+//               { $lt: ["$remainingDaysRaw", 0] },
+//               { $subtract: ["$remainingMonths", 1] },
+//               "$remainingMonths",
+//             ],
+//           },
+//           adjustedDays: {
+//             $cond: [
+//               { $lt: ["$remainingDaysRaw", 0] },
+//               {
+//                 $add: [
+//                   "$remainingDaysRaw",
+//                   {
+//                     $dateDiff: {
+//                       startDate: {
+//                         $dateSubtract: {
+//                           startDate: "$$NOW",
+//                           unit: "month",
+//                           amount: 1,
+//                         },
+//                       },
+//                       endDate: "$$NOW",
+//                       unit: "day",
+//                     },
+//                   },
+//                 ],
+//               },
+//               "$remainingDaysRaw",
+//             ],
+//           },
+//         },
+//       },
+//       {
+//         $addFields: {
+//           experienceText: {
+//             $concat: [
+//               { $toString: "$totalYears" },
+//               " Years ",
+//               { $toString: "$adjustedMonths" },
+//               " Months ",
+//               { $toString: "$adjustedDays" },
+//               " Days",
+//             ],
+//           },
+//         },
+//       },
+
+//       {
+//         $project: {
+//           totalYears: 0,
+//           totalMonths: 0,
+//           remainingDaysRaw: 0,
+//         },
+//       },
+
+//       /* ================= SORT ================= */
+//       { $sort: { employeeName: 1 } },
+
+//       /* ================= PAGINATION ================= */
+//       {
+//         $facet: {
+//           data: [{ $skip: skip }, { $limit: limitNum }],
+//           totalCount: [{ $count: "count" }],
+//         },
+//       },
+//     ];
+
+//     const result = await Employee.aggregate(pipeline);
+
+//     const data = result[0]?.data || [];
+//     const total = result[0]?.totalCount[0]?.count || 0;
+
+//     res.status(200).json({
+//       success: true,
+//       total,
+//       page: pageNum,
+//       limit: limitNum,
+//       totalPages: Math.ceil(total / limitNum),
+//       data,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//     });
+//   }
+// };
+
+
 
 const FilterByDateActiveEmployee = async (req, res) => {
   // Parse date from route param in DD-MM-YYYY format (e.g., "9-12-2025")
@@ -1545,20 +1991,8 @@ const deleteEmployeeFileByIndex = async (req, res) => {
 
     // Search all documents to find the index
     if (Array.isArray(employee.document) && employee.document.length > index) {
-      // Optional: Delete all files inside the document (from disk)
-      //   const targetDoc = employee.document[index];
-
-      //  if (targetDoc.files && Array.isArray(targetDoc.files)) {
-      //   targetDoc.files.forEach(file => {
-      //     const fs = require("fs");
-      //     const path = require("path");
-      //     const filePath = path.join("uploads", file.fileName); // adjust path if needed
-      //     if (fs.existsSync(filePath)) {
-      //       fs.unlinkSync(filePath); // delete file from disk
-      //     }
-      //   });
-      // }
-
+      
+// 11
       //  Delete the document object at index
       employee.document.splice(index, 1);
 
@@ -1581,6 +2015,78 @@ const deleteEmployeeFileByIndex = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+// import fs from "fs";
+// import path from "path";
+
+// const deleteEmployeeFileByIndex = async (req, res) => {
+//   const { id, index } = req.params;
+
+//   try {
+//     const docRecord = await Employee.findById(id);
+//     if (!docRecord) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
+
+//     if (
+//       !Array.isArray(docRecord.document) ||
+//       index < 0 ||
+//       index >= docRecord.document.length
+//     ) {
+//       return res.status(404).json({ message: "Invalid document index" });
+//     }
+
+//     const storedPath = docRecord.document[index]?.filepath || "";
+//     let absolutePath = "";
+
+//     /* ================= PATH RESOLUTION ================= */
+//     const normalized = storedPath.replace(/\\/g, "/");
+
+//     if (normalized.includes("uploads/")) {
+//       // already relative path like uploads/xxx/file.png
+//       absolutePath = path.resolve(process.cwd(), normalized);
+//     } else {
+//       // fallback → filename only
+//       absolutePath = path.resolve(
+//         process.cwd(),
+//         "uploads/employeesDocument",
+//         path.basename(normalized)
+//       );
+//     }
+
+//     /* ================= FILE DELETE ================= */
+//     try {
+//       console.log("Checking file:", absolutePath);
+
+//       if (fs.existsSync(absolutePath)) {
+//         await fs.promises.unlink(absolutePath);
+//         console.log("File deleted:", absolutePath);
+//       } else {
+//         console.log("File not found on disk:", absolutePath);
+//       }
+//     } catch (fsErr) {
+//       console.error("File unlink error:", fsErr.message);
+//       // Continue → avoid DB stale reference
+//     }
+
+//     /* ================= DB DELETE ================= */
+//     docRecord.document.splice(index, 1);
+//     await docRecord.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "File removed successfully",
+//       updatedDocuments: docRecord.document,
+//     });
+//   } catch (error) {
+//     console.error("deleteEmployeeFileByIndex error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 
 const getRevisionHistoryById = async (req, res) => {
   const { id } = req.params;
