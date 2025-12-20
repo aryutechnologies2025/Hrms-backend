@@ -29,6 +29,7 @@ import {
 import upload from "../middlewares/upload.js";
 import { resetPassword } from "../controllers/authController.js";
 import useAuth from "../middlewares/userAuth.js";
+import employeefilesUpload from "../middlewares/employeefilesUploads.js";
 
 const employeeRouter = express.Router();
 
@@ -77,8 +78,8 @@ employeeRouter.post(
 employeeRouter.put(
   "/update-employee/:id",
   (req, res, next) => {
-    upload.any()(req, res, function (err) {
-      if (err) {
+    employeefilesUpload.any()(req, res, function (err) {
+      if(err) {
         // Multer error handling
         if (err.code === "LIMIT_FILE_SIZE") {
           return res.status(400).json({

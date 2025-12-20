@@ -430,40 +430,49 @@ const createCandidate = async (req, res) => {
 // };
 
 
-const getCandidate = async (req, res) => {
 
+
+const getCandidate = async (req, res) => {
   try {
     const {
       id,
-      status,
-      source,
-      technology,
-      candidateName,
-      createdByName,
-      search,
+      interviewStatus,          // interviewStatus ObjectId
+      source,          // source ObjectId
+      technology,      // platform ObjectId
+      candidateName,   // candidate name text
+      createdByName,   // admin user name text
+      search,          // global search
       fromDate,
       toDate,
       page = 1,
       limit = 10,
     } = req.query;
+    console.log("req.query",req.query);
+
+    /* ================= VALIDATIONS ================= */
+
+    if (
+      fromDate &&
+      toDate &&
+      new Date(fromDate) > new Date(toDate)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "fromDate cannot be greater than toDate",
+      });
+    }
 
     const match = {};
 
-    /* ===== ID FILTER ===== */
+    /* ================= BASE FILTERS ================= */
+
+    // Candidate _id
     if (id && mongoose.Types.ObjectId.isValid(id)) {
       match._id = new mongoose.Types.ObjectId(id);
     }
 
-
-   
-    /* ===== DATE FILTER ===== */
-    // if (fromDate || toDate) {
-    //   match.createdAt = {};
-    //   if (fromDate) match.createdAt.$gte = new Date(fromDate);
-    //   if (toDate) match.createdAt.$lte = new Date(toDate);
-    // }
-      if (fromDate || toDate) {
-
+    // Date filter
+    if (fromDate || toDate) {
       match.createdAt = {};
 
       if (fromDate) {
@@ -479,7 +488,7 @@ const getCandidate = async (req, res) => {
       }
     }
 
-    /* ===== CANDIDATE NAME FILTER ===== */
+    // Candidate name
     if (candidateName) {
       match.$or = [
         { firstName: { $regex: candidateName, $options: "i" } },
@@ -489,8 +498,10 @@ const getCandidate = async (req, res) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    /* ================= AGGREGATION PIPELINE ================= */
+
     const pipeline = [
-      /* ===== INTERVIEW STATUS ===== */
+      /* ---- Interview Status ---- */
       {
         $lookup: {
           from: "jobinterviews",
@@ -501,7 +512,7 @@ const getCandidate = async (req, res) => {
       },
       { $unwind: { path: "$interviewStatus", preserveNullAndEmptyArrays: true } },
 
-      /* ===== PLATFORM ===== */
+      /* ---- Platform / Technology ---- */
       {
         $lookup: {
           from: "jobsources",
@@ -512,7 +523,7 @@ const getCandidate = async (req, res) => {
       },
       { $unwind: { path: "$platform", preserveNullAndEmptyArrays: true } },
 
-      /* ===== CREATED BY (ADMIN USERS) ===== */
+      /* ---- Created By (Admin Users) ---- */
       {
         $lookup: {
           from: "adminusers",
@@ -523,35 +534,39 @@ const getCandidate = async (req, res) => {
       },
       { $unwind: { path: "$createdBy", preserveNullAndEmptyArrays: true } },
 
-      /* ===== SOURCE ===== */
+      /* ---- Source ---- */
       {
         $lookup: {
           from: "sources",
           localField: "source",
-          foreignField:"_id",
+          foreignField: "_id",
           as: "source",
         },
       },
       { $unwind: { path: "$source", preserveNullAndEmptyArrays: true } },
     ];
-    /* ===== LOOKUP BASED FILTERS ===== */
-    if (status) {
+
+    /* ================= OBJECT ID FILTERS ================= */
+
+    if (interviewStatus) {
       pipeline.push({
-        $match: { "interviewStatus.name": { $regex: status, $options: "i" } },
+        $match: { "interviewStatus._id": new mongoose.Types.ObjectId(interviewStatus) },
       });
     }
 
-    if (technology) {
+    if (technology && mongoose.Types.ObjectId.isValid(technology)) {
       pipeline.push({
-        $match: { "platform.name": { $regex: technology, $options: "i" } },
+        $match: { "platform._id": new mongoose.Types.ObjectId(technology) },
       });
     }
 
-    if (source) {
+    if (source && mongoose.Types.ObjectId.isValid(source)) {
       pipeline.push({
-        $match: { "source.name": { $regex: source, $options: "i" } },
+        $match: { "source._id": new mongoose.Types.ObjectId(source) },
       });
     }
+
+    /* ================= TEXT FILTERS ================= */
 
     if (createdByName) {
       pipeline.push({
@@ -559,8 +574,9 @@ const getCandidate = async (req, res) => {
       });
     }
 
-    /* ===== GLOBAL SEARCH (ALL FIELDS) ===== */
-    if (search) {
+    /* ================= GLOBAL SEARCH ================= */
+
+    if (search && search.trim() !== "") {
       pipeline.push({
         $match: {
           $or: [
@@ -577,12 +593,12 @@ const getCandidate = async (req, res) => {
       });
     }
 
-    /* ===== BASE MATCH (CANDIDATE FIELDS) ===== */
-    if (Object.keys(match).length) {
+    /* ================= BASE MATCH ================= */
+
+    if (Object.keys(match).length > 0) {
       pipeline.push({ $match: match });
     }
-
-    /* ===== SORT & PAGINATION ===== */
+    /* ================= SORT + PAGINATION ================= */
     pipeline.push(
       { $sort: { createdAt: -1 } },
       {
@@ -593,8 +609,10 @@ const getCandidate = async (req, res) => {
       }
     );
 
-    const result = await Candidate.aggregate(pipeline);
+    /* ================= EXECUTE ================= */
 
+    const result = await Candidate.aggregate(pipeline);
+  //  console.log("result",result[0].data);
     res.status(200).json({
       success: true,
       data: result[0].data,
@@ -613,7 +631,7 @@ const getCandidate = async (req, res) => {
   }
 };
 
-export default getCandidate;
+
 
 
 
