@@ -45,6 +45,7 @@ const invoice = new mongoose.Schema(
     notes:{type:String,required:[false,"Please provide a notes"]},
     invoice_type:{type:String,required:[false,"Please provide a invoice type"]},
     status: { type: String, required: [true, "Please select a status"] },
+    paid_date:{type:String},
     documents: [
          {
       fieldname: String,

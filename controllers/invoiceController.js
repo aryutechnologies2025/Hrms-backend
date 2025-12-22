@@ -31,6 +31,7 @@ const createInvoice = async (req, res) => {
       cgst,
       sgst,
       subTotal,
+      paid_date
     } = req.body;
 
     const newInvoice = new Invoice({
@@ -50,6 +51,7 @@ const createInvoice = async (req, res) => {
       cgst,
       sgst,
       subTotal,
+      paid_date
     });
 
     const savedInvoice = await newInvoice.save();
@@ -222,6 +224,13 @@ const uploadClientInvoice = async (req, res) => {
       });
     }
 
+    if (!invoice_document_type) {
+      return res.status(400).json({
+        success: false,
+        message: "invoice document type is required",
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -236,17 +245,39 @@ const uploadClientInvoice = async (req, res) => {
       path: req.file.path,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      invoice_document_type: invoice_document_type,
+      invoice_document_type,
       select: false,
     };
 
-    const updatedInvoice = await Invoice.findOneAndUpdate(
-      { _id: id },
-      {
-        $push: { documents: invoiceDoc },
-      },
-      { new: true }
-    );
+    const invoice = await Invoice.findOne({
+      _id: id,
+      "documents.invoice_document_type": invoice_document_type,
+    });
+
+    let updatedInvoice;
+
+    if (invoice) {
+      updatedInvoice = await Invoice.findOneAndUpdate(
+        {
+          _id: id,
+          "documents.invoice_document_type": invoice_document_type,
+        },
+        {
+          $set: {
+            "documents.$": invoiceDoc,
+          },
+        },
+        { new: true }
+      );
+    } else {
+      updatedInvoice = await Invoice.findOneAndUpdate(
+        { _id: id },
+        {
+          $push: { documents: invoiceDoc },
+        },
+        { new: true }
+      );
+    }
 
     if (!updatedInvoice) {
       return res.status(404).json({
@@ -257,7 +288,9 @@ const uploadClientInvoice = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Document uploaded successfully",
+      message: invoice
+        ? "Document updated successfully"
+        : "Document uploaded successfully",
       data: updatedInvoice,
     });
   } catch (error) {
@@ -268,6 +301,7 @@ const uploadClientInvoice = async (req, res) => {
     });
   }
 };
+
 
 // const selectInvoiceDocument = async (req, res) => {
 //   try {
