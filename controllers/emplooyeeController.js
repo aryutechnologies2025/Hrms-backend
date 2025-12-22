@@ -920,10 +920,7 @@ const allEmployeesUserDetails = async (req, res) => {
       {
         $addFields: {
           remainingMonths: {
-            $subtract: [
-              "$totalMonths",
-              { $multiply: ["$totalYears", 12] },
-            ],
+            $subtract: ["$totalMonths", { $multiply: ["$totalYears", 12] }],
           },
           remainingDaysRaw: {
             $dateDiff: {
@@ -984,7 +981,7 @@ const allEmployeesUserDetails = async (req, res) => {
             months: "$adjustedMonths",
             days: "$adjustedDays",
           },
-          experienceText: {
+          TotalExperienceTillJoining: {
             $concat: [
               { $toString: "$totalYears" },
               " Years ",
@@ -996,6 +993,18 @@ const allEmployeesUserDetails = async (req, res) => {
           },
         },
       },
+
+      // {
+      //   $addFields: {
+      //     totalExperienceDays: {
+      //       $dateDiff: {
+      //         startDate: "$dateOfJoining",
+      //         endDate: "$$NOW",
+      //         unit: "day",
+      //       },
+      //     },
+      //   },
+      // },
 
       {
         $project: {
@@ -1024,7 +1033,6 @@ const allEmployeesUserDetails = async (req, res) => {
     });
   }
 };
-
 
 // const FilterByDateActiveEmployee = async (req, res) => {
 //   // Get today's date at 00:00:00
@@ -1177,7 +1185,6 @@ const allEmployeesUserDetails = async (req, res) => {
 //         );
 //       }
 //     }
-
 
 //     const pipeline = [
 //       { $match: baseMatch },
@@ -1382,8 +1389,6 @@ const allEmployeesUserDetails = async (req, res) => {
 //     });
 //   }
 // };
-
-
 
 const FilterByDateActiveEmployee = async (req, res) => {
   // Parse date from route param in DD-MM-YYYY format (e.g., "9-12-2025")
@@ -1641,9 +1646,7 @@ const allActiveAndRelievingEmployeesUserDetails = async (req, res) => {
 // };
 
 const particularEmployeeUserDetails = async (req, res) => {
-
-
-  console.log("req.params.id",req.params.id);
+  console.log("req.params.id", req.params.id);
   try {
     const emp = await Employee.findOne({
       _id: req.params.id,
@@ -1678,7 +1681,6 @@ const particularEmployeeUserDetails = async (req, res) => {
     });
   }
 };
-
 
 const generateEmployeeId = async (req, res) => {
   const { dateofjoining } = req.body;
@@ -1991,8 +1993,7 @@ const deleteEmployeeFileByIndex = async (req, res) => {
 
     // Search all documents to find the index
     if (Array.isArray(employee.document) && employee.document.length > index) {
-      
-// 11
+      // 11
       //  Delete the document object at index
       employee.document.splice(index, 1);
 
@@ -2086,7 +2087,6 @@ const deleteEmployeeFileByIndex = async (req, res) => {
 //     });
 //   }
 // };
-
 
 const getRevisionHistoryById = async (req, res) => {
   const { id } = req.params;
@@ -3692,7 +3692,7 @@ const relivingList = async (req, res) => {
         employeeId: emp.employeeId,
         email: emp.email,
         role: emp.roleId?.name || null,
-        dateOfBirth: emp.dateOfJoining,
+        dateOfJoining: emp.dateOfJoining,
         resignationEmailDate: emp.resignation_email_date,
         reason: emp.relieving_reason,
         noticePeriod: emp.notice_period,
@@ -4304,7 +4304,7 @@ const updateReliving = async (req, res) => {
 //   });
 // };
 const dashboard = async (req, res) => {
-  const userRole=req.query.role;
+  const userRole = req.query.role;
   const date = new Date().toISOString().split("T")[0];
   const today = new Date();
   const [year, month, day] = date.split("-").map(Number);
@@ -4391,7 +4391,10 @@ const dashboard = async (req, res) => {
     .populate("employeeId", "employeeName");
 
   // 🔹 Active employees
-  let activeEmployees = await Employee.find({ employeeStatus: "1", employeeId: { $nin: ["AYE201202", "AYE180301"] } })
+  let activeEmployees = await Employee.find({
+    employeeStatus: "1",
+    employeeId: { $nin: ["AYE201202", "AYE180301"] },
+  })
     .select(
       "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
     )
@@ -4414,47 +4417,47 @@ const dashboard = async (req, res) => {
 
     // employeeId: { $in: activeEmployees.map((e) => e._id) },
   })
-  .sort({ createdAt: -1 })
-  .select("employeeId entries workType");
+    .sort({ createdAt: -1 })
+    .select("employeeId entries workType");
 
   const presentSet = new Set();
   const wfhSet = new Set();
   const presentData = [];
   const wfhData = [];
   const convertToKolkataTime = (utcDate) => {
-  const date = new Date(utcDate);
-  // IST is UTC+5:30
-  const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
-  const istTime = new Date(date.getTime() + istOffset);
-  
-  return {
-    original: utcDate,
-    kolkataTime: istTime,
-    formatted: istTime.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    }),
-    timeOnly: istTime.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    }),
-    dateOnly: istTime.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
+    const date = new Date(utcDate);
+    // IST is UTC+5:30
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+    const istTime = new Date(date.getTime() + istOffset);
+
+    return {
+      original: utcDate,
+      kolkataTime: istTime,
+      formatted: istTime.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }),
+      timeOnly: istTime.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }),
+      dateOnly: istTime.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }),
+    };
   };
-};
   attendanceRecords.forEach((record) => {
     const loginEntry = record.entries.find(
       (e) =>
@@ -4470,31 +4473,31 @@ const dashboard = async (req, res) => {
       const employee = activeEmployees.find((e) => e._id.toString() === empId);
       // if (employee) presentData.push(employee);
       if (employee) {
-      const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
-      
-      // Create a copy of employee with loginDate added
-      const employeeWithLogin = {
-        ...(employee.toObject ? employee.toObject() : employee), // Handle both mongoose doc and plain object
-        login: kolkataLoginTime.kolkataTime,
-        time: kolkataLoginTime.timeOnly
-      };
-      presentData.push(employeeWithLogin);
-    }
+        const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+
+        // Create a copy of employee with loginDate added
+        const employeeWithLogin = {
+          ...(employee.toObject ? employee.toObject() : employee), // Handle both mongoose doc and plain object
+          login: kolkataLoginTime.kolkataTime,
+          time: kolkataLoginTime.timeOnly,
+        };
+        presentData.push(employeeWithLogin);
+      }
       if (record.workType === "WFH") {
         wfhSet.add(empId);
         // if (employee) wfhData.push(employee);
         if (employee) {
-        const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
-        
-        // Create a copy for WFH with loginDate added
-        const employeeWithLogin = {
-          ...(employee.toObject ? employee.toObject() : employee),
-          login: kolkataLoginTime.kolkataTime,
-          time: kolkataLoginTime.timeOnly,
-          workType: record.workType
-        };
-        wfhData.push(employeeWithLogin);
-      }
+          const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+
+          // Create a copy for WFH with loginDate added
+          const employeeWithLogin = {
+            ...(employee.toObject ? employee.toObject() : employee),
+            login: kolkataLoginTime.kolkataTime,
+            time: kolkataLoginTime.timeOnly,
+            workType: record.workType,
+          };
+          wfhData.push(employeeWithLogin);
+        }
       }
     }
   });
@@ -4532,19 +4535,19 @@ const dashboard = async (req, res) => {
     )
     .populate("roleId", "name");
 
-    // Announcement
-    //  const userRole = req.query.role; // e.g., "admin" or "employee"
-    const announcements = await Announcements.find({
-      visible: { $in: [userRole, "Both"] },
-      expiryDate: { $gte: new Date() }, // not expired
-      status:"1"
-    });
+  // Announcement
+  //  const userRole = req.query.role; // e.g., "admin" or "employee"
+  const announcements = await Announcements.find({
+    visible: { $in: [userRole, "Both"] },
+    expiryDate: { $gte: new Date() }, // not expired
+    status: "1",
+  });
 
-    // res.status(200).json({
-    //   success: true,
-    //   data: announcements,
-    //   message: "Announcements fetched successfully",
-    // });
+  // res.status(200).json({
+  //   success: true,
+  //   data: announcements,
+  //   message: "Announcements fetched successfully",
+  // });
 
   //Internship End Dates
   const interns = await Employee.find({
@@ -4605,7 +4608,7 @@ const dashboard = async (req, res) => {
             createdAt: emp.createdAt,
             recurringDays: emp.recurringDays,
             recurringEndDate: endDate,
-           
+
             isCurrent: today < endDate && today >= oneWeekBeforeEnd,
           };
         })
@@ -4632,15 +4635,15 @@ const dashboard = async (req, res) => {
       futureEmployees,
       interns: internsWithEnd,
       pendingRecurringReached: recurringDates,
-      announcements:announcements,
+      announcements: announcements,
     },
   });
 };
 
-const allUserAdminAndEmployee=async(req, res) => {
+const allUserAdminAndEmployee = async (req, res) => {
   try {
     const employees = await Employee.find({}, "employeeName photo dutyStatus");
-    const admin = await User.find({dutyStatus:"1"},"name email");
+    const admin = await User.find({ dutyStatus: "1" }, "name email");
 
     const formatted = [
       ...employees.map((e) => ({
@@ -4690,5 +4693,5 @@ export {
   relivingList,
   updateReliving,
   dashboard,
-  allUserAdminAndEmployee
+  allUserAdminAndEmployee,
 };
