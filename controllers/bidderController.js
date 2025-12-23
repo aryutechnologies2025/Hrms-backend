@@ -4,6 +4,201 @@ import TechnologyBidder from "../models/technologyBidderModel.js";
 import bidderEmployeeModelSchema from "../models/bidderEmployeeModel.js";
 import ConnectsPurchased from "../models/connectsPurchasedModel.js";
 import { isModuleNamespaceObject } from "util/types";
+import XLSX from "xlsx";
+import BiddingTransactionReports from "../models/biddingTransactionReports.js";
+
+function parseDate(value) {
+  if (!value) return null;
+
+  if (typeof value === "number") {
+    const d = new Date((value - 25569) * 86400 * 1000);
+    return isNaN(d) ? null : d;
+  }
+
+  const d = new Date(value);
+  return isNaN(d) ? null : d;
+}
+
+function normalizeAmount(v) {
+  if (v == null || v === "") return null;
+  const n = Number(String(v).replace(/,/g, "").replace(/[^\d.-]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+const headerMap = {
+  date: ["date"],
+  transactionId: ["transaction id"],
+  transactionType: ["transaction type"],
+  transactionSummary: ["transaction summary"],
+  transactionSummaryDetails: ["transaction summary details"],
+  description1: ["description 1"],
+  description2: ["description 2"],
+  description3: ["description 3"],
+  enteredDescription: ["entered description"],
+  agencyTeam: ["agency team"],
+  freelancer: ["freelancer"],
+  clientTeam: ["client team"],
+  accountName: ["account name"],
+  referenceId: ["ref id"],
+  amountDollar: ["amount $"],
+  amountINR: ["amount in local currency"],
+  currency: ["currency"],
+  currentBalance: ["current balance $"],
+  paymentMethod: ["payment method"]
+};
+
+const normalizeHeader = h =>
+  String(h || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+function mapHeaders(headers) {
+  const mapped = {};
+  const normalized = headers.map(h => ({
+    raw: h,
+    norm: normalizeHeader(h)
+  }));
+
+  for (const key in headerMap) {
+    const aliases = headerMap[key].map(normalizeHeader);
+    const match = normalized.find(h => aliases.includes(h.norm));
+    mapped[key] = match ? match.raw : null;
+  }
+  return mapped;
+}
+
+const importExcelBidding = async (req, res) => {
+  try {
+    const { account } = req.body;
+    console.log("account", account)
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "File not uploaded" });
+    }
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      defval: null,
+      raw: false
+    });
+
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "Empty file" });
+    }
+
+    const headerLookup = mapHeaders(Object.keys(rows[0]));
+    const docs = [];
+    const errors = [];
+
+    rows.forEach((row, i) => {
+      const get = k => (headerLookup[k] ? row[headerLookup[k]] : null);
+
+      const doc = {
+        date: parseDate(get("date")),
+        transactionId: get("transactionId"),
+        transactionType: get("transactionType"),
+        transactionSummary: get("transactionSummary"),
+        transactionSummaryDetails: get("transactionSummaryDetails"),
+        description1: get("description1"),
+        description2: get("description2"),
+        description3: get("description3"),
+        enteredDescription: get("enteredDescription"),
+        agencyTeam: get("agencyTeam"),
+        freelancer: get("freelancer"),
+        clientTeam: get("clientTeam"),
+        // accountName: account,
+        referenceId: get("referenceId"),
+        amountDollar: normalizeAmount(get("amountDollar")),
+        amountINR: normalizeAmount(get("amountINR")),
+        currency: get("currency"),
+        currentBalance: normalizeAmount(get("currentBalance")),
+        paymentMethod: get("paymentMethod")
+      };
+
+      if (!doc.date) {
+        errors.push({ row: i + 2, error: "Invalid Date" });
+        return;
+      }
+
+      if (doc.amountDollar == null && doc.amountINR == null) {
+        errors.push({ row: i + 2, error: "Missing Amount" });
+        return;
+      }
+
+      docs.push(doc);
+    });
+
+    if (!docs.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid rows",
+        errors
+      });
+    }
+
+    const inserted = await BiddingTransactionReports.insertMany(docs, {
+      ordered: false
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "File imported successfully",
+      filePath: req.file.path,
+      totalInserted: inserted.length
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Import failed",
+      error: err.message
+    });
+  }
+};
+
+
+const getBidderField = async(req, res) => {
+  const {type}= req.query;
+  try{
+  if(type === "transactionType"){
+    const transactionType = await BiddingTransactionReports.distinct("transactionType");
+    res.status(200).json({
+      success: true,
+      data: transactionType
+    });
+  }else if(type === "client"){
+    const client = await BiddingTransactionReports.distinct("clientTeam");
+    res.status(200).json({
+      success: true,
+      data: client
+    });
+  }else if(type === "description"){
+    const description = await BiddingTransactionReports.distinct("description1");
+    res.status(200).json({
+      success: true,
+      data: description
+    });
+  }}catch(err){
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: err.message
+    });
+  }
+}
+
+const getImportBiddingExcelReport = async (req, res) => {
+  const excelDetails = await BiddingTransactionReports.find();
+
+  res.status(200).json({
+    success: true,
+    data: excelDetails
+  });
+}
+
+
+
 const createAccountBidder = async (req, res) => {
   try {
     const { name, status } = req.body;
@@ -742,5 +937,8 @@ export {
   deleteConnectsPurchased,
   getAccountWise,
   getBidderByMultipleIds,
+  importExcelBidding,
+  getImportBiddingExcelReport,
+  getBidderField
   // filterBidder,
 };

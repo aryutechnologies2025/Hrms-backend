@@ -1,4 +1,5 @@
 import express from "express";
+import xlUpload from "../middlewares/xlUpload.js";
 import {
   createAccountBidder,
   getAccountBidder,
@@ -20,10 +21,20 @@ import {
   deleteConnectsPurchased,
   getAccountWise,
   getBidderByMultipleIds,
+  importExcelBidding,
+  getImportBiddingExcelReport,
+  getBidderField
   // filterBidder,
 } from "../controllers/bidderController.js";
 const router = express.Router();
-
+router.post("/import-bidding-report",xlUpload.single('file'), (req, res,next) => {
+    console.log("Uploaded File:", req.file);
+    console.log("Body:", req.body);
+    
+   next();
+},importExcelBidding);
+router.get("/get-import-bidding-excel-report", getImportBiddingExcelReport);
+router.get("/get-bidder-field", getBidderField);
 router.post("/create-account-bidder", createAccountBidder);
 router.get("/view-account-bidder", getAccountBidder);
 router.put("/edit-account-bidder/:id", editAccountBidder);
