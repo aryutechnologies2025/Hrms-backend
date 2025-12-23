@@ -27,12 +27,12 @@ import {
   // filterBidder,
 } from "../controllers/bidderController.js";
 const router = express.Router();
-router.post("/import-bidding-report",xlUpload.single('file'), (req, res,next) => {
-    console.log("Uploaded File:", req.file);
-    console.log("Body:", req.body);
-    
-   next();
-},importExcelBidding);
+router.post("/import-bidding-report",xlUpload.single("file"),importExcelBidding);
+// router.post(
+//   "/import-bidding",
+//   xlUpload.single("file"),
+//   importExcelBidding
+// );
 router.get("/get-import-bidding-excel-report", getImportBiddingExcelReport);
 router.get("/get-bidder-field", getBidderField);
 router.post("/create-account-bidder", createAccountBidder);

@@ -6,6 +6,7 @@ import ConnectsPurchased from "../models/connectsPurchasedModel.js";
 import { isModuleNamespaceObject } from "util/types";
 import XLSX from "xlsx";
 import BiddingTransactionReports from "../models/biddingTransactionReports.js";
+import BiddingStatusLog from "../models/biddingStatusLog.js";
 
 function parseDate(value) {
   if (!value) return null;
@@ -21,7 +22,11 @@ function parseDate(value) {
 
 function normalizeAmount(v) {
   if (v == null || v === "") return null;
-  const n = Number(String(v).replace(/,/g, "").replace(/[^\d.-]/g, ""));
+  const n = Number(
+    String(v)
+      .replace(/,/g, "")
+      .replace(/[^\d.-]/g, "")
+  );
   return isNaN(n) ? null : n;
 }
 
@@ -44,22 +49,25 @@ const headerMap = {
   amountINR: ["amount in local currency"],
   currency: ["currency"],
   currentBalance: ["current balance $"],
-  paymentMethod: ["payment method"]
+  paymentMethod: ["payment method"],
 };
 
-const normalizeHeader = h =>
-  String(h || "").trim().toLowerCase().replace(/\s+/g, " ");
+const normalizeHeader = (h) =>
+  String(h || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 
 function mapHeaders(headers) {
   const mapped = {};
-  const normalized = headers.map(h => ({
+  const normalized = headers.map((h) => ({
     raw: h,
-    norm: normalizeHeader(h)
+    norm: normalizeHeader(h),
   }));
 
   for (const key in headerMap) {
     const aliases = headerMap[key].map(normalizeHeader);
-    const match = normalized.find(h => aliases.includes(h.norm));
+    const match = normalized.find((h) => aliases.includes(h.norm));
     mapped[key] = match ? match.raw : null;
   }
   return mapped;
@@ -67,11 +75,12 @@ function mapHeaders(headers) {
 
 const importExcelBidding = async (req, res) => {
   try {
-    const { account } = req.body;
-    console.log("account", account)
+    const { account} = req.query;
 
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "File not uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "File not uploaded" });
     }
 
     const workbook = XLSX.readFile(req.file.path);
@@ -79,7 +88,7 @@ const importExcelBidding = async (req, res) => {
 
     const rows = XLSX.utils.sheet_to_json(sheet, {
       defval: null,
-      raw: false
+      raw: false,
     });
 
     if (!rows.length) {
@@ -90,12 +99,28 @@ const importExcelBidding = async (req, res) => {
     const docs = [];
     const errors = [];
 
-    rows.forEach((row, i) => {
-      const get = k => (headerLookup[k] ? row[headerLookup[k]] : null);
+    // 🔹 Step 1: Prepare incoming keys
+    const incomingKeys = [];
 
-      const doc = {
-        date: parseDate(get("date")),
-        transactionId: get("transactionId"),
+    rows.forEach((row, i) => {
+      const get = (k) => (headerLookup[k] ? row[headerLookup[k]] : null);
+
+      const date = parseDate(get("date"));
+      const transactionId = get("transactionId");
+
+      if (!date || !transactionId) {
+        errors.push({ row: i + 2, error: "Missing Date or TransactionId" });
+        return;
+      }
+
+      incomingKeys.push({
+        transactionId,
+        date,
+      });
+
+      docs.push({
+        date,
+        transactionId,
         transactionType: get("transactionType"),
         transactionSummary: get("transactionSummary"),
         transactionSummaryDetails: get("transactionSummaryDetails"),
@@ -106,98 +131,125 @@ const importExcelBidding = async (req, res) => {
         agencyTeam: get("agencyTeam"),
         freelancer: get("freelancer"),
         clientTeam: get("clientTeam"),
-        // accountName: account,
+        accountName: account,
         referenceId: get("referenceId"),
         amountDollar: normalizeAmount(get("amountDollar")),
         amountINR: normalizeAmount(get("amountINR")),
         currency: get("currency"),
         currentBalance: normalizeAmount(get("currentBalance")),
-        paymentMethod: get("paymentMethod")
-      };
-
-      if (!doc.date) {
-        errors.push({ row: i + 2, error: "Invalid Date" });
-        return;
-      }
-
-      if (doc.amountDollar == null && doc.amountINR == null) {
-        errors.push({ row: i + 2, error: "Missing Amount" });
-        return;
-      }
-
-      docs.push(doc);
+        paymentMethod: get("paymentMethod"),
+      });
     });
 
     if (!docs.length) {
       return res.status(400).json({
         success: false,
         message: "No valid rows",
-        errors
+        errors,
       });
     }
 
-    const inserted = await BiddingTransactionReports.insertMany(docs, {
-      ordered: false
+    // 🔹 Step 2: Find existing duplicates
+    const existing = await BiddingTransactionReports.find(
+      {
+        accountName: account,
+        $or: incomingKeys,
+      },
+      { transactionId: 1, date: 1 }
+    ).lean();
+
+    const existingSet = new Set(
+      existing.map(
+        (e) => `${e.transactionId}_${new Date(e.date).toISOString()}`
+      )
+    );
+
+    // 🔹 Step 3: Remove duplicates
+    const finalDocs = docs.filter((d) => {
+      const key = `${d.transactionId}_${d.date.toISOString()}`;
+      return !existingSet.has(key);
+    });
+
+    if (!finalDocs.length) {
+      return res.status(409).json({
+        success: false,
+        message: "The Document already Exists",
+      });
+    }
+
+    // 🔹 Step 4: Insert
+    const inserted = await BiddingTransactionReports.insertMany(finalDocs, {
+      ordered: false,
     });
 
     return res.status(200).json({
       success: true,
       message: "File imported successfully",
-      filePath: req.file.path,
-      totalInserted: inserted.length
+      totalInserted: inserted.length,
+      skippedDuplicates: docs.length - finalDocs.length,
     });
-
   } catch (err) {
     console.error(err);
+
+    // Handle duplicate index error safely
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate transaction detected",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: "Import failed",
-      error: err.message
+      error: err.message,
     });
   }
 };
 
-
-const getBidderField = async(req, res) => {
-  const {type}= req.query;
-  try{
-  if(type === "transactionType"){
-    const transactionType = await BiddingTransactionReports.distinct("transactionType");
-    res.status(200).json({
-      success: true,
-      data: transactionType
-    });
-  }else if(type === "client"){
-    const client = await BiddingTransactionReports.distinct("clientTeam");
-    res.status(200).json({
-      success: true,
-      data: client
-    });
-  }else if(type === "description"){
-    const description = await BiddingTransactionReports.distinct("description1");
-    res.status(200).json({
-      success: true,
-      data: description
-    });
-  }}catch(err){
+const getBidderField = async (req, res) => {
+  const { type } = req.query;
+  try {
+    if (type === "transactionType") {
+      const transactionType = await BiddingTransactionReports.distinct(
+        "transactionType"
+      );
+      res.status(200).json({
+        success: true,
+        data: transactionType,
+      });
+    } else if (type === "client") {
+      const client = await BiddingTransactionReports.distinct("clientTeam");
+      res.status(200).json({
+        success: true,
+        data: client,
+      });
+    } else if (type === "description") {
+      const description = await BiddingTransactionReports.distinct(
+        "description1"
+      );
+      res.status(200).json({
+        success: true,
+        data: description,
+      });
+    }
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: err.message
+      error: err.message,
     });
   }
-}
+};
 
 const getImportBiddingExcelReport = async (req, res) => {
   const excelDetails = await BiddingTransactionReports.find();
 
   res.status(200).json({
     success: true,
-    data: excelDetails
+    data: excelDetails,
   });
-}
-
-
+};
 
 const createAccountBidder = async (req, res) => {
   try {
@@ -394,6 +446,11 @@ const createEmployeeBidder = async (req, res) => {
       reply,
       link,
       noOfBoost,
+      country,
+      state,
+      timezone,
+      salesdate,
+      status
     } = req.body;
 
     const newBidder = new bidderEmployeeModelSchema({
@@ -407,12 +464,27 @@ const createEmployeeBidder = async (req, res) => {
       reply,
       link,
       noOfBoost,
+      country,
+      state,
+      timezone,
+      salesdate,
+      status
     });
     const savedBidder = await newBidder.save();
+  
+      const statusLog = await BiddingStatusLog.create({
+        employeeId:req.body.employeeId,
+        account:req.body.account,
+        client:req.body.client,
+        technology:req.body.technology,
+        status: req.body.status,
+        date:req.body.date
+      })
+    
     res.status(200).json({
       success: true,
       message: "Bidder created successfully",
-      data: savedBidder,
+      data: savedBidder,statusLog
     });
   } catch (error) {
     // console.error(" Error creating project:", error);
@@ -434,6 +506,7 @@ const createEmployeeBidder = async (req, res) => {
 const editEmployeeBidder = async (req, res) => {
   try {
     const { id } = req.params;
+
     const updated = await bidderEmployeeModelSchema.findByIdAndUpdate(
       id,
       req.body,
@@ -449,7 +522,24 @@ const editEmployeeBidder = async (req, res) => {
         .json({ success: false, error: "Bidder not found" });
     }
 
-    res.status(200).json({ success: true, data: updated });
+    let statusLog = null;
+
+    if (req.body.status) {
+      statusLog = await BiddingStatusLog.create({
+        employeeId: req.body.employeeId,
+        account:req.body.account,
+        client:req.body.client,
+        technology:req.body.technology,
+        status: req.body.status,
+        date: req.body.date || new Date(),
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+      statusLog,
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
@@ -458,9 +548,13 @@ const editEmployeeBidder = async (req, res) => {
       }
       return res.status(400).json({ success: false, errors });
     }
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+
+    res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
+
 
 const getEmployeeBidder = async (req, res) => {
   const { ids, bidder } = req.query;
@@ -574,21 +668,72 @@ const getEmployeeBidder = async (req, res) => {
 const viewEmployeeBidderById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { reply, client, account, technology, fromDate, toDate, status } = req.query;
+
+    let filter = { employeeId: id };
+
+    if (reply) filter.reply = reply;
+    if (client) filter.client = client;
+    if (account) filter.account = account;
+    if (technology) filter.technology = technology;
+    if (status) filter.status = status;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+
     const bidder = await bidderEmployeeModelSchema
-      .find({ employeeId: id })
+      .find(filter)
       .populate("account", "name")
       .populate("technology", "name");
-    if (!bidder) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Bidder not found" });
-    }
-    res.status(200).json({ success: true, data: bidder });
+
+    // if (!bidder || bidder.length === 0) {
+    //   return res.status(404).json({ success: false, error: "Bidder not found" });
+    // }
+
+    // Sum the noOfConnections
+  //   const totalConnections = bidder.reduce((sum, item) => {
+  //     return sum + (parseInt(item.noOfConnections) || 0);
+  //   }, 0);
+  //  const bidderCount = await bidderEmployeeModelSchema
+  // .find({ employeeId: id })
+  // .populate("account", "name")
+  // .populate("technology", "name");
+
+const AllTotalDetails = bidder.reduce(
+  (acc, item) => {
+    acc.totalConnections += parseInt(item.noOfConnections) || 0;
+    acc.totalBoost += parseInt(item.noOfBoost) || 0;
+
+    if (item.reply === "yes") acc.replyYes += 1;
+    if(item.status === "sales_converted") acc.salesConverted += 1;
+
+    return acc;
+  },
+  {
+    totalConnections: 0,
+    totalBoost: 0,
+    replyYes: 0,
+    salesConverted: 0
+
+  }
+);
+
+  if (!bidder || bidder.length === 0) {
+    res.status(200).json({ success: true, data: []});
+  }else{
+     res.status(200).json({ success: true, data: bidder, AllTotalDetails });
+  }
   } catch (error) {
-    // console.error("Error in viewEmployeeBidderById:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
+
+
+
 //   const getEmployeeBidder = async (req, res) => {
 //     try {
 //         const bidder = await bidderEmployeeModelSchema.find().lean();
@@ -939,6 +1084,6 @@ export {
   getBidderByMultipleIds,
   importExcelBidding,
   getImportBiddingExcelReport,
-  getBidderField
+  getBidderField,
   // filterBidder,
 };

@@ -1,12 +1,14 @@
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import AccountBidder from "../models/accountBidderModel.js";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(
       process.cwd(),
       "uploads",
+      "bidding",
       "bidding-transaction"
     );
 
@@ -15,13 +17,26 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const accountName = req.body.account || "unknown";
-    const uniqueNumber = Date.now();
-    const date = new Date().toISOString().split("T")[0];
-    const ext = path.extname(file.originalname);
+    const accountId = req.query.account;
 
-    const fileName = `${accountName}_${uniqueNumber}_${date}${ext}`;
-    cb(null, fileName);
+    if (!accountId) {
+      return cb(new Error("Account ID is required"));
+    }
+
+    AccountBidder.findById(accountId)
+      .then(accountDetails => {
+        const accountName = accountDetails?.name || "unknown";
+
+        const uniqueNumber = Date.now();
+        const date = new Date().toISOString().split("T")[0];
+        const ext = path.extname(file.originalname);
+
+        const fileName = `${accountName}_${uniqueNumber}_${date}${ext}`;
+        cb(null, fileName);
+      })
+      .catch(err => {
+        cb(err);
+      });
   }
 });
 
@@ -48,6 +63,7 @@ const xlUpload = multer({
 });
 
 export default xlUpload;
+
 
 
 // import multer from "multer";
