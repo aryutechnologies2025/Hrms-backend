@@ -23,7 +23,7 @@ import {
   getBidderByMultipleIds,
   importExcelBidding,
   getImportBiddingExcelReport,
-  getBidderField
+  // getBidderField
   // filterBidder,
 } from "../controllers/bidderController.js";
 const router = express.Router();
@@ -34,7 +34,7 @@ router.post("/import-bidding-report",xlUpload.single("file"),importExcelBidding)
 //   importExcelBidding
 // );
 router.get("/get-import-bidding-excel-report", getImportBiddingExcelReport);
-router.get("/get-bidder-field", getBidderField);
+// router.get("/get-bidder-field", getBidderField);
 router.post("/create-account-bidder", createAccountBidder);
 router.get("/view-account-bidder", getAccountBidder);
 router.put("/edit-account-bidder/:id", editAccountBidder);

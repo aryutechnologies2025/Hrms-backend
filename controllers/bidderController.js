@@ -207,40 +207,39 @@ const importExcelBidding = async (req, res) => {
   }
 };
 
-const getBidderField = async (req, res) => {
-  const { type } = req.query;
-  try {
-    if (type === "transactionType") {
-      const transactionType = await BiddingTransactionReports.distinct(
-        "transactionType"
-      );
-      res.status(200).json({
-        success: true,
-        data: transactionType,
-      });
-    } else if (type === "client") {
-      const client = await BiddingTransactionReports.distinct("clientTeam");
-      res.status(200).json({
-        success: true,
-        data: client,
-      });
-    } else if (type === "description") {
-      const description = await BiddingTransactionReports.distinct(
-        "description1"
-      );
-      res.status(200).json({
-        success: true,
-        data: description,
-      });
-    }
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: err.message,
-    });
-  }
-};
+// const getBidderField = async (req, res) => {
+//   const { type } = req.query;
+//   try {
+   
+//       const transactionType = await BiddingTransactionReports.distinct(
+//         "transactionType"
+//       );
+    
+  
+//       const client = await BiddingTransactionReports.distinct("clientTeam");
+     
+ 
+//       const description = await BiddingTransactionReports.distinct(
+//         "description1"
+//       );
+
+      
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         transactionType,
+//         client,
+//         description,
+//       },
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: err.message,
+//     });
+//   }
+// };
 
 const getImportBiddingExcelReport = async (req, res) => {
   const excelDetails = await BiddingTransactionReports.find();
@@ -423,9 +422,21 @@ const getAccountAndTechnologyBidder = async (req, res) => {
     
 const bidderRole = await EmployeeRole.find({_id:"68c7edede2681e9879afdbd3"});
   const bidder = await Employee.find({roleId:bidderRole[0]._id}).select("employeeName ");
+
+  const transactionType = await BiddingTransactionReports.distinct(
+        "transactionType"
+      );
+    
+  
+      const client = await BiddingTransactionReports.distinct("clientTeam");
+     
+ 
+      const description = await BiddingTransactionReports.distinct(
+        "description1"
+      );
     res.status(200).json({
       success: true,
-      data: { accountBidder, technologyBidder, bidder },
+      data: { accountBidder, technologyBidder, bidder, transactionType, client, description },
     });
   } catch (error) {
     res.status(500).json({
@@ -1132,6 +1143,6 @@ export {
   getBidderByMultipleIds,
   importExcelBidding,
   getImportBiddingExcelReport,
-  getBidderField,
+  // getBidderField,
   // filterBidder,
 };
