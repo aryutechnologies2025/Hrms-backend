@@ -29,7 +29,7 @@ const biddingTransactionReportsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 biddingTransactionReportsSchema.index(
-  { transactionId: 1, date: 1, accountName: 1 },
+  { referenceId: 1, date: 1, accountName: 1 },
   { unique: true }
 );
 
