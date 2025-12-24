@@ -2902,7 +2902,7 @@ const updateTaskStatus = async (req, res) => {
       //   findTask.projectManagerId
       // );
       //  only project manager and super admin and client and subUser client can mark as done/completed
-      const superAdmin = await User.findOne({ superUser: true });
+      const superAdmin = await User.findOne({_id:updatedBy, superUser: true });
       // console.log(
       //   updatedBy,
       //   superAdmin._id,

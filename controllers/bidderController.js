@@ -75,7 +75,7 @@ function mapHeaders(headers) {
 
 const importExcelBidding = async (req, res) => {
   try {
-    const { account} = req.query;
+    const { account } = req.query;
 
     if (!req.file) {
       return res
@@ -99,7 +99,7 @@ const importExcelBidding = async (req, res) => {
     const docs = [];
     const errors = [];
 
-    // 🔹 Step 1: Prepare incoming keys
+
     const incomingKeys = [];
 
     rows.forEach((row, i) => {
@@ -149,24 +149,22 @@ const importExcelBidding = async (req, res) => {
       });
     }
 
-    // 🔹 Step 2: Find existing duplicates
     const existing = await BiddingTransactionReports.find(
       {
         accountName: account,
         $or: incomingKeys,
       },
-      { transactionId: 1, date: 1 }
+      { referenceId: 1, date: 1 }
     ).lean();
 
     const existingSet = new Set(
       existing.map(
-        (e) => `${e.transactionId}_${new Date(e.date).toISOString()}`
+        (e) => `${e.referenceId}_${new Date(e.date).toISOString()}`
       )
     );
 
-    // 🔹 Step 3: Remove duplicates
     const finalDocs = docs.filter((d) => {
-      const key = `${d.transactionId}_${d.date.toISOString()}`;
+      const key = `${d.referenceId}_${d.date.toISOString()}`;
       return !existingSet.has(key);
     });
 
@@ -177,7 +175,7 @@ const importExcelBidding = async (req, res) => {
       });
     }
 
-    // 🔹 Step 4: Insert
+
     const inserted = await BiddingTransactionReports.insertMany(finalDocs, {
       ordered: false,
     });
@@ -191,7 +189,7 @@ const importExcelBidding = async (req, res) => {
   } catch (err) {
     console.error(err);
 
-    // Handle duplicate index error safely
+
     if (err.code === 11000) {
       return res.status(409).json({
         success: false,
@@ -450,7 +448,7 @@ const createEmployeeBidder = async (req, res) => {
       state,
       timezone,
       salesdate,
-      status
+      status,
     } = req.body;
 
     const newBidder = new bidderEmployeeModelSchema({
@@ -468,23 +466,24 @@ const createEmployeeBidder = async (req, res) => {
       state,
       timezone,
       salesdate,
-      status
+      status,
     });
     const savedBidder = await newBidder.save();
-  
-      const statusLog = await BiddingStatusLog.create({
-        employeeId:req.body.employeeId,
-        account:req.body.account,
-        client:req.body.client,
-        technology:req.body.technology,
-        status: req.body.status,
-        date:req.body.date
-      })
-    
+
+    const statusLog = await BiddingStatusLog.create({
+      employeeId: req.body.employeeId,
+      account: req.body.account,
+      client: req.body.client,
+      technology: req.body.technology,
+      status: req.body.status,
+      date: req.body.date,
+    });
+
     res.status(200).json({
       success: true,
       message: "Bidder created successfully",
-      data: savedBidder,statusLog
+      data: savedBidder,
+      statusLog,
     });
   } catch (error) {
     // console.error(" Error creating project:", error);
@@ -527,9 +526,9 @@ const editEmployeeBidder = async (req, res) => {
     if (req.body.status) {
       statusLog = await BiddingStatusLog.create({
         employeeId: req.body.employeeId,
-        account:req.body.account,
-        client:req.body.client,
-        technology:req.body.technology,
+        account: req.body.account,
+        client: req.body.client,
+        technology: req.body.technology,
         status: req.body.status,
         date: req.body.date || new Date(),
       });
@@ -549,29 +548,54 @@ const editEmployeeBidder = async (req, res) => {
       return res.status(400).json({ success: false, errors });
     }
 
-    res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
-
 const getEmployeeBidder = async (req, res) => {
-  const { ids, bidder } = req.query;
-  if (bidder === "bidder") {
-    try {
+  try {
+    const {
+      ids,
+      bidder: bidder,
+      reply,
+      client,
+      account,
+      technology,
+      fromDate,
+      toDate,
+      status,
+      createdBy
+    } = req.query;
+
+
+    let filter = {};
+
+    if (reply) filter.reply = reply;
+    if (client) filter.client = client;
+    if (account) filter.account = account;
+    if (technology) filter.technology = technology;
+    if (status) filter.status = status;
+    if(createdBy) filter.createdBy = createdBy;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+
+
+    if (bidder === "bidder") {
       if (!ids) {
         return res
           .status(400)
           .json({ success: false, message: "No IDs provided" });
       }
 
-      // Split, trim spaces, and filter out invalid IDs
       const idsArray = ids
         .split(",")
-        .map((id) => id.trim()) // remove spaces
-        .filter((id) => mongoose.Types.ObjectId.isValid(id)) // keep only valid ObjectIds
-        .map((id) => new mongoose.Types.ObjectId(id)); // safely convert to ObjectId
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
 
       if (idsArray.length === 0) {
         return res
@@ -586,16 +610,13 @@ const getEmployeeBidder = async (req, res) => {
         .populate("employeeId", "employeeName")
         .populate("createdBy", "employeeName");
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: records,
       });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Server Error" });
     }
-  }
-  try {
+
+
     const totalConnections = await bidderEmployeeModelSchema.aggregate([
       {
         $group: {
@@ -605,41 +626,45 @@ const getEmployeeBidder = async (req, res) => {
         },
       },
     ]);
-    const reply = await bidderEmployeeModelSchema
-      .find({
-        reply: "yes",
-      })
-      .countDocuments();
 
-    const bidder = await bidderEmployeeModelSchema
-      .find()
+    // ---------- COUNTS ----------
+    const replyCount = await bidderEmployeeModelSchema.countDocuments({
+      reply: "yes",
+    });
+
+    const bidderSalesConvertedCount =
+      await bidderEmployeeModelSchema.countDocuments({
+        status: "sales_converted",
+      });
+
+    // ---------- MAIN DATA ----------
+    const bidders = await bidderEmployeeModelSchema
+      .find(filter)
       .populate("account", "name")
       .populate("technology", "name")
       .populate("createdBy", "employeeName")
       .sort({ createdAt: -1 });
 
-    //no.of connect using the account
+    // ---------- ACCOUNT COUNT ----------
     const accountCount = await bidderEmployeeModelSchema.aggregate([
       {
         $group: {
-          _id: "$account", // group by account ObjectId
-          count: { $sum: 1 }, // number of bidders per account
+          _id: "$account",
+          count: { $sum: 1 },
         },
       },
       {
         $lookup: {
-          from: "accountbidders", // collection name in MongoDB
-          localField: "_id", // account ObjectId from group
-          foreignField: "_id", // _id in accounts collection
+          from: "accountbidders",
+          localField: "_id",
+          foreignField: "_id",
           as: "account",
         },
       },
-      {
-        $unwind: "$account", // convert account array → object
-      },
+      { $unwind: "$account" },
       {
         $project: {
-          _id: 0, // hide raw _id
+          _id: 0,
           accountId: "$account._id",
           accountName: "$account.name",
           count: 1,
@@ -647,16 +672,36 @@ const getEmployeeBidder = async (req, res) => {
       },
     ]);
 
+    // ---------- TOTAL DETAILS ----------
+    const AllTotalDetails = bidders.reduce(
+      (acc, item) => {
+        acc.totalConnections += parseInt(item.noOfConnections) || 0;
+        acc.totalBoost += parseInt(item.noOfBoost) || 0;
+        if (item.reply === "yes") acc.replyYes += 1;
+        if (item.status === "sales_converted") acc.salesConverted += 1;
+        return acc;
+      },
+      {
+        totalConnections: 0,
+        totalBoost: 0,
+        replyYes: 0,
+        salesConverted: 0,
+      }
+    );
+
+    // ---------- RESPONSE ----------
     res.status(200).json({
       success: true,
-      data: bidder,
-      accountCount,
-      noOfConnects: totalConnections[0]?.noOfConnects || 0,
-      noOfBoosts: totalConnections[0]?.noOfBoosts || 0,
-      reply: reply,
+      data: bidders,
+      // accountCount,
+      // noOfConnects: totalConnections[0]?.noOfConnects || 0,
+      // noOfBoosts: totalConnections[0]?.noOfBoosts || 0,
+      // reply: replyCount,
+      // bidderSalesConvertedCount,
+      AllTotalDetails,
     });
   } catch (error) {
-    // console.error("Error in getEmployeeBidder:", error);
+    console.error("Error in getEmployeeBidder:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -664,11 +709,13 @@ const getEmployeeBidder = async (req, res) => {
   }
 };
 
+
 //get by id
 const viewEmployeeBidderById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { reply, client, account, technology, fromDate, toDate, status } = req.query;
+    const { reply, client, account, technology, fromDate, toDate, status } =
+      req.query;
 
     let filter = { employeeId: id };
 
@@ -694,45 +741,41 @@ const viewEmployeeBidderById = async (req, res) => {
     // }
 
     // Sum the noOfConnections
-  //   const totalConnections = bidder.reduce((sum, item) => {
-  //     return sum + (parseInt(item.noOfConnections) || 0);
-  //   }, 0);
-  //  const bidderCount = await bidderEmployeeModelSchema
-  // .find({ employeeId: id })
-  // .populate("account", "name")
-  // .populate("technology", "name");
+    //   const totalConnections = bidder.reduce((sum, item) => {
+    //     return sum + (parseInt(item.noOfConnections) || 0);
+    //   }, 0);
+    //  const bidderCount = await bidderEmployeeModelSchema
+    // .find({ employeeId: id })
+    // .populate("account", "name")
+    // .populate("technology", "name");
 
-const AllTotalDetails = bidder.reduce(
-  (acc, item) => {
-    acc.totalConnections += parseInt(item.noOfConnections) || 0;
-    acc.totalBoost += parseInt(item.noOfBoost) || 0;
+    const AllTotalDetails = bidder.reduce(
+      (acc, item) => {
+        acc.totalConnections += parseInt(item.noOfConnections) || 0;
+        acc.totalBoost += parseInt(item.noOfBoost) || 0;
 
-    if (item.reply === "yes") acc.replyYes += 1;
-    if(item.status === "sales_converted") acc.salesConverted += 1;
+        if (item.reply === "yes") acc.replyYes += 1;
+        if (item.status === "sales_converted") acc.salesConverted += 1;
 
-    return acc;
-  },
-  {
-    totalConnections: 0,
-    totalBoost: 0,
-    replyYes: 0,
-    salesConverted: 0
+        return acc;
+      },
+      {
+        totalConnections: 0,
+        totalBoost: 0,
+        replyYes: 0,
+        salesConverted: 0,
+      }
+    );
 
-  }
-);
-
-  if (!bidder || bidder.length === 0) {
-    res.status(200).json({ success: true, data: []});
-  }else{
-     res.status(200).json({ success: true, data: bidder, AllTotalDetails });
-  }
+    if (!bidder || bidder.length === 0) {
+      res.status(200).json({ success: true, data: [] });
+    } else {
+      res.status(200).json({ success: true, data: bidder, AllTotalDetails });
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
-
-
-
 
 //   const getEmployeeBidder = async (req, res) => {
 //     try {
