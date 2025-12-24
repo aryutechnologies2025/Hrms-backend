@@ -1,5 +1,5 @@
 import express from "express";
-import xlUpload from "../middlewares/xlUpload.js";
+import xlUpload from "../middlewares/xlUploadBidder.js";
 import {
   createAccountBidder,
   getAccountBidder,

@@ -7,6 +7,8 @@ import { isModuleNamespaceObject } from "util/types";
 import XLSX from "xlsx";
 import BiddingTransactionReports from "../models/biddingTransactionReports.js";
 import BiddingStatusLog from "../models/biddingStatusLog.js";
+import Employee from "../models/employeeModel.js";
+import EmployeeRole from "../models/employeeRoleModel.js";
 
 function parseDate(value) {
   if (!value) return null;
@@ -418,9 +420,12 @@ const getAccountAndTechnologyBidder = async (req, res) => {
   try {
     const accountBidder = await Bidder.find().select("name");
     const technologyBidder = await TechnologyBidder.find().select("name");
+    
+const bidderRole = await EmployeeRole.find({_id:"68c7edede2681e9879afdbd3"});
+  const bidder = await Employee.find({roleId:bidderRole[0]._id}).select("employeeName ");
     res.status(200).json({
       success: true,
-      data: { accountBidder, technologyBidder },
+      data: { accountBidder, technologyBidder, bidder },
     });
   } catch (error) {
     res.status(500).json({
