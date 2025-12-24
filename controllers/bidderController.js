@@ -101,7 +101,6 @@ const importExcelBidding = async (req, res) => {
     const docs = [];
     const errors = [];
 
-
     const incomingKeys = [];
 
     rows.forEach((row, i) => {
@@ -160,9 +159,7 @@ const importExcelBidding = async (req, res) => {
     ).lean();
 
     const existingSet = new Set(
-      existing.map(
-        (e) => `${e.referenceId}_${new Date(e.date).toISOString()}`
-      )
+      existing.map((e) => `${e.referenceId}_${new Date(e.date).toISOString()}`)
     );
 
     const finalDocs = docs.filter((d) => {
@@ -177,7 +174,6 @@ const importExcelBidding = async (req, res) => {
       });
     }
 
-
     const inserted = await BiddingTransactionReports.insertMany(finalDocs, {
       ordered: false,
     });
@@ -190,7 +186,6 @@ const importExcelBidding = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-
 
     if (err.code === 11000) {
       return res.status(409).json({
@@ -210,20 +205,17 @@ const importExcelBidding = async (req, res) => {
 // const getBidderField = async (req, res) => {
 //   const { type } = req.query;
 //   try {
-   
+
 //       const transactionType = await BiddingTransactionReports.distinct(
 //         "transactionType"
 //       );
-    
-  
+
 //       const client = await BiddingTransactionReports.distinct("clientTeam");
-     
- 
+
 //       const description = await BiddingTransactionReports.distinct(
 //         "description1"
 //       );
 
-      
 //     res.status(200).json({
 //       success: true,
 //       data: {
@@ -419,24 +411,33 @@ const getAccountAndTechnologyBidder = async (req, res) => {
   try {
     const accountBidder = await Bidder.find().select("name");
     const technologyBidder = await TechnologyBidder.find().select("name");
-    
-const bidderRole = await EmployeeRole.find({_id:"68c7edede2681e9879afdbd3"});
-  const bidder = await Employee.find({roleId:bidderRole[0]._id}).select("employeeName ");
 
-  const transactionType = await BiddingTransactionReports.distinct(
-        "transactionType"
-      );
-    
-  
-      const client = await BiddingTransactionReports.distinct("clientTeam");
-     
- 
-      const description = await BiddingTransactionReports.distinct(
-        "description1"
-      );
+    const bidderRole = await EmployeeRole.find({
+      _id: "68c7edede2681e9879afdbd3",
+    });
+    const bidder = await Employee.find({ roleId: bidderRole[0]._id }).select(
+      "employeeName "
+    );
+
+    const transactionType = await BiddingTransactionReports.distinct(
+      "transactionType"
+    );
+
+    const client = await BiddingTransactionReports.distinct("clientTeam");
+
+    const description = await BiddingTransactionReports.distinct(
+      "description1"
+    );
     res.status(200).json({
       success: true,
-      data: { accountBidder, technologyBidder, bidder, transactionType, client, description },
+      data: {
+        accountBidder,
+        technologyBidder,
+        bidder,
+        transactionType,
+        client,
+        description,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -580,9 +581,9 @@ const getEmployeeBidder = async (req, res) => {
       fromDate,
       toDate,
       status,
-      createdBy
+      createdBy,
     } = req.query;
-
+    console.log(req.query);
 
     let filter = {};
 
@@ -591,14 +592,23 @@ const getEmployeeBidder = async (req, res) => {
     if (account) filter.account = account;
     if (technology) filter.technology = technology;
     if (status) filter.status = status;
-    if(createdBy) filter.createdBy = createdBy;
+    if (createdBy) filter.createdBy = createdBy;
 
     if (fromDate || toDate) {
       filter.createdAt = {};
-      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
-      if (toDate) filter.createdAt.$lte = new Date(toDate);
-    }
 
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
 
     if (bidder === "bidder") {
       if (!ids) {
@@ -631,7 +641,6 @@ const getEmployeeBidder = async (req, res) => {
         data: records,
       });
     }
-
 
     const totalConnections = await bidderEmployeeModelSchema.aggregate([
       {
@@ -725,7 +734,6 @@ const getEmployeeBidder = async (req, res) => {
   }
 };
 
-
 //get by id
 const viewEmployeeBidderById = async (req, res) => {
   try {
@@ -743,8 +751,18 @@ const viewEmployeeBidderById = async (req, res) => {
 
     if (fromDate || toDate) {
       filter.createdAt = {};
-      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
-      if (toDate) filter.createdAt.$lte = new Date(toDate);
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
     }
 
     const bidder = await bidderEmployeeModelSchema
