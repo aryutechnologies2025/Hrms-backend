@@ -2904,13 +2904,13 @@ const updateTaskStatus = async (req, res) => {
       //  only project manager and super admin and client and subUser client can mark as done/completed
       const userDetails = await User.findOne({ _id: updatedBy });
 
-if (!userDetails) {
-  // no _id match → skip or check superAdmin
-  const superAdmin = await User.findOne({
-    _id: updatedBy,
-    superUser: true
-  });
-}
+        if (!userDetails) {
+          // no _id match → skip or check superAdmin
+          const superAdmin = await User.findOne({
+            _id: updatedBy,
+            superUser: true
+          });
+        }
 
       // console.log(
       //   updatedBy,
