@@ -2902,15 +2902,15 @@ const updateTaskStatus = async (req, res) => {
       //   findTask.projectManagerId
       // );
       //  only project manager and super admin and client and subUser client can mark as done/completed
-      const userDetails = await User.findOne({ _id: updatedBy });
+      // const userDetails = await User.findOne({ _id: updatedBy });
 
-        if (!userDetails) {
+        // if (!userDetails) {
           // no _id match → skip or check superAdmin
           const superAdmin = await User.findOne({
             _id: updatedBy,
             superUser: true
           });
-        }
+        // }
 
       // console.log(
       //   updatedBy,
@@ -2958,7 +2958,7 @@ const updateTaskStatus = async (req, res) => {
       // --- Permission Logic ---
       const allowedUsers = [
         findTask.projectManagerId?.toString(),
-        superAdmin._id?.toString(),
+        superAdmin?._id?.toString(),
         clientIdAllowed,
         clientSubUserAllowed,
       ].filter(Boolean);
