@@ -808,7 +808,7 @@ const allEmployeesUserDetails = async (req, res) => {
       baseMatch.employeeType = employeeType;
     }
 
-    if (type === "intern") {
+    if (type === "Intern") {
       baseMatch.employeeType = "Intern";
     } else{
       baseMatch.employeeType = { $ne: "Intern" };
