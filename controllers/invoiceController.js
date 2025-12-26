@@ -122,7 +122,7 @@ const getInvoiceDetails = async (req, res) => {
       );
       
 
-      const balance = (invoice.total_amount - invoice.amount).toFixed(2);
+      const balance = (invoice.total_amount - totalPaymentAmount).toFixed(2);
       //   const totalAmount = logs.aggregate([
       //   {
       //     $group: {
