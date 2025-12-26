@@ -234,12 +234,84 @@ const importExcelBidding = async (req, res) => {
 // };
 
 const getImportBiddingExcelReport = async (req, res) => {
-  const excelDetails = await BiddingTransactionReports.find();
+  try {
+    const { fromDate, toDate } = req.query;
+    let filter = {};
 
-  res.status(200).json({
-    success: true,
-    data: excelDetails,
-  });
+    const rawTransactionType =
+      req.query.transactionType || req.query["transactionType[]"];
+    console.log("client", rawTransactionType);
+    if (rawTransactionType) {
+      const descriptionsArray = Array.isArray(rawTransactionType)
+        ? rawTransactionType
+        : [rawTransactionType];
+
+      filter.transactionType = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
+
+    const rawClient = req.query.client || req.query["client[]"];
+    console.log("client", rawClient);
+    if (rawDescription) {
+      const descriptionsArray = Array.isArray(rawClient)
+        ? rawClient
+        : [rawClient];
+
+      filter.clientTeam = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
+
+    const rawDescription = req.query.description || req.query["description[]"];
+    console.log("rawDescription", rawDescription);
+    if (rawDescription) {
+      const descriptionsArray = Array.isArray(rawDescription)
+        ? rawDescription
+        : [rawDescription];
+
+      filter.description1 = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
+
+    // ---------------- Date Filter ----------------
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
+
+    // ---------------- Debug: log filter ----------------
+    console.log("MongoDB filter:", filter);
+
+    // ---------------- Fetch Data ----------------
+    const excelDetails = await BiddingTransactionReports.find(filter)
+      .populate("accountName", "name")
+      .sort({ createdAt: -1 });
+
+    // ---------------- Response ----------------
+    res.status(200).json({
+      success: true,
+      data: excelDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching Excel report:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
 };
 
 const createAccountBidder = async (req, res) => {
