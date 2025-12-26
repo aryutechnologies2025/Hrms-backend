@@ -3124,7 +3124,7 @@ const particularTaskComments = async (req, res) => {
     if (!comment || !taskId || !createdBy) {
       return res
         .status(400)
-        .json({ success: true, message: "Require all details" });
+        .json({ success: true, message: "Comment Message required" });
     }
     const documentArray = [];
     if (Array.isArray(req.files)) {

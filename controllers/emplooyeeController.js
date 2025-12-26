@@ -777,7 +777,10 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error", error });
   }
 };
+
+
 const allEmployeesUserDetails = async (req, res) => {
+  const { type } = req.query;
   try {
     const {
       _id,
@@ -805,6 +808,12 @@ const allEmployeesUserDetails = async (req, res) => {
       baseMatch.employeeType = employeeType;
     }
 
+    if (type === "intern") {
+      baseMatch.employeeType = "Intern";
+    } else{
+      baseMatch.employeeType = { $ne: "Intern" };
+    }
+
     if (fromDate || toDate) {
       baseMatch.dateOfJoining = {};
       if (fromDate) {
@@ -813,9 +822,7 @@ const allEmployeesUserDetails = async (req, res) => {
       }
       if (toDate) {
         const [y, m, d] = toDate.split("-");
-        baseMatch.dateOfJoining.$lte = new Date(
-          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
-        );
+        baseMatch.dateOfJoining.$lte = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
       }
     }
 
@@ -834,7 +841,7 @@ const allEmployeesUserDetails = async (req, res) => {
       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
 
       /* ================= ROLE FILTER ================= */
-      ...(roleId
+      ...(roleId && mongoose.Types.ObjectId.isValid(roleId)
         ? [
             {
               $match: {
@@ -861,13 +868,11 @@ const allEmployeesUserDetails = async (req, res) => {
       },
 
       /* ================= DEPARTMENT FILTER ================= */
-      ...(departmentId
+      ...(departmentId && mongoose.Types.ObjectId.isValid(departmentId)
         ? [
             {
               $match: {
-                "role.department._id": new mongoose.Types.ObjectId(
-                  departmentId
-                ),
+                "role.department._id": new mongoose.Types.ObjectId(departmentId),
               },
             },
           ]
@@ -885,12 +890,7 @@ const allEmployeesUserDetails = async (req, res) => {
                   { employeeId: { $regex: search, $options: "i" } },
                   { employeeType: { $regex: search, $options: "i" } },
                   { "role.name": { $regex: search, $options: "i" } },
-                  {
-                    "role.department.name": {
-                      $regex: search,
-                      $options: "i",
-                    },
-                  },
+                  { "role.department.name": { $regex: search, $options: "i" } },
                 ],
               },
             },
@@ -916,101 +916,42 @@ const allEmployeesUserDetails = async (req, res) => {
           },
         },
       },
-
       {
         $addFields: {
-          remainingMonths: {
-            $subtract: ["$totalMonths", { $multiply: ["$totalYears", 12] }],
-          },
-          remainingDaysRaw: {
-            $dateDiff: {
-              startDate: {
-                $dateAdd: {
-                  startDate: "$dateOfJoining",
-                  unit: "month",
-                  amount: "$totalMonths",
-                },
-              },
-              endDate: "$$NOW",
-              unit: "day",
-            },
+          remainingMonths: { $mod: ["$totalMonths", 12] },
+          remainingDays: {
+            $dateDiff: { startDate: "$dateOfJoining", endDate: "$$NOW", unit: "day" },
           },
         },
       },
-
-      {
-        $addFields: {
-          adjustedMonths: {
-            $cond: [
-              { $lt: ["$remainingDaysRaw", 0] },
-              { $subtract: ["$remainingMonths", 1] },
-              "$remainingMonths",
-            ],
-          },
-          adjustedDays: {
-            $cond: [
-              { $lt: ["$remainingDaysRaw", 0] },
-              {
-                $add: [
-                  "$remainingDaysRaw",
-                  {
-                    $dateDiff: {
-                      startDate: {
-                        $dateSubtract: {
-                          startDate: "$$NOW",
-                          unit: "month",
-                          amount: 1,
-                        },
-                      },
-                      endDate: "$$NOW",
-                      unit: "day",
-                    },
-                  },
-                ],
-              },
-              "$remainingDaysRaw",
-            ],
-          },
-        },
-      },
-
       {
         $addFields: {
           experience: {
             years: "$totalYears",
-            months: "$adjustedMonths",
-            days: "$adjustedDays",
+            months: "$remainingMonths",
+            days: {
+              $mod: ["$remainingDays", 30], // approximate days left
+            },
           },
           TotalExperienceTillJoining: {
             $concat: [
               { $toString: "$totalYears" },
               " Years ",
-              { $toString: "$adjustedMonths" },
+              { $toString: "$remainingMonths" },
               " Months ",
-              { $toString: "$adjustedDays" },
+              { $toString: { $mod: ["$remainingDays", 30] } },
               " Days",
             ],
           },
         },
       },
 
-      // {
-      //   $addFields: {
-      //     totalExperienceDays: {
-      //       $dateDiff: {
-      //         startDate: "$dateOfJoining",
-      //         endDate: "$$NOW",
-      //         unit: "day",
-      //       },
-      //     },
-      //   },
-      // },
-
+      /* ================= CLEANUP ================= */
       {
         $project: {
           totalYears: 0,
           totalMonths: 0,
-          remainingDaysRaw: 0,
+          remainingDays: 0,
         },
       },
 
@@ -1033,6 +974,7 @@ const allEmployeesUserDetails = async (req, res) => {
     });
   }
 };
+
 
 // const FilterByDateActiveEmployee = async (req, res) => {
 //   // Get today's date at 00:00:00
