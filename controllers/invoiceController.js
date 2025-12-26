@@ -185,14 +185,12 @@ const editInvoiceDetails = async (req, res) => {
       });
     }
 
-    // Check if a log with the same status already exists for this invoice
     const existingStatusLog = await InvoiceStatusLog.findOne({
       invoiceId: updatedInvoice._id,
       status: req.body.status,
     });
-
-    // If this status does not exist yet, create a new log
-    if (req.body.status && !existingStatusLog) {
+    if(!(req.body.status === "completed")){
+    if (req.body.status && !existingStatusLog ) {
       await InvoiceStatusLog.create({
         invoiceId: updatedInvoice._id,
         status: req.body.status,
@@ -201,7 +199,7 @@ const editInvoiceDetails = async (req, res) => {
         paymentType: req.body.paymentType,
       });
     }
-
+  }
     res.status(200).json({
       success: true,
       message: "Invoice updated successfully",
