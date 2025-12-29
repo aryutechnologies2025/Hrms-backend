@@ -187,13 +187,6 @@ const importExcelBidding = async (req, res) => {
   } catch (err) {
     console.error(err);
 
-    if (err.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "Duplicate transaction detected",
-      });
-    }
-
     return res.status(500).json({
       success: false,
       message: "Import failed",
