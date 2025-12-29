@@ -77,7 +77,7 @@ function mapHeaders(headers) {
 
 const importExcelBidding = async (req, res) => {
   try {
-    const { account } = req.query;
+    const { account } = req.body;
 
     if (!req.file) {
       return res

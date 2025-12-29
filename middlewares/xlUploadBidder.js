@@ -17,7 +17,7 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const accountId = req.query.account;
+    const accountId = req.body.account;
 
     if (!accountId) {
       return cb(new Error("Account ID is required"));
