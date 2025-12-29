@@ -65,6 +65,8 @@ const createInvoice = async (req, res) => {
 
     const statusLog = await InvoiceStatusLog.create({
       invoiceId: savedInvoice._id,
+      clientId: savedInvoice.clientId,
+      project: savedInvoice.project,
       status: req.body.status,
       amount: req.body.amount,
       paymentType: req.body.paymentType,
@@ -210,6 +212,8 @@ const editInvoiceDetails = async (req, res) => {
       else {
         await InvoiceStatusLog.create({
           invoiceId: updatedInvoice._id,
+          clientId: updatedInvoice.clientId,
+          project: updatedInvoice.project,
           status: req.body.status,
           amount: req.body.amount,
           paidDate: req.body.paidDate,
@@ -511,7 +515,7 @@ const clientDashboard = async (req, res) => {
   const { clientId } = req.query;
 
   try {
-    const invoices = await Invoice.find({ clientId })
+    const invoices = await Invoice.find({ clientId})
       .populate("clientId", "client_name")
       .populate("project", "name");
 
@@ -575,6 +579,31 @@ const clientDashboard = async (req, res) => {
     });
   }
 };
+
+const clientInvoiceByProjectWise = async (req, res) => {
+  const {clientId, project} = req.query;
+  try{
+    const InvoiceDetails = await Invoice.find({clientId, project}).populate("clientId", "client_name")
+      .populate("project", "name");
+    const InvoiceLog = await InvoiceStatusLog.find({invoiceId: {$in: InvoiceDetails.map(inv => inv._id)}})
+    const mappedData = InvoiceDetails.map((invoice) => {
+
+      return {
+        invoiceId: invoice._id,
+        clientName: invoice.clientId?.client_name || null,
+        projectName: invoice.project?.name || null,
+        amount: invoice.amount,
+        paid_date: invoice.paid_date,
+  
+        status: invoice.status,
+      };
+    })
+    res.status(200).json({ success: true, data: InvoiceLog });
+  }catch(error){
+    console.error("Error:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+}
 
 
 const deleteInvoiceDetails = async (req, res) => {
@@ -670,4 +699,5 @@ export {
   clientInvoiceById,
   clientDashboard,
   selectInvoiceDocument,
+  clientInvoiceByProjectWise
 };

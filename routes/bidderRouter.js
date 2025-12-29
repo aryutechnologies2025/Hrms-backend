@@ -23,6 +23,8 @@ import {
   getBidderByMultipleIds,
   importExcelBidding,
   getImportBiddingExcelReport,
+  getBiddingTransaction,
+  getBiddingClientName
   // getBidderField
   // filterBidder,
 } from "../controllers/bidderController.js";
@@ -39,6 +41,9 @@ router.post("/create-account-bidder", createAccountBidder);
 router.get("/view-account-bidder", getAccountBidder);
 router.put("/edit-account-bidder/:id", editAccountBidder);
 router.delete("/delete-account-bidder/:id", deleteAccountBidder);
+
+router.get("/get-bidding-transaction", getBiddingTransaction);
+router.get("/get-bidding-client-name", getBiddingClientName);
 
 //technology
 router.post("/create-technology-bidder", createTechnologyBidder);
