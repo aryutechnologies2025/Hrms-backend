@@ -253,7 +253,7 @@ const getImportBiddingExcelReport = async (req, res) => {
 
     const rawClient = req.query.client || req.query["client[]"];
     console.log("client", rawClient);
-    if (rawDescription) {
+    if (rawClient) {
       const descriptionsArray = Array.isArray(rawClient)
         ? rawClient
         : [rawClient];
@@ -263,17 +263,17 @@ const getImportBiddingExcelReport = async (req, res) => {
       };
     }
 
-    const rawDescription = req.query.description || req.query["description[]"];
-    console.log("rawDescription", rawDescription);
-    if (rawDescription) {
-      const descriptionsArray = Array.isArray(rawDescription)
-        ? rawDescription
-        : [rawDescription];
+    // const rawDescription = req.query.description || req.query["description[]"];
+    // console.log("rawDescription", rawDescription);
+    // if (rawDescription) {
+    //   const descriptionsArray = Array.isArray(rawDescription)
+    //     ? rawDescription
+    //     : [rawDescription];
 
-      filter.description1 = {
-        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
-      };
-    }
+    //   filter.description1 = {
+    //     $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+    //   };
+    // }
 
     // ---------------- Date Filter ----------------
     if (fromDate || toDate) {
@@ -310,6 +310,52 @@ const getImportBiddingExcelReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+const getBiddingClientName = async (req, res) => {
+  const clientName = await BiddingTransactionReports.distinct("clientTeam");
+  return res.status(200).json({ success: true, data: clientName });
+}
+const getBiddingTransaction = async (req, res) => {
+  const { client } = req.query;
+
+  try {
+    // Fetch transactions
+    const transactionBidding = await BiddingTransactionReports.find({
+      clientTeam: client,
+    });
+
+    // Calculate total amount using aggregation
+    const totalResult = await BiddingTransactionReports.aggregate([
+      { $match: { clientTeam: client } },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amountDollar" },
+        },
+      },
+    ]);
+
+    const totalAmount = totalResult[0]?.totalAmount || 0;
+
+    // Map data
+    const mappedData = transactionBidding.map((item) => ({
+      title: item.transactionSummary,
+      amount: item.amountDollar,
+      transactionType: item.transactionType,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: mappedData,
+      totalAmount,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
     });
   }
 };
@@ -1233,6 +1279,8 @@ export {
   getBidderByMultipleIds,
   importExcelBidding,
   getImportBiddingExcelReport,
+  getBiddingTransaction,
+  getBiddingClientName
   // getBidderField,
   // filterBidder,
 };

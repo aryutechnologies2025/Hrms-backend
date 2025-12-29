@@ -11,7 +11,8 @@ import {
   uploadClientInvoice,
   clientInvoiceById,
   clientDashboard,
-  selectInvoiceDocument
+  selectInvoiceDocument,
+  clientInvoiceByProjectWise
 } from "../controllers/invoiceController.js";
 import upload from "../middlewares/upload.js";
 
@@ -33,4 +34,5 @@ invoiceRouter.post(
 invoiceRouter.get("/client-invoice", clientInvoiceById);
 invoiceRouter.get("/client-invoice-dashboard", clientDashboard);
 invoiceRouter.post("/select-invoice-document", selectInvoiceDocument);
+invoiceRouter.get("/client-invoice-by-project-wise", clientInvoiceByProjectWise);
 export default invoiceRouter;

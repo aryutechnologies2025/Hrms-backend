@@ -147,33 +147,52 @@ const addAttendance = async (req, res) => {
       comments = [],
     } = req.body;
 
-    // Convert dateTime into proper start/end of the day ranges
+
     const date = new Date(dateTime);
-    // Create new attendance
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+
+    const existingAttendance = await Attendance.findOne({
+      employeeId,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
+    if(existingAttendance){
+      const updatedAttendance = await Attendance.findOneAndUpdate(
+        { employeeId, date: { $gte: startOfDay, $lte: endOfDay } },
+        { $push: { entries: { reason: "Logout", time: logout } } },
+
+        { new: true }
+      )
+      return res.status(200).json({
+        success: true,
+        message: "Attendance updated successfully",
+        data: updatedAttendance,
+      });
+    }else{
+
+  
     const newAttendance = new Attendance({
       employeeId,
-      date: new Date(dateTime),
+      date: startOfDay,
       shift,
       workType,
       entries: [
-        {
-          reason: "Login",
-          time: login,
-        },
-        {
-          reason: "Logout",
-          time: logout,
-        },
+        { reason: "Login", time: login },
+        { reason: "Logout", time: logout },
       ],
       comments,
     });
-
     const savedAttendance = await newAttendance.save();
+
     return res.status(201).json({
       success: true,
       message: "Attendance added successfully",
       data: savedAttendance,
     });
+    }
+
+
   } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
@@ -185,6 +204,7 @@ const addAttendance = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
 
 const getODAttendanceList = async (req, res) => {
   try {
