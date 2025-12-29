@@ -172,11 +172,11 @@ const editInvoiceDetails = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Update the invoice with new details
-    const updatedInvoice = await Invoice.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedInvoice = await Invoice.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true, runValidators: true }
+    );
 
     if (!updatedInvoice) {
       return res.status(404).json({
@@ -185,21 +185,39 @@ const editInvoiceDetails = async (req, res) => {
       });
     }
 
-    const existingStatusLog = await InvoiceStatusLog.findOne({
-      invoiceId: updatedInvoice._id,
-      status: req.body.status,
-    });
-    if(!(req.body.status === "completed")){
-    if (req.body.status && !existingStatusLog ) {
-      await InvoiceStatusLog.create({
+    if (req.body.status) {
+      const existingStatusLog = await InvoiceStatusLog.findOne({
         invoiceId: updatedInvoice._id,
         status: req.body.status,
-        amount: req.body.amount,
-        paidDate: req.body.paidDate,
-        paymentType: req.body.paymentType,
       });
+
+
+      if (existingStatusLog) {
+
+        if (req.body.amount !== existingStatusLog.amount) {
+          await InvoiceStatusLog.findByIdAndUpdate(
+            existingStatusLog._id,
+            {
+              amount: req.body.amount,
+              paidDate: req.body.paidDate,
+              // paymentType: req.body.paymentType,
+            },
+            { new: true }
+          );
+        }
+      } 
+
+      else {
+        await InvoiceStatusLog.create({
+          invoiceId: updatedInvoice._id,
+          status: req.body.status,
+          amount: req.body.amount,
+          paidDate: req.body.paidDate,
+          paymentType: req.body.paymentType,
+        });
+      }
     }
-  }
+
     res.status(200).json({
       success: true,
       message: "Invoice updated successfully",
@@ -213,6 +231,7 @@ const editInvoiceDetails = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -471,6 +490,8 @@ const clientInvoiceById = async (req, res) => {
     const invoiceDetails = await Invoice.findById(id)
       .populate("clientId")
       .populate("project", "name");
+    
+      
 
     res.status(200).json({
       success: true,
@@ -490,26 +511,55 @@ const clientDashboard = async (req, res) => {
   const { clientId } = req.query;
 
   try {
-    const invoiceDetails = await Invoice.find({ clientId })
+    const invoices = await Invoice.find({ clientId })
       .populate("clientId", "client_name")
       .populate("project", "name");
 
-    const mappedData = invoiceDetails.map((invoice) => {
+    const invoiceIds = invoices.map((inv) => inv._id);
+
+
+    const logs = await InvoiceStatusLog.find({
+      invoiceId: { $in: invoiceIds },
+    });
+
+
+    const mappedData = invoices.map((invoice) => {
       const selectedDocument = invoice.documents?.filter(
         (doc) => doc.select === true
       );
+
+      const invoiceLogs = logs.filter(
+        (log) => log.invoiceId.toString() === invoice._id.toString()
+      );
+
+
+      const totalPaymentAmount = invoiceLogs.reduce(
+        (total, log) => total + Number(log.amount || 0),
+        0
+      );
+
+
+      const balance = (
+        Number(invoice.total_amount || 0) - totalPaymentAmount
+      ).toFixed(2);
 
       return {
         invoiceId: invoice._id,
         clientName: invoice.clientId?.client_name || null,
         projectName: invoice.project?.name || null,
-
+        total_amount: invoice.total_amount,
+        paid_date: invoice.paid_date,
         document: selectedDocument || null,
 
         status: invoice.status,
         due: invoice.due_date,
         invoiceNumber: invoice.invoice_number,
         invoiceDate: invoice.invoice_date,
+
+
+        totalPaymentAmount,
+        balance,
+        invoiceLogs,
       };
     });
 
@@ -525,6 +575,7 @@ const clientDashboard = async (req, res) => {
     });
   }
 };
+
 
 const deleteInvoiceDetails = async (req, res) => {
   const { id } = req.params;

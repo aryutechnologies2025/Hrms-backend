@@ -162,6 +162,7 @@ const createInvoiceSetting = async (req, res) => {
       sgst,
       isgt,
       igst,
+      declaration
 
 
     } = req.body;
@@ -189,6 +190,7 @@ const createInvoiceSetting = async (req, res) => {
       settings.sgst = sgst;
       settings.isgt = isgt;
       settings.igst = igst;
+      settings.declaration = declaration;
       
     
       await settings.save();
@@ -216,6 +218,7 @@ const createInvoiceSetting = async (req, res) => {
       sgst,
       isgt,
       igst,
+      declaration
       });
 
       await settings.save();
