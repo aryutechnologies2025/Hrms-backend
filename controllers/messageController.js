@@ -1,7 +1,5 @@
-
 // // import mongoose from "mongoose";
 // // import Message from "../models/messageModel.js";
-
 
 // // /**
 // //  * GET DM HISTORY
@@ -81,8 +79,6 @@
 
 // // }
 
-
-
 // // controllers/messageController.js
 // import mongoose from "mongoose";
 // import Message from "../models/messageModel.js";
@@ -139,6 +135,8 @@
 // controllers/messageController.js
 import mongoose from "mongoose";
 import Message from "../models/messageModel.js";
+import messageModel from "../models/messageModel.js";
+import { onlineUsers } from "../socket.js";
 
 /* CHAT HISTORY */
 export const getDMHistory = async (req, res) => {
@@ -180,10 +178,78 @@ export const getUnreadCounts = async (req, res) => {
 export const markMessagesSeen = async (req, res) => {
   const { senderId, receiverId } = req.body;
 
-  await Message.updateMany(
-    { senderId, receiverId, seenAt: null },
-    { $set: { seenAt: new Date() } }
+  // const updated = await Message.updateMany(
+  //   { senderId, receiverId, seenAt: null },
+  //   { $set: { seenAt: new Date() } },
+  //   { $addToSet: { seenBy: receiverId } }
+  // );
+  const updated = Message.updateMany(
+    { senderId, receiverId, seenBy: { $ne: receiverId } },
+    {
+      $set: { seenAt: new Date() },
+      $addToSet: { seenBy: receiverId },
+    }
   );
 
-  res.json({ success: true });
+  res.json({ success: true, data: updated });
+};
+
+// export const sendChatMessage = async (req, res) => {
+//   console.log("req.body", req.body);
+//   try {
+//     const { senderId, receiverId, text } = req.body;
+
+//     const files = (req.files || []).map((file) => ({
+//       name: file.originalname,
+//       url: `/uploads/chat/${file.filename}`,
+//       type: file.mimetype,
+//       size: file.size,
+//     }));
+//     console.log("req.body 111", files);
+//     const isReceiverOnline = onlineUsers.has(receiverId);
+//     console.log("isReceiverOnline", isReceiverOnline,"onlineUsers",onlineUsers);
+//     const msg = await Message.create({
+//       senderId,
+//       receiverId,
+//       text,
+//       files,
+//       deliveredAt: isReceiverOnline ? new Date() : null,
+//     });
+//     console.log("result", msg);
+//     res.json({ success: true, data: msg });
+//   } catch (err) {
+//     console.log("err", err);
+//     res.status(500).json({ success: false, message: err.message});
+//   }
+// };
+
+export const sendChatMessage = async (req, res) => {
+  try {
+    const { senderId, receiverId, channelId, text } = req.body;
+
+    const files = (req.files || []).map((file) => ({
+      name: file.originalname,
+      url: `/uploads/chat/${file.filename}`,
+      type: file.mimetype,
+      size: file.size,
+    }));
+    const isReceiverOnline = onlineUsers.has(receiverId);
+
+    const msg = await Message.create({
+      senderId,
+      receiverId: receiverId || null,
+      channelId: channelId || null,
+      text,
+      files,
+      deliveredAt: channelId
+        ? new Date()
+        : isReceiverOnline
+        ? new Date()
+        : null, // 🔥 socket will update
+    });
+
+    res.json({ success: true, data: msg });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };

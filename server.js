@@ -181,8 +181,6 @@ const startApp = async () => {
 //   app.use("/api/announcement",useAuth, announcementRouter);
 //   app.use("/api/projectNotes",useAuth, projectNotesRouter);
 
-
-
   // Base route
   app.get('/api', (req, res) => res.send('API is running... coming'));
   const PORT = process.env.PORT || 5000;

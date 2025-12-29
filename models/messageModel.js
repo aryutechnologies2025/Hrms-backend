@@ -98,6 +98,17 @@
 // models/messageModel.js
 import mongoose from "mongoose";
 
+
+const fileSchema = new mongoose.Schema(
+  {
+    name: String,
+    url: String,
+    type: String,
+    size: Number,
+  },
+  { _id: false }
+);
+
 const MessageSchema = new mongoose.Schema(
   {
     senderId: {
@@ -110,7 +121,20 @@ const MessageSchema = new mongoose.Schema(
       ref: "Employee",
       required: true,
     },
+    channelId: { type: mongoose.Schema.Types.ObjectId, ref: "Channel", default: null },
     text: String,
+    // files: [
+    //   {
+    //     name: String,
+    //     url: String,
+    //     type: String,
+    //     size: Number,
+    //   },
+    // ],
+    files: {
+      type: [fileSchema],
+      default: [],
+    },
 
     deliveredAt: {
       type: Date,

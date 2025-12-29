@@ -70,12 +70,25 @@ import {
   getDMHistory,
   getUnreadCounts,
   markMessagesSeen,
+  sendChatMessage,
 } from "../controllers/messageController.js";
+import chatUpload from "../middlewares/chatUploads.js";
 
 const router = express.Router();
 
 router.get("/dm/:userId/:otherUserId", getDMHistory);
 router.get("/unread/:userId", getUnreadCounts);
 router.post("/seen", markMessagesSeen);
+// import express from "express";
+// import chatUpload from "../middlewares/chatUpload.js";
+// import { sendChatMessage } from "../controllers/chatController.js";
+router.post(
+  "/send",
+  chatUpload.any(), // ⭐ MULTI FILE SUPPORT
+  sendChatMessage
+);
 
 export default router;
+
+
+
