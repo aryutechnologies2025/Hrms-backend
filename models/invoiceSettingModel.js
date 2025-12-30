@@ -69,6 +69,7 @@ const settingsInvoiceSchema = new mongoose.Schema(
     declaration:{
       type: String,
     },
+    invoiceId_option:{type:String},
 
   },
   {
