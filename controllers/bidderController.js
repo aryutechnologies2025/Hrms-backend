@@ -256,17 +256,17 @@ const getImportBiddingExcelReport = async (req, res) => {
       };
     }
 
-    // const rawDescription = req.query.description || req.query["description[]"];
-    // console.log("rawDescription", rawDescription);
-    // if (rawDescription) {
-    //   const descriptionsArray = Array.isArray(rawDescription)
-    //     ? rawDescription
-    //     : [rawDescription];
+    const rawDescription = req.query.description || req.query["description[]"];
+    console.log("rawDescription", rawDescription);
+    if (rawDescription) {
+      const descriptionsArray = Array.isArray(rawDescription)
+        ? rawDescription
+        : [rawDescription];
 
-    //   filter.description1 = {
-    //     $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
-    //   };
-    // }
+      filter.transactionSummary = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
 
     // ---------------- Date Filter ----------------
     if (fromDate || toDate) {
@@ -309,7 +309,7 @@ const getImportBiddingExcelReport = async (req, res) => {
 const getBiddingClientName = async (req, res) => {
   const clientName = await BiddingTransactionReports.distinct("clientTeam");
   return res.status(200).json({ success: true, data: clientName });
-}
+};
 const getBiddingTransaction = async (req, res) => {
   const { client } = req.query;
 
@@ -530,15 +530,59 @@ const getAccountAndTechnologyBidder = async (req, res) => {
       "employeeName "
     );
 
-    const transactionType = await BiddingTransactionReports.distinct(
-      "transactionType"
+    const transactionType = await BiddingTransactionReports.find({
+      transactionType: "WHT"
+    }).distinct("transactionType");
+
+    const client = await BiddingTransactionReports.find({
+      clientTeam: { $ne: null }
+    }).distinct("clientTeam");
+
+    const description = await BiddingTransactionReports.find({
+      transactionType: "WHT"
+    }).distinct("transactionSummary");
+    res.status(200).json({
+      success: true,
+      data: {
+        accountBidder,
+        technologyBidder,
+        bidder,
+        transactionType,
+        client,
+        description,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+const getTransactionBidder = async (req, res) => {
+  const {account} = req.query;
+  try {
+    const accountBidder = await Bidder.find().select("name");
+    const technologyBidder = await TechnologyBidder.find().select("name");
+
+    const bidderRole = await EmployeeRole.find({
+      _id: "68c7edede2681e9879afdbd3",
+    });
+    const bidder = await Employee.find({ roleId: bidderRole[0]._id }).select(
+      "employeeName "
     );
 
-    const client = await BiddingTransactionReports.distinct("clientTeam");
+    const transactionType = await BiddingTransactionReports.find({
+      transactionType: "WHT", accountName:account
+    }).distinct("transactionType");
 
-    const description = await BiddingTransactionReports.distinct(
-      "description1"
-    );
+    const client = await BiddingTransactionReports.find({
+      clientTeam: { $ne: null },accountName:account
+    }).distinct("clientTeam");
+
+    const description = await BiddingTransactionReports.find({
+      transactionType: "WHT",accountName:account
+    }).distinct("transactionSummary");
     res.status(200).json({
       success: true,
       data: {
@@ -1273,7 +1317,8 @@ export {
   importExcelBidding,
   getImportBiddingExcelReport,
   getBiddingTransaction,
-  getBiddingClientName
+  getBiddingClientName,
+  getTransactionBidder
   // getBidderField,
   // filterBidder,
 };
