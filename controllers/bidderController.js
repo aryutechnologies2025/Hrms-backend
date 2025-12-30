@@ -394,34 +394,34 @@ const getBiddingTransaction = async (req, res) => {
             $sum: {
               $cond: [
                 { $in: ["$transactionType", ["WHT", "Service Fee"]] },
-                "$amountDollar", 
+                "$amountDollar",
                 0,
               ],
             },
           },
-          wht:{
+          wht: {
             $sum: {
               $cond: [
                 { $in: ["$transactionType", ["WHT"]] },
-                 { $abs: "$amountDollar" },
+                { $abs: "$amountDollar" },
                 0,
               ],
             },
           },
           serviceFee: {
-            $sum:{
-              $cond:[
+            $sum: {
+              $cond: [
                 { $in: ["$transactionType", ["Service Fee"]] },
-                 { $abs: "$amountDollar" },
-                0
-              ]
-            }
+                { $abs: "$amountDollar" },
+                0,
+              ],
+            },
           },
 
           title: { $first: "$transactionSummary" },
         },
       },
-      
+
       {
         $addFields: {
           netTotal: { $add: ["$earnings", "$deductions"] },
@@ -650,7 +650,7 @@ const getAccountAndTechnologyBidder = async (req, res) => {
     }).distinct("clientTeam");
 
     const description = await BiddingTransactionReports.find({
-      transactionType: "WHT",
+      transactionType: ["Fixed-price", "Bonus"],
     }).distinct("transactionSummary");
     res.status(200).json({
       success: true,
@@ -696,12 +696,14 @@ const getTransactionBidder = async (req, res) => {
       .distinct("clientTeam")
       .sort({ referenceId: -1 });
 
-    const description = await BiddingTransactionReports.find({
-      transactionType: "WHT",
-      accountName: account,
-    })
-      .distinct("transactionSummary")
-      .sort({ createdAt: -1 });
+    const description = await BiddingTransactionReports.distinct(
+      "transactionSummary",
+      {
+        transactionType: { $in: ["Fixed-price", "Bonus"] },
+        accountName: account,
+      }
+    );
+
     res.status(200).json({
       success: true,
       data: {
