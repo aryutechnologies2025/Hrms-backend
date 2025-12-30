@@ -307,51 +307,153 @@ const getImportBiddingExcelReport = async (req, res) => {
   }
 };
 const getBiddingClientName = async (req, res) => {
-  const clientName = await BiddingTransactionReports.distinct("clientTeam");
-  return res.status(200).json({ success: true, data: clientName });
-};
-const getBiddingTransaction = async (req, res) => {
-  const { client } = req.query;
-
   try {
-    // Fetch transactions
-    const transactionBidding = await BiddingTransactionReports.find({
-      clientTeam: client,
-    });
+    const { fromDate, toDate } = req.query;
 
-    // Calculate total amount using aggregation
-    const totalResult = await BiddingTransactionReports.aggregate([
-      { $match: { clientTeam: client } },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$amountDollar" },
-        },
-      },
-    ]);
+    let filter = {
+      clientTeam: { $ne: null }
+    };
 
-    const totalAmount = totalResult[0]?.totalAmount || 0;
+    if (fromDate || toDate) {
+      filter.date = {};
 
-    // Map data
-    const mappedData = transactionBidding.map((item) => ({
-      title: item.transactionSummary,
-      amount: item.amountDollar,
-      transactionType: item.transactionType,
-    }));
+      if (fromDate) {
+        filter.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+
+    console.log("Mongo Filter:", filter);
+
+    const clientNames = await BiddingTransactionReports.distinct(
+      "clientTeam",
+      filter
+    );
 
     return res.status(200).json({
       success: true,
-      data: mappedData,
-      totalAmount,
+      data: clientNames
     });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+
+
+const getBiddingTransaction = async (req, res) => {
+  try {
+    const { client, fromDate, toDate } = req.query;
+
+    let filter = {};
+
+    // Date filter
+    if (fromDate || toDate) {
+      filter.date = {};
+
+      if (fromDate) {
+        filter.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+
+    // Client filter
+    if (client) {
+      filter.clientTeam = client;
+    }
+
+    const result = await BiddingTransactionReports.aggregate([
+      {
+        $match: filter
+      },
+      {
+        $group: {
+          _id: "$transactionId",
+
+          amount: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["Fixed-price", "Bonus"]] },
+                "$amountDollar",
+                0
+              ]
+            }
+          },
+
+          tax: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["WHT", "Service Fee"]] },
+                "$amountDollar",
+                0
+              ]
+            }
+          },
+
+          title: { $first: "$transactionSummary" }
+        }
+      },
+      {
+        $addFields: {
+          totalAmount: { $add: ["$amount", "$tax"] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          transactions: { $push: "$$ROOT" },
+          overallAmount: { $sum: "$amount" },
+          overallTax: { $sum: "$tax" }
+        }
+      },
+      {
+        $addFields: {
+          overallNetTotal: { $add: ["$overallAmount", "$overallTax"] }
+        }
+      }
+    ]);
+
+    const data = result[0] || {
+      transactions: [],
+      overallAmount: 0,
+      overallTax: 0,
+      overallNetTotal: 0
+    };
+
+    return res.status(200).json({
+      success: true,
+      ...data
+    });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Something went wrong",
+      message: "Something went wrong"
     });
   }
 };
+
+
+
+
 
 const createAccountBidder = async (req, res) => {
   try {
@@ -573,16 +675,16 @@ const getTransactionBidder = async (req, res) => {
     );
 
     const transactionType = await BiddingTransactionReports.find({
-      transactionType: "WHT", accountName:account
-    }).distinct("transactionType");
+      accountName:account
+    }).distinct("transactionType").sort({ createdAt: -1 });
 
     const client = await BiddingTransactionReports.find({
       clientTeam: { $ne: null },accountName:account
-    }).distinct("clientTeam");
+    }).distinct("clientTeam").sort({ referenceId: -1 })
 
     const description = await BiddingTransactionReports.find({
       transactionType: "WHT",accountName:account
-    }).distinct("transactionSummary");
+    }).distinct("transactionSummary").sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       data: {
