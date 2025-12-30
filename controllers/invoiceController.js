@@ -115,6 +115,9 @@ const getInvoiceDetails = async (req, res) => {
     })
 
     const invoicesWithBalance = invoices.map((invoice) => {
+      const selectedDocument = invoice.documents?.filter(
+        (doc) => doc.select === true
+      );
       const invoiceLogs = logs.filter(
         (log) => log.invoiceId.toString() === invoice._id.toString()
       );
@@ -136,6 +139,7 @@ const getInvoiceDetails = async (req, res) => {
 
       return {
         ...invoice._doc,
+        document: selectedDocument || null,
         balance,
         totalPaymentAmount,
         invoiceLogs,
