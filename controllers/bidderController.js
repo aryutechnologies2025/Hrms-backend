@@ -13,14 +13,36 @@ import EmployeeRole from "../models/employeeRoleModel.js";
 function parseDate(value) {
   if (!value) return null;
 
-  if (typeof value === "number") {
-    const d = new Date((value - 25569) * 86400 * 1000);
-    return isNaN(d) ? null : d;
+  // If XLSX already gives Date object
+  if (value instanceof Date) {
+    return new Date(Date.UTC(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate()
+    ));
   }
 
-  const d = new Date(value);
-  return isNaN(d) ? null : d;
+  // Excel serial number
+  if (typeof value === "number") {
+    const d = XLSX.SSF.parse_date_code(value);
+    if (!d) return null;
+
+    return new Date(Date.UTC(d.y, d.m - 1, d.d));
+  }
+
+  // String date (YYYY-MM-DD, DD-MM-YYYY, etc.)
+  if (typeof value === "string") {
+    const parts = value.split(/[-/]/).map(Number);
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return new Date(Date.UTC(y, m - 1, d));
+    }
+  }
+
+  return null;
 }
+
+
 
 function normalizeAmount(v) {
   if (v == null || v === "") return null;
@@ -90,7 +112,8 @@ const importExcelBidding = async (req, res) => {
 
     const rows = XLSX.utils.sheet_to_json(sheet, {
       defval: null,
-      raw: false,
+      raw: true,
+      cellDates: true,
     });
 
     if (!rows.length) {
