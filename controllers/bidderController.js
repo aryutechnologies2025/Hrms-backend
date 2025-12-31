@@ -15,11 +15,9 @@ function parseDate(value) {
 
   // If XLSX already gives Date object
   if (value instanceof Date) {
-    return new Date(Date.UTC(
-      value.getFullYear(),
-      value.getMonth(),
-      value.getDate()
-    ));
+    return new Date(
+      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate())
+    );
   }
 
   // Excel serial number
@@ -32,26 +30,38 @@ function parseDate(value) {
   // String date - handle multiple formats
   if (typeof value === "string") {
     const trimmed = value.trim();
-    
+
     // Try parsing as ISO format or other common formats
     let parsedDate = null;
-    
+
     // Try JavaScript Date parsing first
     parsedDate = new Date(trimmed);
     if (!isNaN(parsedDate.getTime())) {
-      return new Date(Date.UTC(
-        parsedDate.getFullYear(),
-        parsedDate.getMonth(),
-        parsedDate.getDate()
-      ));
+      return new Date(
+        Date.UTC(
+          parsedDate.getFullYear(),
+          parsedDate.getMonth(),
+          parsedDate.getDate()
+        )
+      );
     }
-    
+
     // Handle "Jan 1, 2026" format specifically
     const monthNames = [
-      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-      'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
     ];
-    
+
     const match = trimmed.match(/^([a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
     if (match) {
       const monthName = match[1].toLowerCase().substring(0, 3);
@@ -62,29 +72,32 @@ function parseDate(value) {
         return new Date(Date.UTC(year, monthIndex, day));
       }
     }
-    
+
     // Handle DD/MM/YYYY or MM/DD/YYYY or YYYY-MM-DD
-    const parts = trimmed.split(/[-/\s,]+/).map(p => p.trim()).filter(p => p);
+    const parts = trimmed
+      .split(/[-/\s,]+/)
+      .map((p) => p.trim())
+      .filter((p) => p);
     if (parts.length === 3) {
       let year, month, day;
-      
+
       // Try to identify which part is year (has 4 digits)
-      const yearIndex = parts.findIndex(p => /^\d{4}$/.test(p));
+      const yearIndex = parts.findIndex((p) => /^\d{4}$/.test(p));
       if (yearIndex !== -1) {
         year = parseInt(parts[yearIndex], 10);
         const otherParts = parts.filter((_, i) => i !== yearIndex);
-        
+
         // If year is first: YYYY-MM-DD
         if (yearIndex === 0) {
           month = parseInt(otherParts[0], 10) - 1;
           day = parseInt(otherParts[1], 10);
-        } 
+        }
         // If year is last: MM/DD/YYYY or DD/MM/YYYY
         else {
           // Try to guess format based on values
           const first = parseInt(otherParts[0], 10);
           const second = parseInt(otherParts[1], 10);
-          
+
           // If first part > 12, it's likely day (DD/MM/YYYY)
           if (first > 12) {
             day = first;
@@ -95,7 +108,7 @@ function parseDate(value) {
             day = second;
           }
         }
-        
+
         if (year && month >= 0 && day) {
           return new Date(Date.UTC(year, month, day));
         }
@@ -106,8 +119,6 @@ function parseDate(value) {
   console.warn(`Could not parse date: ${value}`);
   return null;
 }
-
-
 
 function normalizeAmount(v) {
   if (v == null || v === "") return null;
@@ -161,8 +172,6 @@ function mapHeaders(headers) {
   }
   return mapped;
 }
-
-
 
 const importExcelBidding = async (req, res) => {
   try {
@@ -285,10 +294,6 @@ const importExcelBidding = async (req, res) => {
   }
 };
 
-
-
-
-
 // const getBidderField = async (req, res) => {
 //   const { type } = req.query;
 //   try {
@@ -350,15 +355,41 @@ const getImportBiddingExcelReport = async (req, res) => {
       };
     }
 
-    const rawDescription = req.query.contractType || req.query["contractType[]"];
+    // const rawDescription =
+    //   req.query.contractType || req.query["contractType[]"];
+    // console.log("rawDescription", rawDescription);
+    // if (rawDescription) {
+    //   const descriptionsArray = Array.isArray(rawDescription)
+    //     ? rawDescription
+    //     : [rawDescription];
+
+    //   filter.transactionSummary = {
+    //     $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+    //   };
+    // }
+
+    const rawDescription =
+      req.query.contractType || req.query["contractType[]"];
+
     console.log("rawDescription", rawDescription);
+
     if (rawDescription) {
       const descriptionsArray = Array.isArray(rawDescription)
         ? rawDescription
         : [rawDescription];
 
+      // Clean descriptions FIRST
+      const cleanedDescriptions = descriptionsArray.map((desc) => {
+        const milestoneIndex = desc.indexOf(": ");
+        if (milestoneIndex !== -1) {
+          return desc.substring(milestoneIndex + 2).trim();
+        }
+        return desc.trim();
+      });
+
+      // Use flexible regex (contains match)
       filter.transactionSummary = {
-        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+        $in: cleanedDescriptions.map((d) => new RegExp(d, "i")),
       };
     }
 
@@ -383,9 +414,11 @@ const getImportBiddingExcelReport = async (req, res) => {
     console.log("MongoDB filter:", filter);
 
     // ---------------- Fetch Data ----------------
-    const excelDetails = await BiddingTransactionReports.find(filter)
-      .populate("accountName", "name");
-      // .sort({ createdAt: -1 });
+    const excelDetails = await BiddingTransactionReports.find(filter).populate(
+      "accountName",
+      "name"
+    );
+    // .sort({ createdAt: -1 });
 
     // ---------------- Response ----------------
     res.status(200).json({
@@ -791,22 +824,20 @@ const getTransactionBidder = async (req, res) => {
       .sort({ referenceId: -1 });
 
     const description = await BiddingTransactionReports.distinct(
-  "transactionSummary",
-  {
-    transactionType: { $in: ["Fixed-price", "Bonus"] },
-    accountName: account,
-  }
-);
+      "transactionSummary",
+      {
+        transactionType: { $in: ["Fixed-price", "Bonus"] },
+        accountName: account,
+      }
+    );
 
-// const cleanedDescriptions = description.map(desc => {
-//   const milestoneIndex = desc.indexOf(": ");
-//   if (milestoneIndex !== -1) {
-//     return desc.substring(milestoneIndex + 2);
-//   }
-//   return desc;
-// });
-
-
+    const cleanedDescriptions = description.map((desc) => {
+      const milestoneIndex = desc.indexOf(": ");
+      if (milestoneIndex !== -1) {
+        return desc.substring(milestoneIndex + 2);
+      }
+      return desc;
+    });
 
     res.status(200).json({
       success: true,
@@ -816,7 +847,7 @@ const getTransactionBidder = async (req, res) => {
         bidder,
         transactionType,
         client,
-        description,
+        description: cleanedDescriptions,
       },
     });
   } catch (error) {
