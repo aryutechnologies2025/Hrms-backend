@@ -758,6 +758,7 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
         $project: {
           employeeName: 1,
           email: 1,
+          employeeId: 1,
           role: {
             name: "$role.name",
             status: "$role.status",
