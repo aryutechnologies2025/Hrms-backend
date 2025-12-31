@@ -102,9 +102,10 @@ const importExcelBidding = async (req, res) => {
     const { account } = req.body;
 
     if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, message: "File not uploaded" });
+      return res.status(400).json({
+        success: false,
+        message: "File not uploaded",
+      });
     }
 
     const workbook = XLSX.readFile(req.file.path);
@@ -117,34 +118,36 @@ const importExcelBidding = async (req, res) => {
     });
 
     if (!rows.length) {
-      return res.status(400).json({ success: false, message: "Empty file" });
+      return res.status(400).json({
+        success: false,
+        message: "Empty file",
+      });
     }
 
     const headerLookup = mapHeaders(Object.keys(rows[0]));
+
     const docs = [];
     const errors = [];
-
-    const incomingKeys = [];
+    const referenceIds = [];
 
     rows.forEach((row, i) => {
       const get = (k) => (headerLookup[k] ? row[headerLookup[k]] : null);
 
-      const date = parseDate(get("date"));
-      const transactionId = get("transactionId");
+      const referenceId = get("referenceId");
 
-      if (!date || !transactionId) {
-        errors.push({ row: i + 2, error: "Missing Date or TransactionId" });
+      if (!referenceId) {
+        errors.push({
+          row: i + 2,
+          error: "Missing Ref ID",
+        });
         return;
       }
 
-      incomingKeys.push({
-        transactionId,
-        date,
-      });
+      referenceIds.push(String(referenceId));
 
       docs.push({
-        date,
-        transactionId,
+        date: parseDate(get("date")), // stored only, NOT used for uniqueness
+        transactionId: get("transactionId"),
         transactionType: get("transactionType"),
         transactionSummary: get("transactionSummary"),
         transactionSummaryDetails: get("transactionSummaryDetails"),
@@ -156,7 +159,7 @@ const importExcelBidding = async (req, res) => {
         freelancer: get("freelancer"),
         clientTeam: get("clientTeam"),
         accountName: account,
-        referenceId: get("referenceId"),
+        referenceId: String(referenceId),
         amountDollar: normalizeAmount(get("amountDollar")),
         amountINR: normalizeAmount(get("amountINR")),
         currency: get("currency"),
@@ -173,27 +176,27 @@ const importExcelBidding = async (req, res) => {
       });
     }
 
+    // 🔍 Check existing documents using ONLY referenceId
     const existing = await BiddingTransactionReports.find(
       {
         accountName: account,
-        $or: incomingKeys,
+        referenceId: { $in: referenceIds },
       },
-      { referenceId: 1, date: 1 }
+      { referenceId: 1 }
     ).lean();
 
     const existingSet = new Set(
-      existing.map((e) => `${e.referenceId}_${new Date(e.date).toISOString()}`)
+      existing.map((e) => String(e.referenceId))
     );
 
-    const finalDocs = docs.filter((d) => {
-      const key = `${d.referenceId}_${d.date.toISOString()}`;
-      return !existingSet.has(key);
-    });
+    const finalDocs = docs.filter(
+      (d) => !existingSet.has(String(d.referenceId))
+    );
 
     if (!finalDocs.length) {
       return res.status(409).json({
         success: false,
-        message: "The Document already Exists",
+        message: "The document already exists",
       });
     }
 
@@ -206,10 +209,10 @@ const importExcelBidding = async (req, res) => {
       message: "File imported successfully",
       totalInserted: inserted.length,
       skippedDuplicates: docs.length - finalDocs.length,
+      errors,
     });
   } catch (err) {
     console.error(err);
-
     return res.status(500).json({
       success: false,
       message: "Import failed",
@@ -217,6 +220,8 @@ const importExcelBidding = async (req, res) => {
     });
   }
 };
+
+
 
 // const getBidderField = async (req, res) => {
 //   const { type } = req.query;
