@@ -26,19 +26,84 @@ function parseDate(value) {
   if (typeof value === "number") {
     const d = XLSX.SSF.parse_date_code(value);
     if (!d) return null;
-
     return new Date(Date.UTC(d.y, d.m - 1, d.d));
   }
 
-  // String date (YYYY-MM-DD, DD-MM-YYYY, etc.)
+  // String date - handle multiple formats
   if (typeof value === "string") {
-    const parts = value.split(/[-/]/).map(Number);
+    const trimmed = value.trim();
+    
+    // Try parsing as ISO format or other common formats
+    let parsedDate = null;
+    
+    // Try JavaScript Date parsing first
+    parsedDate = new Date(trimmed);
+    if (!isNaN(parsedDate.getTime())) {
+      return new Date(Date.UTC(
+        parsedDate.getFullYear(),
+        parsedDate.getMonth(),
+        parsedDate.getDate()
+      ));
+    }
+    
+    // Handle "Jan 1, 2026" format specifically
+    const monthNames = [
+      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+      'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+    ];
+    
+    const match = trimmed.match(/^([a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+    if (match) {
+      const monthName = match[1].toLowerCase().substring(0, 3);
+      const monthIndex = monthNames.indexOf(monthName);
+      if (monthIndex !== -1) {
+        const day = parseInt(match[2], 10);
+        const year = parseInt(match[3], 10);
+        return new Date(Date.UTC(year, monthIndex, day));
+      }
+    }
+    
+    // Handle DD/MM/YYYY or MM/DD/YYYY or YYYY-MM-DD
+    const parts = trimmed.split(/[-/\s,]+/).map(p => p.trim()).filter(p => p);
     if (parts.length === 3) {
-      const [y, m, d] = parts;
-      return new Date(Date.UTC(y, m - 1, d));
+      let year, month, day;
+      
+      // Try to identify which part is year (has 4 digits)
+      const yearIndex = parts.findIndex(p => /^\d{4}$/.test(p));
+      if (yearIndex !== -1) {
+        year = parseInt(parts[yearIndex], 10);
+        const otherParts = parts.filter((_, i) => i !== yearIndex);
+        
+        // If year is first: YYYY-MM-DD
+        if (yearIndex === 0) {
+          month = parseInt(otherParts[0], 10) - 1;
+          day = parseInt(otherParts[1], 10);
+        } 
+        // If year is last: MM/DD/YYYY or DD/MM/YYYY
+        else {
+          // Try to guess format based on values
+          const first = parseInt(otherParts[0], 10);
+          const second = parseInt(otherParts[1], 10);
+          
+          // If first part > 12, it's likely day (DD/MM/YYYY)
+          if (first > 12) {
+            day = first;
+            month = second - 1;
+          } else {
+            // Assume MM/DD/YYYY (American format)
+            month = first - 1;
+            day = second;
+          }
+        }
+        
+        if (year && month >= 0 && day) {
+          return new Date(Date.UTC(year, month, day));
+        }
+      }
     }
   }
 
+  console.warn(`Could not parse date: ${value}`);
   return null;
 }
 
@@ -97,15 +162,16 @@ function mapHeaders(headers) {
   return mapped;
 }
 
+
+
 const importExcelBidding = async (req, res) => {
   try {
     const { account } = req.body;
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "File not uploaded",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "File not uploaded" });
     }
 
     const workbook = XLSX.readFile(req.file.path);
@@ -118,36 +184,34 @@ const importExcelBidding = async (req, res) => {
     });
 
     if (!rows.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Empty file",
-      });
+      return res.status(400).json({ success: false, message: "Empty file" });
     }
 
     const headerLookup = mapHeaders(Object.keys(rows[0]));
-
     const docs = [];
     const errors = [];
-    const referenceIds = [];
+
+    const incomingKeys = [];
 
     rows.forEach((row, i) => {
       const get = (k) => (headerLookup[k] ? row[headerLookup[k]] : null);
 
-      const referenceId = get("referenceId");
+      const date = parseDate(get("date"));
+      const transactionId = get("transactionId");
 
-      if (!referenceId) {
-        errors.push({
-          row: i + 2,
-          error: "Missing Ref ID",
-        });
+      if (!date || !transactionId) {
+        errors.push({ row: i + 2, error: "Missing Date or TransactionId" });
         return;
       }
 
-      referenceIds.push(String(referenceId));
+      incomingKeys.push({
+        transactionId,
+        date,
+      });
 
       docs.push({
-        date: parseDate(get("date")), // stored only, NOT used for uniqueness
-        transactionId: get("transactionId"),
+        date,
+        transactionId,
         transactionType: get("transactionType"),
         transactionSummary: get("transactionSummary"),
         transactionSummaryDetails: get("transactionSummaryDetails"),
@@ -159,7 +223,7 @@ const importExcelBidding = async (req, res) => {
         freelancer: get("freelancer"),
         clientTeam: get("clientTeam"),
         accountName: account,
-        referenceId: String(referenceId),
+        referenceId: get("referenceId"),
         amountDollar: normalizeAmount(get("amountDollar")),
         amountINR: normalizeAmount(get("amountINR")),
         currency: get("currency"),
@@ -176,27 +240,27 @@ const importExcelBidding = async (req, res) => {
       });
     }
 
-    // 🔍 Check existing documents using ONLY referenceId
     const existing = await BiddingTransactionReports.find(
       {
         accountName: account,
-        referenceId: { $in: referenceIds },
+        $or: incomingKeys,
       },
-      { referenceId: 1 }
+      { referenceId: 1, date: 1 }
     ).lean();
 
     const existingSet = new Set(
-      existing.map((e) => String(e.referenceId))
+      existing.map((e) => `${e.referenceId}_${new Date(e.date).toISOString()}`)
     );
 
-    const finalDocs = docs.filter(
-      (d) => !existingSet.has(String(d.referenceId))
-    );
+    const finalDocs = docs.filter((d) => {
+      const key = `${d.referenceId}_${d.date.toISOString()}`;
+      return !existingSet.has(key);
+    });
 
     if (!finalDocs.length) {
       return res.status(409).json({
         success: false,
-        message: "The document already exists",
+        message: "The Document already Exists",
       });
     }
 
@@ -209,10 +273,10 @@ const importExcelBidding = async (req, res) => {
       message: "File imported successfully",
       totalInserted: inserted.length,
       skippedDuplicates: docs.length - finalDocs.length,
-      errors,
     });
   } catch (err) {
     console.error(err);
+
     return res.status(500).json({
       success: false,
       message: "Import failed",
@@ -220,6 +284,8 @@ const importExcelBidding = async (req, res) => {
     });
   }
 };
+
+
 
 
 
