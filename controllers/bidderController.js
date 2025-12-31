@@ -293,18 +293,18 @@ const getImportBiddingExcelReport = async (req, res) => {
 
     // ---------------- Date Filter ----------------
     if (fromDate || toDate) {
-      filter.createdAt = {};
+      filter.date = {};
 
       if (fromDate) {
         const startDate = new Date(fromDate);
         startDate.setHours(0, 0, 0, 0);
-        filter.createdAt.$gte = startDate;
+        filter.date.$gte = startDate;
       }
 
       if (toDate) {
         const endDate = new Date(toDate);
         endDate.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = endDate;
+        filter.date.$lte = endDate;
       }
     }
 
@@ -313,8 +313,8 @@ const getImportBiddingExcelReport = async (req, res) => {
 
     // ---------------- Fetch Data ----------------
     const excelDetails = await BiddingTransactionReports.find(filter)
-      .populate("accountName", "name")
-      .sort({ createdAt: -1 });
+      .populate("accountName", "name");
+      // .sort({ createdAt: -1 });
 
     // ---------------- Response ----------------
     res.status(200).json({
