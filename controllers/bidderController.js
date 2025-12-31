@@ -791,12 +791,22 @@ const getTransactionBidder = async (req, res) => {
       .sort({ referenceId: -1 });
 
     const description = await BiddingTransactionReports.distinct(
-      "transactionSummary",
-      {
-        transactionType: { $in: ["Fixed-price", "Bonus"] },
-        accountName: account,
-      }
-    );
+  "transactionSummary",
+  {
+    transactionType: { $in: ["Fixed-price", "Bonus"] },
+    accountName: account,
+  }
+);
+
+const cleanedDescriptions = description.map(desc => {
+  const milestoneIndex = desc.indexOf(": ");
+  if (milestoneIndex !== -1) {
+    return desc.substring(milestoneIndex + 2);
+  }
+  return desc;
+});
+
+
 
     res.status(200).json({
       success: true,
@@ -806,7 +816,7 @@ const getTransactionBidder = async (req, res) => {
         bidder,
         transactionType,
         client,
-        description,
+        description:cleanedDescriptions,
       },
     });
   } catch (error) {
