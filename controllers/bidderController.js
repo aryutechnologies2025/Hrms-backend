@@ -350,7 +350,7 @@ const getImportBiddingExcelReport = async (req, res) => {
       };
     }
 
-    const rawDescription = req.query.description || req.query["description[]"];
+    const rawDescription = req.query.contractType || req.query["contractType[]"];
     console.log("rawDescription", rawDescription);
     if (rawDescription) {
       const descriptionsArray = Array.isArray(rawDescription)
