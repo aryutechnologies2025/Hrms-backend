@@ -798,13 +798,13 @@ const getTransactionBidder = async (req, res) => {
   }
 );
 
-const cleanedDescriptions = description.map(desc => {
-  const milestoneIndex = desc.indexOf(": ");
-  if (milestoneIndex !== -1) {
-    return desc.substring(milestoneIndex + 2);
-  }
-  return desc;
-});
+// const cleanedDescriptions = description.map(desc => {
+//   const milestoneIndex = desc.indexOf(": ");
+//   if (milestoneIndex !== -1) {
+//     return desc.substring(milestoneIndex + 2);
+//   }
+//   return desc;
+// });
 
 
 
@@ -816,7 +816,7 @@ const cleanedDescriptions = description.map(desc => {
         bidder,
         transactionType,
         client,
-        description:cleanedDescriptions,
+        description,
       },
     });
   } catch (error) {
