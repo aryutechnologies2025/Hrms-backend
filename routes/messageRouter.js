@@ -67,8 +67,10 @@
 // routes/messageRoutes.js
 import express from "express";
 import {
+  getChannelHistory,
   getDMHistory,
   getUnreadCounts,
+  markChannelMessagesSeen,
   markMessagesSeen,
   sendChatMessage,
 } from "../controllers/messageController.js";
@@ -79,14 +81,14 @@ const router = express.Router();
 router.get("/dm/:userId/:otherUserId", getDMHistory);
 router.get("/unread/:userId", getUnreadCounts);
 router.post("/seen", markMessagesSeen);
-// import express from "express";
-// import chatUpload from "../middlewares/chatUpload.js";
-// import { sendChatMessage } from "../controllers/chatController.js";
+
 router.post(
   "/send",
   chatUpload.any(), // ⭐ MULTI FILE SUPPORT
   sendChatMessage
 );
+router.get("/channel/:channelId", getChannelHistory);
+router.post("/channel-seen", markChannelMessagesSeen);
 
 export default router;
 

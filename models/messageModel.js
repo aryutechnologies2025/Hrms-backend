@@ -119,7 +119,8 @@ const MessageSchema = new mongoose.Schema(
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
-      required: true,
+      // required: true,
+      default: null,
     },
     channelId: { type: mongoose.Schema.Types.ObjectId, ref: "Channel", default: null },
     text: String,

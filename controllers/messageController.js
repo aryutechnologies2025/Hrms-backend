@@ -137,6 +137,7 @@ import mongoose from "mongoose";
 import Message from "../models/messageModel.js";
 import messageModel from "../models/messageModel.js";
 import { onlineUsers } from "../socket.js";
+import Channel from "../models/channelModel.js";
 
 /* CHAT HISTORY */
 export const getDMHistory = async (req, res) => {
@@ -223,9 +224,73 @@ export const markMessagesSeen = async (req, res) => {
 //   }
 // };
 
+/* CHANNEL HISTORY */
+// export const getChannelHistory = async (req, res) => {
+//   try {
+//     const { channelId } = req.params;
+
+//     if (!channelId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "channelId is required" });
+//     }
+
+//     const messages = await Message.find({
+//       channelId: channelId,
+//     })
+//       .sort({ createdAt: 1 }); // optional but recommended
+
+//     return res.json({
+//       success: true,
+//       data: messages || [],
+//     });
+//   } catch (err) {
+//     console.error("getChannelHistory error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
+
+export const getChannelHistory = async (req, res) => {
+  const { channelId } = req.params;
+
+  const channel = await Channel.findById(channelId).select("members");
+
+  const messages = await Message.find({ channelId })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const memberCount = channel.members.length;
+
+  const updated = messages.map((msg) => {
+    const requiredSeen = memberCount - 1;
+
+    return {
+      ...msg,
+      isSeenByAll:
+        msg.seenBy.length >= requiredSeen &&
+        !msg.seenBy.includes(msg.senderId.toString()),
+    };
+  });
+
+  res.json({ success: true, data: updated });
+};
+
+
 export const sendChatMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, channelId, text } = req.body;
+    let { senderId, receiverId, channelId, text } = req.body;
+    
+    // 🔥 FIX: handle "null" string
+    if (channelId === "null" || channelId === undefined) {
+      channelId = null;
+    }
+
+    if (receiverId === "null" || receiverId === undefined) {
+      receiverId = null;
+    }
 
     const files = (req.files || []).map((file) => ({
       name: file.originalname,
@@ -241,6 +306,7 @@ export const sendChatMessage = async (req, res) => {
       channelId: channelId || null,
       text,
       files,
+      type: channelId ? "channel" : "dm",
       deliveredAt: channelId
         ? new Date()
         : isReceiverOnline
@@ -249,6 +315,70 @@ export const sendChatMessage = async (req, res) => {
     });
 
     res.json({ success: true, data: msg });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message});
+  }
+};
+
+
+
+// controllers/messageController.js
+
+// export const markChannelMessagesSeen = async (req, res) => {
+//   try {
+//     const { channelId, userId } = req.body;
+
+//     if (!channelId || !userId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "channelId and userId are required",
+//       });
+//     }
+
+//     const result = await Message.updateMany(
+//       {
+//         channelId: new mongoose.Types.ObjectId(channelId),
+//         senderId: { $ne: userId },     // 🔥 don't mark own messages
+//         seenBy: { $ne: userId },       // 🔥 not already seen
+//       },
+//       {
+//         $addToSet: { seenBy: userId }, // 🔥 Slack-style
+//       }
+//     );
+
+//     return res.json({
+//       success: true,
+//       updatedCount: result.modifiedCount,
+//     });
+//   } catch (err) {
+//     console.error("channel-seen error:", err);
+//     res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
+
+// controllers/messageController.js
+export const markChannelMessagesSeen = async (req, res) => {
+  try {
+    const { channelId, userId } = req.body;
+
+    if (!channelId || !userId) {
+      return res.status(400).json({ success: false });
+    }
+
+    await Message.updateMany(
+      {
+        channelId,
+        senderId: { $ne: userId },
+        seenBy: { $ne: userId },
+      },
+      {
+        $addToSet: { seenBy: userId},
+      }
+    );
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

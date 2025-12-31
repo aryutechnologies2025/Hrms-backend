@@ -16,19 +16,26 @@ import mongoose from "mongoose";
 
 const ChannelSchema = new mongoose.Schema(
   {
-    name: String,
+    name: {
+      type: String,
+      required: true,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee", // ✅ model name
+      required: true,
+    },
+
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Employee", // ✅ model name
       },
     ],
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Channel", ChannelSchema);
+const Channel= mongoose.model("Channel", ChannelSchema);
+export default Channel;

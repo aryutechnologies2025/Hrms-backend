@@ -461,7 +461,6 @@ export default async function startSocketServer(httpServer) {
 
     // send_channel_message
     socket.on("new_channel_message", async ( msg ) => {
-      if(!msg.channelId) return;
       // const msg = await Message.create({
       //   senderId,
       //   channelId,
@@ -511,7 +510,6 @@ export default async function startSocketServer(httpServer) {
     //     seenAt: now,
     //   });
     // });
-
     socket.on("channel_seen", async ({ channelId, userId }) => {
       if(!channelId || !userId) return;
       await Message.updateMany(
@@ -523,27 +521,9 @@ export default async function startSocketServer(httpServer) {
         { $addToSet: { seenBy: userId } }
       );
 
-      const channel = await Channel.findById(channelId).select("members");
-
-  const messages = await Message.find({ channelId })
-    .sort({ createdAt: 1 })
-    .lean();
-
-  const memberCount = channel.members.length;
-
-  const updated = messages.map((msg) => {
-    const requiredSeen = memberCount - 1;
-
-    return {
-      ...msg,
-      isSeenByAll:
-        msg.seenBy.length >= requiredSeen &&
-        !msg.seenBy.includes(msg.senderId.toString()),
-    };
-  });
-
       io.to(channelId.toString()).emit("channel_seen_update", {
-        updated,
+        channelId,
+        userId,
       });
     });
   });
