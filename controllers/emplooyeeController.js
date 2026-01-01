@@ -779,7 +779,6 @@ const allActiveDropDownEmployeesUserDetails = async (req, res) => {
   }
 };
 
-
 const allEmployeesUserDetails = async (req, res) => {
   const { type } = req.query;
   try {
@@ -811,7 +810,7 @@ const allEmployeesUserDetails = async (req, res) => {
 
     if (type === "Intern") {
       baseMatch.employeeType = "Intern";
-    } else{
+    } else {
       baseMatch.employeeType = { $ne: "Intern" };
     }
 
@@ -823,7 +822,9 @@ const allEmployeesUserDetails = async (req, res) => {
       }
       if (toDate) {
         const [y, m, d] = toDate.split("-");
-        baseMatch.dateOfJoining.$lte = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+        baseMatch.dateOfJoining.$lte = new Date(
+          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+        );
       }
     }
 
@@ -873,7 +874,9 @@ const allEmployeesUserDetails = async (req, res) => {
         ? [
             {
               $match: {
-                "role.department._id": new mongoose.Types.ObjectId(departmentId),
+                "role.department._id": new mongoose.Types.ObjectId(
+                  departmentId
+                ),
               },
             },
           ]
@@ -900,70 +903,49 @@ const allEmployeesUserDetails = async (req, res) => {
 
       /* ================= EXPERIENCE CALCULATION ================= */
       {
-        $addFields: {
-          totalYears: {
-            $dateDiff: {
-              startDate: "$dateOfJoining",
-              endDate: "$$NOW",
-              unit: "year",
-            },
-          },
-          totalMonths: {
-            $dateDiff: {
-              startDate: "$dateOfJoining",
-              endDate: "$$NOW",
-              unit: "month",
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          remainingMonths: { $mod: ["$totalMonths", 12] },
-          remainingDays: {
-            $dateDiff: { startDate: "$dateOfJoining", endDate: "$$NOW", unit: "day" },
-          },
-        },
-      },
-      // {
-      //   $addFields: {
-      //     experience: {
-      //       years: "$totalYears",
-      //       months: "$remainingMonths",
-      //       days: {
-      //         $mod: ["$remainingDays", 30], // approximate days left
-      //       },
-      //     },
-      //     TotalExperienceTillJoining: {
-      //       $concat: [
-      //         { $toString: "$totalYears" },
-      //         " Years ",
-      //         { $toString: "$remainingMonths" },
-      //         " Months ",
-      //         { $toString: { $mod: ["$remainingDays", 30] } },
-      //         " Days",
-      //       ],
-      //     },
-      //   },
-      // },
-
-      {
+  $addFields: {
+    diff: {
+      $dateDiff: {
+        startDate: "$dateOfJoining",
+        endDate: "$$NOW",
+        unit: "day"
+      }
+    }
+  }
+},
+{
+  $addFields: {
+    years: { $floor: { $divide: ["$diff", 365] } },
+    remainingDaysAfterYears: {
+      $mod: ["$diff", 365]
+    }
+  }
+},
+{
+  $addFields: {
+    months: {
+      $floor: { $divide: ["$remainingDaysAfterYears", 30] }
+    },
+    days: {
+      $mod: ["$remainingDaysAfterYears", 30]
+    }
+  }
+},
+{
   $addFields: {
     experience: {
-      years: "$totalYears",
-      months: "$remainingMonths",
-      days: {
-        $mod: ["$remainingDays", 30], // approximate days
-      },
+      years: "$years",
+      months: "$months",
+      days: "$days"
     },
     TotalExperienceTillJoining: {
       $concat: [
-        { $toString: "$totalYears" }, "Y-",
-        { $toString: "$remainingMonths" }, "M-",
-        { $toString: { $mod: ["$remainingDays", 30] } }, "D"
-      ],
-    },
-  },
+        { $toString: "$years" }, "Y-",
+        { $toString: "$months" }, "M-",
+        { $toString: "$days" }, "D"
+      ]
+    }
+  }
 },
 
 
@@ -995,7 +977,6 @@ const allEmployeesUserDetails = async (req, res) => {
     });
   }
 };
-
 
 // const FilterByDateActiveEmployee = async (req, res) => {
 //   // Get today's date at 00:00:00
@@ -3716,37 +3697,37 @@ const relivingList = async (req, res) => {
 
     //   return `${years} Years ${months} Months ${days} Days`;
     // };
-  const getTenure = (start, end) => {
-  if (!start || !end) return "N/A";
+    const getTenure = (start, end) => {
+      if (!start || !end) return "N/A";
 
-  const startDate = new Date(start);
-  const endDate = new Date(end);
+      const startDate = new Date(start);
+      const endDate = new Date(end);
 
-  if (endDate < startDate) return "N/A";
+      if (endDate < startDate) return "N/A";
 
-  let years = endDate.getFullYear() - startDate.getFullYear();
-  let months = endDate.getMonth() - startDate.getMonth();
-  let days = endDate.getDate() - startDate.getDate();
+      let years = endDate.getFullYear() - startDate.getFullYear();
+      let months = endDate.getMonth() - startDate.getMonth();
+      let days = endDate.getDate() - startDate.getDate();
 
-  // Adjust days
-  if (days < 0) {
-    months--;
-    const previousMonth = new Date(
-      endDate.getFullYear(),
-      endDate.getMonth(),
-      0
-    );
-    days += previousMonth.getDate();
-  }
+      // Adjust days
+      if (days < 0) {
+        months--;
+        const previousMonth = new Date(
+          endDate.getFullYear(),
+          endDate.getMonth(),
+          0
+        );
+        days += previousMonth.getDate();
+      }
 
-  // Adjust months
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
+      // Adjust months
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
 
-  return `${years}Y-${months}M-${days}D`;
-};
+      return `${years}Y-${months}M-${days}D`;
+    };
 
     // Fetch employees
     const relievingDetails = await Employee.find({
@@ -3756,7 +3737,7 @@ const relivingList = async (req, res) => {
       .select(
         "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate dutyStatus"
       )
-      .populate("roleId", "name");
+      .populate("roleId", "name").sort({ last_working_date: -1 });
 
     // Fetch checklists
     const relievingCheckList = await RelivingList.find({
@@ -3795,8 +3776,7 @@ const relivingList = async (req, res) => {
       const empOptionsAllYes =
         empChecklist.length > 0 &&
         empChecklist.every(
-          (item) =>
-            item.options && item.options.trim().toLowerCase() === "yes"
+          (item) => item.options && item.options.trim().toLowerCase() === "yes"
         );
 
       const empTodoTasks = todoTasks.filter((task) =>
@@ -3850,8 +3830,6 @@ const relivingList = async (req, res) => {
     });
   }
 };
-
-
 
 const updateReliving = async (req, res) => {
   try {
