@@ -980,391 +980,250 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
 };
 
 const getparticularemployeeMonthlyAttendanceWithTop5 = async (req, res) => {
-  const { employeeId, month } = req.query;
+  try {
+    const { employeeId, month } = req.query;
+    const [year, monthNum] = month.split("-").map(Number);
 
-  const [monthNum, year] = month.toString().split("-").map(Number);
-  console.log("monthNum", monthNum, "year", year);
-  const start = new Date(Date.UTC(year, monthNum - 1, 1));
-  const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
+    const start = new Date(Date.UTC(year, monthNum - 1, 1));
+    const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
 
-  // Helper function to calculate time
-  const calculateTime = (entries) => {
-    let workTime = 0;
-    let breakTime = 0;
-    let lastInTime = null;
-    let lastBreakOutTime = null;
-
-    entries.sort((a, b) => new Date(a.time) - new Date(b.time));
-    let totalBreakInCount = 0;
-    
-    for (let i = 0; i < entries.length; i++) {
-      const { reason, time } = entries[i];
-      const entryTime = new Date(time);
-
-      if (reason === "Break In" || reason === "Login") {
-        if (lastBreakOutTime) {
-          totalBreakInCount++;
-          breakTime += entryTime - lastBreakOutTime;
-          lastBreakOutTime = null;
-        }
-        lastInTime = entryTime;
-      }
-
-      if (reason === "Break Out") {
-        if (lastInTime) {
-          workTime += entryTime - lastInTime;
-          lastInTime = null;
-        }
-        lastBreakOutTime = entryTime;
-      }
-
-      if (reason === "Logout") {
-        if (lastInTime) {
-          workTime += entryTime - lastInTime;
-          lastInTime = null;
-        }
-        if (lastBreakOutTime) {
-          breakTime += entryTime - lastBreakOutTime;
-          lastBreakOutTime = null;
-        }
-      }
-    }
-
-    const format = (ms) => {
-      if (!ms || isNaN(ms)) return { hours: 0, minutes: 0, seconds: 0 };
-      return {
-        hours: Math.floor(ms / (1000 * 60 * 60)),
-        minutes: Math.floor((ms / (1000 * 60)) % 60),
-        seconds: Math.floor((ms / 1000) % 60),
-      };
-    };
-
-    const totalWorkTime = workTime + breakTime;
-
-    return {
-      payableTime: format(workTime),
-      breakTime: format(breakTime),
-      totalWorkTime: format(totalWorkTime),
-      totalBreakInCount: totalBreakInCount,
-    };
-  };
-
-  // Helper function to calculate attendance summary for a single employee
-  const calculateEmployeeSummary = (attendanceList, holidaysList, leaveList, user, daysInMonth) => {
-    let lessThan8HoursCount = 0;
-    let after1030LoginCount = 0;
-    let presentDaysCount = 0;
-    let absentDaysCount = 0;
-    let totalHolidaysCount = 0;
-    const results = [];
-
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === monthNum - 1;
-    const effectiveDaysInMonth = isCurrentMonth ? today.getDate() : daysInMonth;
-
-    for (let day = 1; day <= effectiveDaysInMonth; day++) {
-      const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
-      const currentDateStr = currentDate.toISOString().split("T")[0];
-      const options = { weekday: "long", timeZone: "Asia/Kolkata" };
-      const dayName = currentDate.toLocaleDateString("en-IN", options);
-      
-      const attendance = attendanceList.find((att) => {
-        const attDate = new Date(att.date).toISOString().split("T")[0];
-        return attDate === currentDateStr;
+    const toISTDateString = (date) =>
+      new Date(date).toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kolkata",
       });
 
-      const holiday = holidaysList.find(
-        (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
-      );
-
-      if (holiday || (dayName === "Sunday" && !attendance)) {
-        results.push({
-          date: currentDateStr,
-          status: "Holiday",
-          reason: holiday?.reason || "Sunday",
-        });
-        totalHolidaysCount++;
-      } else if (attendance) {
-        const attData = attendance.toObject();
-
-        // IMPORTANT: Count as present day first
-        presentDaysCount++;
-
-        if (attData.entries.length > 0) {
-          attData.result = calculateTime(attData.entries);
-
-          // Requirement 1: Check if payableTime < 8 hours
-          if (attData.result.payableTime.hours < 8) {
-            lessThan8HoursCount++;
-          }
-
-          const loginEntry = attData.entries.find((e) => e.reason === "Login");
-          const logoutEntry = [...attData.entries]
-            .reverse()
-            .find((e) => e.reason === "Logout");
-
-          attData.loginTime = loginEntry
-            ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
-            : "-";
-
-          // Requirement 2: Check if login was after 10:30 AM
-          if (loginEntry && loginEntry.reason === "Login") {
-            const loginTime = new Date(loginEntry.time);
-            const loginHours = loginTime.getHours();
-            const loginMinutes = loginTime.getMinutes();
-            
-            // DEBUG: Log the login time for troubleshooting
-            console.log(`Day ${day}: Login time - ${loginHours}:${loginMinutes}`);
-            
-            // Check if login time is after 10:30 AM
-            // IMPORTANT: Check for PM times (12-hour format conversion might be needed)
-            // If your system uses 24-hour format, loginHours will be 0-23
-            // If it's after 10:30 AM, it could be 10:30-11:59 (hours 10-11) or 12:00+ (hours 12-23)
-            
-            // Option 1: Simple 24-hour format check
-            if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
-              after1030LoginCount++;
-              console.log(`Late login counted for day ${day}: ${loginHours}:${loginMinutes}`);
-            }
-            
-            // Option 2: If using 12-hour format, check AM/PM
-            // You might need to check if there's AM/PM in your time string
-          }
-
-          attData.logout = logoutEntry
-            ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
-            : "-";
-        }
-
-        results.push({
-          date: currentDateStr,
-          status: "Present",
-          ...attData,
-        });
-      } else {
-        const currentDateStrObj = new Date(currentDateStr);
-        const leave = leaveList.find((leave) => {
-          const leaveStartStr = new Date(leave.startDate).toISOString().split("T")[0];
-          const leaveEndStr = new Date(leave.endDate).toISOString().split("T")[0];
-          return leaveStartStr <= currentDateStr && leaveEndStr >= currentDateStr;
-        });
-
-        if (leave) {
-          results.push({
-            date: currentDateStr,
-            status: "Leave",
-            leaveType: leave.leaveType,
-            reason: leave.reason,
-          });
-        } else {
-          const joiningDate = new Date(user.dateOfJoining);
-          
-          if (currentDateStrObj < joiningDate) {
-            results.push({
-              date: currentDateStr,
-              status: "-",
-              loginTime: "-",
-              logout: "-",
-            });
-          } else {
-            results.push({
-              date: currentDateStr,
-              status: "Absent",
-              loginTime: "-",
-              logout: "-",
-            });
-          }
-        }
-      }
-    }
-
-    const workingDays = effectiveDaysInMonth - totalHolidaysCount;
-    absentDaysCount = workingDays - presentDaysCount;
-
-    // DEBUG: Log the counts for troubleshooting
-    console.log("Final counts:", {
-      presentDaysCount,
-      after1030LoginCount,
-      lessThan8HoursCount,
-      absentDaysCount,
-      totalHolidaysCount
-    });
-
-    return {
-      summary: {
-        lessThan8HoursCount,
-        after1030LoginCount,
-        presentDaysCount,
-        absentDaysCount,
-        totalHolidaysCount,
-        totalDays: workingDays
-      },
-      results
-    };
-  };
-
-  try {
-    // Get the requested employee
+    /* -------------------- FIND EMPLOYEE -------------------- */
     const user = await Employee.findOne({
       _id: new mongoose.Types.ObjectId(employeeId),
       employeeStatus: "1",
     });
-    
-    if (!user) {
-      return res.status(404).json({ message: "Employee not found" });
-    }
 
-    // Get all data for the requested employee
+    if (!user)
+      return res.status(404).json({ message: "Employee not found" });
+
+    /* -------------------- FETCH DATA -------------------- */
     const holidaysList = await UpcomingHoliday.find({});
+    
     const attendanceList = await Attendance.find({
       employeeId: user._id,
       date: { $gte: start, $lte: end },
-    }).populate(
-      "employeeId",
-      "_id photo employeeName phoneNumber email employeeType employeeId"
-    );
+    });
 
     const leaveList = await Leave.find({
       employeeId: user._id,
-      leaveType: "Leave",
       status: "approved",
       startDate: { $lte: end },
       endDate: { $gte: start },
     });
 
-    const fullDaysInMonth = new Date(year, monthNum, 0).getDate();
-    
-    // Calculate the requested employee's attendance
-    const { summary, results } = calculateEmployeeSummary(
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+
+    /* -------------------- TIME CALCULATION -------------------- */
+    const calculateTime = (entries) => {
+      let workTime = 0;
+      let breakTime = 0;
+      let lastIn = null;
+      let lastBreakOut = null;
+      let breakCount = 0;
+
+      entries.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+      for (const entry of entries) {
+        const t = new Date(entry.time);
+
+        if (entry.reason === "Login" || entry.reason === "Break In") {
+          if (lastBreakOut) {
+            breakTime += t - lastBreakOut;
+            breakCount++;
+            lastBreakOut = null;
+          }
+          lastIn = t;
+        }
+
+        if (entry.reason === "Break Out") {
+          if (lastIn) {
+            workTime += t - lastIn;
+            lastIn = null;
+          }
+          lastBreakOut = t;
+        }
+
+        if (entry.reason === "Logout") {
+          if (lastIn) workTime += t - lastIn;
+          if (lastBreakOut) breakTime += t - lastBreakOut;
+          lastIn = lastBreakOut = null;
+        }
+      }
+
+      const format = (ms) => ({
+        hours: Math.floor(ms / 3600000),
+        minutes: Math.floor((ms % 3600000) / 60000),
+        seconds: Math.floor((ms % 60000) / 1000),
+      });
+
+      return {
+        payableTime: format(workTime),
+        breakTime: format(breakTime),
+        totalWorkTime: format(workTime + breakTime),
+        totalBreakInCount: breakCount,
+      };
+    };
+
+    /* -------------------- SUMMARY CALCULATION -------------------- */
+    const calculateEmployeeSummary = (
       attendanceList,
       holidaysList,
       leaveList,
-      user,
-      fullDaysInMonth
+      daysInMonth
+    ) => {
+      let presentDays = 0;
+      let leaveDays = 0;
+      let totalHolidaysCount = 0;
+      let lateLogin = 0;
+      let lessThan8 = 0;
+
+      const today = new Date();
+      const isCurrentMonth =
+        today.getFullYear() === year && today.getMonth() + 1 === monthNum;
+
+      const effectiveDays = isCurrentMonth
+        ? today.getDate()
+        : daysInMonth;
+
+      for (let day = 1; day <= effectiveDays; day++) {
+        const date = new Date(Date.UTC(year, monthNum - 1, day));
+        const dateStr = toISTDateString(date);
+        const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+
+        const attendance = attendanceList.find(
+          (a) => toISTDateString(a.date) === dateStr
+        );
+
+        const holiday = holidaysList.find(
+          (h) => toISTDateString(h.date) === dateStr
+        );
+
+        if (holiday || dayName === "Sunday") {
+          totalHolidaysCount++;
+          continue;
+        }
+
+        if (attendance) {
+          presentDays++;
+
+          const login = attendance.entries.find(
+            (e) => e.reason === "Login"
+          );
+
+          if (login) {
+            const ist = new Date(
+              new Date(login.time).toLocaleString("en-US", {
+                timeZone: "Asia/Kolkata",
+              })
+            );
+
+            if (
+              ist.getHours() > 10 ||
+              (ist.getHours() === 10 && ist.getMinutes() >= 30)
+            ) {
+              lateLogin++;
+            }
+          }
+
+          const result = calculateTime(attendance.entries);
+          if (result.payableTime.hours < 8) lessThan8++;
+        } else {
+          const leave = leaveList.find((l) => {
+            const start = toISTDateString(l.startDate);
+            const end = toISTDateString(l.endDate);
+            return start <= dateStr && end >= dateStr;
+          });
+
+          if (leave) leaveDays++;
+        }
+      }
+
+      const workingDays = effectiveDays - totalHolidaysCount;
+      const absentDays = workingDays - presentDays - leaveDays;
+
+      return {
+        presentDaysCount: presentDays,
+        absentDaysCount: absentDays,
+        totalHolidaysCount,
+        after1030LoginCount: lateLogin,
+        lessThan8HoursCount: lessThan8,
+        totalDays: workingDays,
+      };
+    };
+
+    /* -------------------- EMPLOYEE SUMMARY -------------------- */
+    const summary = calculateEmployeeSummary(
+      attendanceList,
+      holidaysList,
+      leaveList,
+      daysInMonth
     );
 
-    // DEBUG: Check the raw attendance data for late logins
-    console.log("\n=== DEBUG: Checking all attendance entries ===");
-    attendanceList.forEach((att, index) => {
-      const attDate = new Date(att.date).toISOString().split("T")[0];
-      const loginEntry = att.entries.find(e => e.reason === "Login");
-      if (loginEntry) {
-        const loginTime = new Date(loginEntry.time);
-        const hours = loginTime.getHours();
-        const minutes = loginTime.getMinutes();
-        const isLate = hours > 10 || (hours === 10 && minutes >= 30);
-        console.log(`Entry ${index}: Date ${attDate}, Login: ${hours}:${minutes}, Is Late: ${isLate}`);
-      }
-    });
-    console.log("=== END DEBUG ===\n");
+    /* -------------------- TOP 5 CALCULATION -------------------- */
+    const employees = await Employee.find({ employeeStatus: "1" });
+    const stats = [];
 
-    // Get top 5 lists for ALL employees
-    // First, get all active employees
-    const allEmployees = await Employee.find({ employeeStatus: "1" });
-    
-    const allEmployeeStats = [];
-
-    // Calculate statistics for each employee
-    for (const employee of allEmployees) {
-      const empAttendanceList = await Attendance.find({
-        employeeId: employee._id,
-        date: { $gte: start, $lte: end }
+    for (const emp of employees) {
+      const empAttendance = await Attendance.find({
+        employeeId: emp._id,
+        date: { $gte: start, $lte: end },
       });
 
-      const empLeaveList = await Leave.find({
-        employeeId: employee._id,
-        leaveType: "Leave",
+      const empLeave = await Leave.find({
+        employeeId: emp._id,
         status: "approved",
         startDate: { $lte: end },
-        endDate: { $gte: start }
+        endDate: { $gte: start },
       });
 
-      // Calculate summary for this employee
-      const { summary: empSummary } = calculateEmployeeSummary(
-        empAttendanceList,
+      const empSummary = calculateEmployeeSummary(
+        empAttendance,
         holidaysList,
-        empLeaveList,
-        employee,
-        fullDaysInMonth
+        empLeave,
+        daysInMonth
       );
 
-      allEmployeeStats.push({
-        employeeId: employee._id,
-        employeeName: employee.employeeName,
-        employeeCode: employee.employeeId,
-        // photo: employee.photo,
-        // department: employee.department || "N/A",
-        ...empSummary
+      stats.push({
+        employeeName: emp.employeeName,
+        employeeId: emp.employeeId,
+        ...empSummary,
       });
     }
 
-    // Sort and get top 5 for each criteria
-    const top5LessThan8Hours = allEmployeeStats
+    const top5LessThan8Hours = [...stats]
       .sort((a, b) => b.lessThan8HoursCount - a.lessThan8HoursCount)
-      .slice(0, 5)
-      .map(emp => ({
-        employeeName: emp.employeeName,
-        employeeId: emp.employeeCode,
-        // photo: emp.photo,
-        // department: emp.department,
-        count: emp.lessThan8HoursCount
-      }));
+      .slice(0, 5);
 
-    const top5After1030Login = allEmployeeStats
+    const top5After1030Login = [...stats]
       .sort((a, b) => b.after1030LoginCount - a.after1030LoginCount)
-      .slice(0, 5)
-      .map(emp => ({
-        employeeName: emp.employeeName,
-        employeeId: emp.employeeCode,
-        photo: emp.photo,
-        department: emp.department,
-        count: emp.after1030LoginCount
-      }));
+      .slice(0, 5);
 
-    const top5AbsentDays = allEmployeeStats
-      .sort((a, b) => b.absentDaysCount - a.absentDaysCount)
-      .slice(0, 5)
-      .map(emp => ({
-        employeeName: emp.employeeName,
-        employeeId: emp.employeeCode,
-        photo: emp.photo,
-        department: emp.department,
-        count: emp.absentDaysCount
-      }));
-
+    /* -------------------- RESPONSE -------------------- */
     res.status(200).json({
       message: "Monthly attendance data with top 5 lists",
       employee: {
         name: user.employeeName,
         email: user.email,
-        photo: user.photo,
         phone: user.phoneNumber,
+        photo: user.photo,
       },
-      // data: results,
-      summary: summary,
+      summary,
       top5Lists: {
         lessThan8Hours: top5LessThan8Hours,
         after1030Login: top5After1030Login,
-        // absentDays: top5AbsentDays
-      }
+      },
     });
   } catch (error) {
-    console.error("Error fetching attendance:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
+
 // employee leave details cl and more
 // const getparticularemployeeMonthlyAttendanceDetails = async (req, res) => {
 //   try {
