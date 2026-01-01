@@ -925,27 +925,47 @@ const allEmployeesUserDetails = async (req, res) => {
           },
         },
       },
+      // {
+      //   $addFields: {
+      //     experience: {
+      //       years: "$totalYears",
+      //       months: "$remainingMonths",
+      //       days: {
+      //         $mod: ["$remainingDays", 30], // approximate days left
+      //       },
+      //     },
+      //     TotalExperienceTillJoining: {
+      //       $concat: [
+      //         { $toString: "$totalYears" },
+      //         " Years ",
+      //         { $toString: "$remainingMonths" },
+      //         " Months ",
+      //         { $toString: { $mod: ["$remainingDays", 30] } },
+      //         " Days",
+      //       ],
+      //     },
+      //   },
+      // },
+
       {
-        $addFields: {
-          experience: {
-            years: "$totalYears",
-            months: "$remainingMonths",
-            days: {
-              $mod: ["$remainingDays", 30], // approximate days left
-            },
-          },
-          TotalExperienceTillJoining: {
-            $concat: [
-              { $toString: "$totalYears" },
-              " Years ",
-              { $toString: "$remainingMonths" },
-              " Months ",
-              { $toString: { $mod: ["$remainingDays", 30] } },
-              " Days",
-            ],
-          },
-        },
+  $addFields: {
+    experience: {
+      years: "$totalYears",
+      months: "$remainingMonths",
+      days: {
+        $mod: ["$remainingDays", 30], // approximate days
       },
+    },
+    TotalExperienceTillJoining: {
+      $concat: [
+        { $toString: "$totalYears" }, "Y-",
+        { $toString: "$remainingMonths" }, "M-",
+        { $toString: { $mod: ["$remainingDays", 30] } }, "D"
+      ],
+    },
+  },
+},
+
 
       /* ================= CLEANUP ================= */
       {
@@ -3665,37 +3685,68 @@ const relivingList = async (req, res) => {
     const dutyStatus = type === "relieved" ? "0" : "1";
 
     // Helper function to calculate exact tenure
-    const getTenure = (start, end) => {
-      if (!start || !end) return "N/A";
+    // const getTenure = (start, end) => {
+    //   if (!start || !end) return "N/A";
 
-      let startDate = new Date(start);
-      let endDate = new Date(end);
+    //   let startDate = new Date(start);
+    //   let endDate = new Date(end);
 
-      if (endDate < startDate) return "N/A";
+    //   if (endDate < startDate) return "N/A";
 
-      let years = endDate.getFullYear() - startDate.getFullYear();
-      let months = endDate.getMonth() - startDate.getMonth();
-      let days = endDate.getDate() - startDate.getDate();
+    //   let years = endDate.getFullYear() - startDate.getFullYear();
+    //   let months = endDate.getMonth() - startDate.getMonth();
+    //   let days = endDate.getDate() - startDate.getDate();
 
-      // Adjust days
-      if (days < 0) {
-        months--;
-        const previousMonth = new Date(
-          endDate.getFullYear(),
-          endDate.getMonth(),
-          0
-        );
-        days += previousMonth.getDate();
-      }
+    //   // Adjust days
+    //   if (days < 0) {
+    //     months--;
+    //     const previousMonth = new Date(
+    //       endDate.getFullYear(),
+    //       endDate.getMonth(),
+    //       0
+    //     );
+    //     days += previousMonth.getDate();
+    //   }
 
-      // Adjust months
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
+    //   // Adjust months
+    //   if (months < 0) {
+    //     years--;
+    //     months += 12;
+    //   }
 
-      return `${years} Years ${months} Months ${days} Days`;
-    };
+    //   return `${years} Years ${months} Months ${days} Days`;
+    // };
+  const getTenure = (start, end) => {
+  if (!start || !end) return "N/A";
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (endDate < startDate) return "N/A";
+
+  let years = endDate.getFullYear() - startDate.getFullYear();
+  let months = endDate.getMonth() - startDate.getMonth();
+  let days = endDate.getDate() - startDate.getDate();
+
+  // Adjust days
+  if (days < 0) {
+    months--;
+    const previousMonth = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      0
+    );
+    days += previousMonth.getDate();
+  }
+
+  // Adjust months
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+
+  return `${years}Y-${months}M-${days}D`;
+};
 
     // Fetch employees
     const relievingDetails = await Employee.find({
