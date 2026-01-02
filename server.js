@@ -62,7 +62,7 @@ import useAuth from "./middlewares/userAuth.js";
 import  startSocketServer  from "./socket.js";
 import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
-
+import customerRouter from "./routes/customerRouter.js";
 // Load environment variables
 dotenv.config();
 
@@ -136,7 +136,7 @@ const startApp = async () => {
 
   app.use("/api/channel",channelRouter);
   app.use("/api/messages",messageRouter);
-  
+  app.use("/api/customer",customerRouter);
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);
