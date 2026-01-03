@@ -512,40 +512,88 @@ export default async function startSocketServer(httpServer) {
     //   });
     // });
 
-    socket.on("channel_seen", async ({ channelId, userId }) => {
-      if(!channelId || !userId) return;
-      await Message.updateMany(
-        {
-          channelId,
-          senderId: { $ne: userId },
-          seenBy: { $ne: userId },
-        },
-        { $addToSet: { seenBy: userId } }
-      );
+//     socket.on("channel_seen", async ({ channelId, userId }) => {
+//       if(!channelId || !userId) return;
+//       await Message.updateMany(
+//         {
+//           channelId,
+//           senderId: { $ne: userId },
+//           seenBy: { $ne: userId },
+//         },
+//         { $addToSet: { seenBy: userId } }
+//       );
 
-      const channel = await Channel.findById(channelId).select("members");
+//       const channel = await Channel.findById(channelId).select("members");
 
-  const messages = await Message.find({ channelId })
-    .sort({ createdAt: 1 })
-    .lean();
+//   const messages = await Message.find({ channelId })
+//     .sort({ createdAt: 1 })
+//     .lean();
 
+//   const memberCount = channel.members.length;
+
+//   const updated = messages.map((msg) => {
+//     const requiredSeen = memberCount - 1;
+
+//     return {
+//       ...msg,
+//       isSeenByAll:
+//         msg.seenBy.length >= requiredSeen &&
+//         !msg.seenBy.includes(msg.senderId.toString()),
+//     };
+//   });
+//   console.log("updated messages", updated);
+
+//       // io.to(channelId.toString()).emit("channel_seen_update",{
+//       //   updated,
+//       // });
+//       io.to(channelId.toString()).emit("channel_seen_update", {
+//   channelId,
+//   updatedMessages: updated,
+// });
+
+//     });
+socket.on("channel_seen", async ({ channelId, userId }) => {
+  if (!channelId || !userId) return;
+
+  // 1️⃣ Update unseen messages
+  await Message.updateMany(
+    {
+      channelId,
+      senderId: { $ne: userId },
+      seenBy: { $ne: userId },
+    },
+    {
+      $addToSet: { seenBy: userId },
+      $set: { updatedAt: new Date() },
+    }
+  );
+
+  // 2️⃣ Get channel members count
+  const channel = await Channel.findById(channelId).select("members");
   const memberCount = channel.members.length;
 
-  const updated = messages.map((msg) => {
-    const requiredSeen = memberCount - 1;
+  // 3️⃣ Get ONLY last message
+  const lastMessage = await Message.findOne({ channelId })
+    .sort({ createdAt: -1 })
+    .lean();
 
-    return {
-      ...msg,
-      isSeenByAll:
-        msg.seenBy.length >= requiredSeen &&
-        !msg.seenBy.includes(msg.senderId.toString()),
-    };
+  if (!lastMessage) return;
+
+  // 4️⃣ Compute isSeenByAll ONLY for last message
+  const requiredSeen = memberCount - 1;
+
+  const isSeenByAll =
+    lastMessage.seenBy.length >= requiredSeen &&
+    !lastMessage.seenBy.includes(lastMessage.senderId.toString());
+
+  // 5️⃣ Emit minimal payload
+  io.to(channelId.toString()).emit("channel_seen_update", {
+    channelId,
+    messageId: lastMessage._id,
+    isSeenByAll,
   });
+});
 
-      io.to(channelId.toString()).emit("channel_seen_update", {
-        updated,
-      });
-    });
   });
 
   return io;
