@@ -68,6 +68,7 @@
 import express from "express";
 import {
   getChannelHistory,
+  getChannelUnreadCounts,
   getDMHistory,
   getUnreadCounts,
   markChannelMessagesSeen,
@@ -89,6 +90,8 @@ router.post(
 );
 router.get("/channel/:channelId", getChannelHistory);
 router.post("/channel-seen", markChannelMessagesSeen);
+router.get("/channels/unread/:userId", getChannelUnreadCounts);
+
 
 export default router;
 

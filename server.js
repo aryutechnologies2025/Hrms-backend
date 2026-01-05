@@ -58,10 +58,11 @@ import statementsRouter from "./routes/statementsRouter.js";
 import announcementRouter from "./routes/announcementRouter.js";
 import subCategoryRouter from "./routes/subCategoryRouter.js";
 import projectNotesRouter from "./routes/projectNotesRouter.js";
-import useAuth from "./middlewares/userAuth.js";
+
 import  startSocketServer  from "./socket.js";
 import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
+import favoritesRouter from "./routes/favoritiesRoutert.js";
 
 // Load environment variables
 dotenv.config();
@@ -136,6 +137,7 @@ const startApp = async () => {
 
   app.use("/api/channel",channelRouter);
   app.use("/api/messages",messageRouter);
+  app.use("/api/favorites",favoritesRouter);
   
   // socket sever
   const server = http.createServer(app);

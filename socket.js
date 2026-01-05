@@ -5,6 +5,7 @@ import Channel from "./models/channelModel.js";
 import Message from "./models/messageModel.js";
 import { initRedis, getRedisAdapter } from "./redis.js";
 import User from "./models/userModel.js";
+import mongoose from "mongoose";
 
 const verifyToken = (token) => {
   try {
@@ -315,8 +316,6 @@ export default async function startSocketServer(httpServer) {
 
     /* USER ONLINE */
 
-   
-
     socket.on("user_online", async (userId) => {
       socket.userId = userId.toString();
       onlineUsers.add(socket.userId);
@@ -453,15 +452,15 @@ export default async function startSocketServer(httpServer) {
 
     // channel join_channel
     socket.on("join_channel", ({ channelId }) => {
-      if(!channelId) return;
+      if (!channelId) return;
       console.log("channelId", channelId);
       socket.join(channelId.toString());
       console.log("Joined channel:", channelId);
     });
 
     // send_channel_message
-    socket.on("new_channel_message", async ( msg ) => {
-      if(!msg.channelId) return;
+    socket.on("new_channel_message", async (msg) => {
+      if (!msg.channelId) return;
       // const msg = await Message.create({
       //   senderId,
       //   channelId,
@@ -512,88 +511,146 @@ export default async function startSocketServer(httpServer) {
     //   });
     // });
 
-//     socket.on("channel_seen", async ({ channelId, userId }) => {
-//       if(!channelId || !userId) return;
-//       await Message.updateMany(
-//         {
-//           channelId,
-//           senderId: { $ne: userId },
-//           seenBy: { $ne: userId },
-//         },
-//         { $addToSet: { seenBy: userId } }
-//       );
+    //     socket.on("channel_seen", async ({ channelId, userId }) => {
+    //       if(!channelId || !userId) return;
+    //       await Message.updateMany(
+    //         {
+    //           channelId,
+    //           senderId: { $ne: userId },
+    //           seenBy: { $ne: userId },
+    //         },
+    //         { $addToSet: { seenBy: userId } }
+    //       );
 
-//       const channel = await Channel.findById(channelId).select("members");
+    //       const channel = await Channel.findById(channelId).select("members");
 
-//   const messages = await Message.find({ channelId })
-//     .sort({ createdAt: 1 })
-//     .lean();
+    //   const messages = await Message.find({ channelId })
+    //     .sort({ createdAt: 1 })
+    //     .lean();
 
-//   const memberCount = channel.members.length;
+    //   const memberCount = channel.members.length;
 
-//   const updated = messages.map((msg) => {
-//     const requiredSeen = memberCount - 1;
+    //   const updated = messages.map((msg) => {
+    //     const requiredSeen = memberCount - 1;
 
-//     return {
-//       ...msg,
-//       isSeenByAll:
-//         msg.seenBy.length >= requiredSeen &&
-//         !msg.seenBy.includes(msg.senderId.toString()),
-//     };
-//   });
-//   console.log("updated messages", updated);
+    //     return {
+    //       ...msg,
+    //       isSeenByAll:
+    //         msg.seenBy.length >= requiredSeen &&
+    //         !msg.seenBy.includes(msg.senderId.toString()),
+    //     };
+    //   });
+    //   console.log("updated messages", updated);
 
-//       // io.to(channelId.toString()).emit("channel_seen_update",{
-//       //   updated,
-//       // });
-//       io.to(channelId.toString()).emit("channel_seen_update", {
-//   channelId,
-//   updatedMessages: updated,
+    //       // io.to(channelId.toString()).emit("channel_seen_update",{
+    //       //   updated,
+    //       // });
+    //       io.to(channelId.toString()).emit("channel_seen_update", {
+    //   channelId,
+    //   updatedMessages: updated,
+    // });
+
+    //     });
+    // socket.on("channel_seen", async ({ channelId, userId }) => {
+    //   if (!channelId || !userId) return;
+
+    //   // 1️ Update unseen messages
+    //   await Message.updateMany(
+    //     {
+    //       channelId,
+    //       senderId: { $ne: userId },
+    //       seenBy: { $ne: userId },
+    //     },
+    //     {
+    //       $addToSet: { seenBy: userId },
+    //       $set: { updatedAt: new Date() },
+    //     }
+    //   );
+
+    //   // 2️⃣ Get channel members count
+    //   const channel = await Channel.findById(channelId).select("members");
+    //   const memberCount = channel.members.length;
+
+    //   // 3️⃣ Get ONLY last message
+    //   const lastMessage = await Message.findOne({ channelId })
+    //     .sort({ createdAt: -1 })
+    //     .lean();
+
+    //   if (!lastMessage) return;
+
+    //   // 4️⃣ Compute isSeenByAll ONLY for last message
+    //   const requiredSeen = memberCount - 1;
+
+    //   const isSeenByAll =
+    //     lastMessage.seenBy.length >= requiredSeen &&
+    //     !lastMessage.seenBy.includes(lastMessage.senderId.toString());
+
+    //   // 5️⃣ Emit minimal payload
+    //   io.to(channelId.toString()).emit("channel_seen_update", {
+    //     channelId,
+    //     messageId: lastMessage._id,
+    //     isSeenByAll,
+    //   });
+    // });
+
+    socket.on("channel_seen", async ({ channelId, userId }) => {
+      if (!channelId || !userId) return;
+
+      const uid = new mongoose.Types.ObjectId(userId);
+
+      // 1️⃣ Update unseen messages
+      await Message.updateMany(
+        {
+          channelId: new mongoose.Types.ObjectId(channelId),
+          senderId: { $ne: uid },
+          seenBy: { $ne: uid },
+        },
+        {
+          $addToSet: { seenBy: uid },
+          $set: { updatedAt: new Date() },
+        }
+      );
+
+      //  2️⃣ EMIT UNREAD CLEAR (THIS WAS MISSING)
+      // io.to(channelId.toString()).emit("channel_unread_clear", {
+      //   channelId,
+      //   userId,
+      // });
+//       io.to(socket.id).emit("channel_unread_clear", {
+//   channelId,userId
 // });
-
-//     });
-socket.on("channel_seen", async ({ channelId, userId }) => {
-  if (!channelId || !userId) return;
-
-  // 1️⃣ Update unseen messages
-  await Message.updateMany(
-    {
-      channelId,
-      senderId: { $ne: userId },
-      seenBy: { $ne: userId },
-    },
-    {
-      $addToSet: { seenBy: userId },
-      $set: { updatedAt: new Date() },
-    }
-  );
-
-  // 2️⃣ Get channel members count
-  const channel = await Channel.findById(channelId).select("members");
-  const memberCount = channel.members.length;
-
-  // 3️⃣ Get ONLY last message
-  const lastMessage = await Message.findOne({ channelId })
-    .sort({ createdAt: -1 })
-    .lean();
-
-  if (!lastMessage) return;
-
-  // 4️⃣ Compute isSeenByAll ONLY for last message
-  const requiredSeen = memberCount - 1;
-
-  const isSeenByAll =
-    lastMessage.seenBy.length >= requiredSeen &&
-    !lastMessage.seenBy.includes(lastMessage.senderId.toString());
-
-  // 5️⃣ Emit minimal payload
-  io.to(channelId.toString()).emit("channel_seen_update", {
-    channelId,
-    messageId: lastMessage._id,
-    isSeenByAll,
-  });
+io.to(socket.id).emit("channel_unread_clear", {
+  channelId,
+  userId,
 });
 
+
+
+      // 3️⃣ Get channel members
+      const channel = await Channel.findById(channelId).select("members");
+      if (!channel || !channel.members?.length) return;
+
+      // 4️⃣ Get last message
+      const lastMessage = await Message.findOne({ channelId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (!lastMessage) return;
+
+      // 5️⃣ Compute isSeenByAll
+      const requiredSeen = channel.members.length - 1;
+
+      const isSeenByAll =
+        lastMessage.seenBy.length >= requiredSeen &&
+        !lastMessage.seenBy.map(String).includes(String(lastMessage.senderId));
+
+      // 6️⃣ Emit blue-tick update
+      io.to(channelId.toString()).emit("channel_seen_update", {
+        channelId,
+        messageId: lastMessage._id,
+        isSeenByAll,
+      });
+    });
   });
 
   return io;

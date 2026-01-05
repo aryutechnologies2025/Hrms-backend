@@ -179,18 +179,18 @@ export const getUnreadCounts = async (req, res) => {
 export const markMessagesSeen = async (req, res) => {
   const { senderId, receiverId } = req.body;
 
-  // const updated = await Message.updateMany(
-  //   { senderId, receiverId, seenAt: null },
-  //   { $set: { seenAt: new Date() } },
-  //   { $addToSet: { seenBy: receiverId } }
-  // );
-  const updated = Message.updateMany(
-    { senderId, receiverId, seenBy: { $ne: receiverId } },
-    {
-      $set: { seenAt: new Date() },
-      $addToSet: { seenBy: receiverId },
-    }
+  const updated = await Message.updateMany(
+    { senderId, receiverId, seenAt: null },
+    { $set: { seenAt: new Date() } },
+    { $addToSet: { seenBy: receiverId } }
   );
+  // const updated = Message.updateMany(
+  //   { senderId, receiverId, seenBy: { $ne: receiverId } },
+  //   {
+  //     $set: { seenAt: new Date() },
+  //     $addToSet: { seenBy: receiverId },
+  //   }
+  // );
 
   res.json({ success: true, data: updated });
 };
@@ -254,35 +254,52 @@ export const markMessagesSeen = async (req, res) => {
 // };
 
 export const getChannelHistory = async (req, res) => {
-  const { channelId } = req.params;
+  const { channelId, type } = req.params;
+  try {
+    const channel = await Channel.findById(channelId).select("members");
 
-  const channel = await Channel.findById(channelId).select("members");
+    if (!channel) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Channel not found" });
+    }
 
-  const messages = await Message.find({ channelId })
-    .sort({ createdAt: 1 })
-    .lean();
+    let updated = [];
+    // if (channel.type === "general") {
+      // public channel
+      const messages = await Message.find({ channelId })
+        .sort({ createdAt: 1 })
+        .lean();
 
-  const memberCount = channel.members.length;
+      const memberCount = channel.members.length;
 
-  const updated = messages.map((msg) => {
-    const requiredSeen = memberCount - 1;
+      updated = messages.map((msg) => {
+        const requiredSeen = memberCount - 1;
 
-    return {
-      ...msg,
-      isSeenByAll:
-        msg.seenBy.length >= requiredSeen &&
-        !msg.seenBy.includes(msg.senderId.toString()),
-    };
-  });
+        return {
+          ...msg,
+          isSeenByAll:
+            msg.seenBy.length >= requiredSeen &&
+            !msg.seenBy.includes(msg.senderId.toString()),
+        };
+      });
+    // }
+    // else {
+    //   // private channel
+    //   updated = await Message.find({ channelId }).sort({ createdAt: 1 });
 
-  res.json({ success: true, data: updated });
+    // }
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
-
 
 export const sendChatMessage = async (req, res) => {
   try {
     let { senderId, receiverId, channelId, text } = req.body;
-    
+
     // 🔥 FIX: handle "null" string
     if (channelId === "null" || channelId === undefined) {
       channelId = null;
@@ -316,11 +333,9 @@ export const sendChatMessage = async (req, res) => {
 
     res.json({ success: true, data: msg });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message});
+    res.status(500).json({ success: false, message: err.message });
   }
 };
-
-
 
 // controllers/messageController.js
 
@@ -375,11 +390,39 @@ export const markChannelMessagesSeen = async (req, res) => {
         seenBy: { $ne: userId },
       },
       {
-        $addToSet: { seenBy: userId},
+        $addToSet: { seenBy: userId },
       }
     );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+};
+
+// controllers/channelController.js
+export const getChannelUnreadCounts = async (req, res) => {
+  const { userId } = req.params;
+
+  const unread = await Message.aggregate([
+    {
+      $match: {
+        channelId: { $ne: null },
+        senderId: { $ne: new mongoose.Types.ObjectId(userId) },
+        seenBy: { $ne: new mongoose.Types.ObjectId(userId) },
+      },
+    },
+    {
+      $group: {
+        _id: "$channelId",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const result = {};
+  unread.forEach((u) => {
+    result[u._id.toString()] = u.count;
+  });
+
+  res.json({ success: true, data: result });
 };
