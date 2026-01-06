@@ -64,6 +64,7 @@ import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
 import favoritesRouter from "./routes/favoritiesRoutert.js";
 
+
 // Load environment variables
 dotenv.config();
 

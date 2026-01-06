@@ -12,30 +12,79 @@
 
 // export default Favorites;
 
+// import mongoose from "mongoose";
+
+// const favoritesSchema = new mongoose.Schema(
+//   {
+//     userId: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: "Employee",
+//       required: true,
+//       unique: true,
+//     },
+
+//     dm: [
+//       {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Employee",
+//         default: [],
+//       },
+//     ],
+
+//     channels: [
+//       {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Channel",
+//         default: [],
+//       },
+//     ],
+//   },
+//   { timestamps: true }
+// );
+
+//  const Favorites = mongoose.model("Favorites", favoritesSchema);
+
+// export default Favorites;
+
 import mongoose from "mongoose";
 
 const favoritesSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee",
-      required: true,
-      unique: true,
+    user: {
+      id: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        refPath: "user.model",
+      },
+      model: {
+        type: String,
+        required: true,
+        enum: ["AdminUser", "Employee", "ClientDetails"], // MUST match model names
+      },
     },
 
     dm: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Employee",
-        default: [],
+        id: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+          refPath: "dm.model",
+        },
+        model: {
+          type: String,
+          required: true,
+          enum: ["AdminUser", "Employee", "ClientDetails"],
+        },
       },
     ],
 
     channels: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Channel",
-        default: [],
+        id: {
+          type: mongoose.Schema.Types.ObjectId,
+          required: true,
+          ref: "Channel", // channel is single model → no refPath needed
+        },
       },
     ],
   },
@@ -45,3 +94,5 @@ const favoritesSchema = new mongoose.Schema(
  const Favorites = mongoose.model("Favorites", favoritesSchema);
 
 export default Favorites;
+
+
