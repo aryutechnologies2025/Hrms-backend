@@ -62,8 +62,20 @@ const createInvoice = async (req, res) => {
     });
 
     const savedInvoice = await newInvoice.save();
+    
+    if(req.body.status === "Invoice Raised"){
+      await InvoiceStatusLog.create({
+      invoiceId: savedInvoice._id,
+      clientId: savedInvoice.clientId,
+      project: savedInvoice.project,
+      status: req.body.status,
+      amount: "0",
+      paymentType: req.body.paymentType,
+      paidDate: req.body.paidDate,
+    })
+    }else{
 
-    const statusLog = await InvoiceStatusLog.create({
+    InvoiceStatusLog.create({
       invoiceId: savedInvoice._id,
       clientId: savedInvoice.clientId,
       project: savedInvoice.project,
@@ -72,12 +84,13 @@ const createInvoice = async (req, res) => {
       paymentType: req.body.paymentType,
       paidDate: req.body.paidDate,
     });
+}
 
     res.status(201).json({
       success: true,
       message: "Invoice created successfully",
       data: savedInvoice,
-      statusLog,
+      // statusLog,
     });
   } catch (error) {
     console.error("Error:", error);
@@ -194,26 +207,26 @@ const editInvoiceDetails = async (req, res) => {
     if (req.body.status) {
       const existingStatusLog = await InvoiceStatusLog.findOne({
         invoiceId: updatedInvoice._id,
-        status: req.body.status,
-      });
+      }).sort({ createdAt: -1 });
 
+      if (
+        existingStatusLog &&
+        (existingStatusLog.status !== req.body.status &&
+         existingStatusLog.amount === req.body.amount || existingStatusLog.amount !== req.body.amount && existingStatusLog.status === req.body.status)
+      ) {
+        await InvoiceStatusLog.findByIdAndUpdate(
+          existingStatusLog._id,
+          {
+            amount: req.body.amount,
+            paidDate: req.body.paidDate,
+            status: req.body.status,
+            paymentType: req.body.paymentType,
+          },
+          { new: true }
+        );
+      }
 
-      if (existingStatusLog) {
-
-        if (req.body.amount !== existingStatusLog.amount) {
-          await InvoiceStatusLog.findByIdAndUpdate(
-            existingStatusLog._id,
-            {
-              amount: req.body.amount,
-              paidDate: req.body.paidDate,
-              // paymentType: req.body.paymentType,
-            },
-            { new: true }
-          );
-        }
-      } 
-
-      else {
+      else{
         await InvoiceStatusLog.create({
           invoiceId: updatedInvoice._id,
           clientId: updatedInvoice.clientId,
@@ -239,6 +252,7 @@ const editInvoiceDetails = async (req, res) => {
     });
   }
 };
+
 
 
 
