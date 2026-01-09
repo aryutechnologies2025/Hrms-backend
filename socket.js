@@ -6,6 +6,8 @@ import Message from "./models/messageModel.js";
 import { initRedis, getRedisAdapter } from "./redis.js";
 import User from "./models/userModel.js";
 import mongoose from "mongoose";
+let ioInstance;
+
 
 const verifyToken = (token) => {
   try {
@@ -21,13 +23,7 @@ export default async function startSocketServer(httpServer) {
   // --- Init Redis ---
   const { pubClient, subClient } = await initRedis();
 
-  // --- Create IO Server ---
-  // const io = new Server(httpServer, {
-  //   cors: {
-  //     origin: process.env.CLIENT_URL || "http://localhost:5173",
-
-  //   },
-  // });
+  
 
   console.log("coming 1");
   const io = new Server(httpServer, {
@@ -40,275 +36,10 @@ export default async function startSocketServer(httpServer) {
 
   // --- Attach Redis Adapter ---
   io.adapter(getRedisAdapter());
+   
 
-  // const onlineUsers = new Map();
-
-  //   io.on("connection", (socket) => {
-  //     console.log("Connected:", socket.id);
-
-  //     /* ---------------- USER ONLINE ---------------- */
-  // // socket.on("user_online", (userId) => {
-  // //   onlineUsers.set(userId.toString(), socket.id);
-  // //   socket.userId = userId.toString();
-
-  // //   // 🔥 send updated list to all clients
-  // //   io.emit("online_users", Array.from(onlineUsers.keys()));
-  // // });
-  // socket.on("user_online", async (userId) => {
-  //   onlineUsers.set(userId.toString(), socket.id);
-  //   socket.userId = userId.toString();
-
-  //   // 🔥 mark old messages as delivered
-  //   await Message.updateMany(
-  //     {
-  //       receiverId: userId,
-  //       deliveredAt: null,
-  //     },
-  //     { deliveredAt: new Date() }
-  //   );
-
-  //   io.emit("online_users", Array.from(onlineUsers.keys()));
-  // });
-
-  //     /* ---------------- JOIN DM ROOM ---------------- */
-  //     socket.on("join_dm", ({ senderId, receiverId }) => {
-  //       const roomId = [senderId, receiverId].sort().join("_");
-  //       socket.join(roomId);
-  //     });
-
-  //     /* ---------------- SEND DM ---------------- */
-
-  // //  socket.on("send_dm", async ({ clientId, senderId, receiverId, text, file }) => {
-  // //   try {
-  // //     const msg = await Message.create({
-  // //       senderId,
-  // //       receiverId,
-  // //       text,
-  // //       file,
-  // //     });
-
-  // //     const receiverOnline = onlineUsers.has(receiverId.toString());
-  // //     const roomId = [senderId, receiverId].sort().join("_");
-
-  // //     io.to(roomId).emit("receive_dm", {
-  // //       ...msg.toObject(),
-  // //       clientId,
-  // //       receiverOnline,   // ✅ IMPORTANT
-  // //     });
-  // //   } catch (err) {
-  // //     console.error("send_dm error:", err.message);
-  // //   }
-  // // });
-  // socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
-  //   const isOnline = onlineUsers.has(receiverId.toString());
-
-  //   const msg = await Message.create({
-  //     senderId,
-  //     receiverId,
-  //     text,
-  //     deliveredAt: isOnline ? new Date() : null,
-  //   });
-
-  //   const roomId = [senderId, receiverId].sort().join("_");
-
-  //   io.to(roomId).emit("receive_dm", {
-  //     ...msg.toObject(),
-  //     clientId,
-  //   });
-  // });
-
-  //     /* ---------------- MARK SEEN ---------------- */
-  //     // socket.on("mark_seen", async ({ senderId, receiverId }) => {
-  //     //   try {
-  //     //     await Message.updateMany(
-  //     //       {
-  //     //         senderId,
-  //     //         receiverId,
-  //     //         seenBy: { $ne: receiverId },
-  //     //       },
-  //     //       { $addToSet: { seenBy: receiverId } }
-  //     //     );
-
-  //     //     const roomId = [senderId, receiverId].sort().join("_");
-
-  //     //     io.to(roomId).emit("messages_seen", {
-  //     //       senderId,
-  //     //       receiverId,
-  //     //     });
-  //     //   } catch (err) {
-  //     //     console.error("mark_seen error:", err.message);
-  //     //   }
-  //     // });
-  // socket.on("mark_seen", async ({ senderId, receiverId }) => {
-  //   await Message.updateMany(
-  //     {
-  //       senderId,
-  //       receiverId,
-  //       seenAt: null,
-  //     },
-  //     { seenAt: new Date() }
-  //   );
-
-  //   const roomId = [senderId, receiverId].sort().join("_");
-
-  //   io.to(roomId).emit("messages_seen", {
-  //     senderId,
-  //     receiverId,
-  //   });
-  // });
-
-  //     /* ---------------- DISCONNECT ---------------- */
-  //     // socket.on("disconnect", () => {
-  //     //   if (socket.userId) {
-  //     //     onlineUsers.delete(socket.userId);
-  //     //   }
-  //     //   console.log("Disconnected:", socket.id);
-  //     // });
-  //     socket.on("disconnect", () => {
-  //   if (socket.userId) {
-  //     onlineUsers.delete(socket.userId);
-
-  //     //  update everyone
-  //     io.emit("online_users", Array.from(onlineUsers.keys()));
-  //   }
-  // });
-
-  //   });
-  //  io.on("connection", (socket) => {
-  //     console.log("Connected:", socket.id);
-
-  //     /* USER ONLINE */
-  //     socket.on("user_online", async (userId) => {
-  //       socket.userId = userId.toString();
-  //       onlineUsers.set(socket.userId, socket.id);
-
-  //       // mark undelivered messages as delivered
-  //       await Message.updateMany(
-  //         { receiverId: userId, deliveredAt: null },
-  //         { deliveredAt: new Date() }
-  //       );
-
-  //       io.emit("online_users", [...onlineUsers.keys()]);
-  //     });
-
-  //     /* JOIN DM */
-  //     socket.on("join_dm", ({ senderId, receiverId }) => {
-  //       const room = [senderId, receiverId].sort().join("_");
-  //       socket.join(room);
-  //     });
-
-  //     /* SEND MESSAGE */
-  //     socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
-  //       const isOnline = onlineUsers.has(receiverId.toString());
-
-  //       const msg = await Message.create({
-  //         senderId,
-  //         receiverId,
-  //         text,
-  //         deliveredAt: isOnline ? new Date() : null,
-  //       });
-
-  //       const room = [senderId, receiverId].sort().join("_");
-
-  //       io.to(room).emit("receive_dm", {
-  //         ...msg.toObject(),
-  //         clientId,
-  //       });
-  //     });
-
-  //     /* MARK SEEN */
-  //     socket.on("mark_seen", async ({ senderId, receiverId }) => {
-  //       await Message.updateMany(
-  //         { senderId, receiverId, seenAt: null },
-  //         {
-  //           $set: { seenAt: new Date() },
-  //           $addToSet: { seenBy: receiverId },
-  //         }
-  //       );
-
-  //       const room = [senderId, receiverId].sort().join("_");
-  //       io.to(room).emit("messages_seen", { senderId, receiverId });
-  //     });
-
-  //     /* DISCONNECT */
-  //     socket.on("disconnect", () => {
-  //       if (socket.userId) {
-  //         onlineUsers.delete(socket.userId);
-  //         io.emit("online_users", [...onlineUsers.keys()]);
-  //       }
-  //     });
-  //   });
-  /**
-   * Map<userId, Set<socketId>>
-   * Supports multi-tabs / multi-devices
-   */
-  // const onlineUsers = new Map();
-
-  // io.on("connection", (socket) => {
-  //   console.log("Connected:", socket.id);
-
-  //   /* USER ONLINE */
-  //   socket.on("user_online", async (userId) => {
-  //     socket.userId = userId.toString();
-
-  //     await Message.updateMany(
-  //       { receiverId: userId, deliveredAt: null },
-  //       { $set: { deliveredAt: new Date() } }
-  //     );
-
-  //     io.emit("online_users", userId);
-  //   });
-
-  //   /* JOIN DM */
-  //   socket.on("join_dm", ({ senderId, receiverId }) => {
-  //     const room = [senderId, receiverId].sort().join("_");
-  //     socket.join(room);
-  //     console.log("Joined room:", room);
-  //   });
-
-  //   /* SEND MESSAGE */
-  //   socket.on("send_dm", async ({ clientId, senderId, receiverId, text }) => {
-  //     const msg = await Message.create({
-  //       senderId,
-  //       receiverId,
-  //       text,
-  //       deliveredAt: new Date(), // receiver online handled earlier
-  //     });
-
-  //     const room = [senderId, receiverId].sort().join("_");
-
-  //     io.to(room).emit("receive_dm", {
-  //       ...msg.toObject(),
-  //       clientId,
-  //     });
-  //   });
-
-  //   /* MARK SEEN — THE MOST IMPORTANT PART */
-  //   socket.on("mark_seen", async ({ senderId, receiverId }) => {
-  //     const now = new Date();
-
-  //     const result = await Message.updateMany(
-  //       { senderId, receiverId, seenAt: null },
-  //       { $set: { seenAt: now } }
-  //     );
-
-  //     if (!result.modifiedCount) return;
-
-  //     const room = [senderId, receiverId].sort().join("_");
-
-  //     io.to(room).emit("messages_seen", {
-  //       senderId,   // who sent the messages
-  //       receiverId, // who saw them
-  //       seenAt: now,
-  //     });
-
-  //     console.log("✅ Seen emitted to room:", room);
-  //   });
-
-  //   socket.on("disconnect", () => {
-  //     console.log("Disconnected:", socket.id);
-  //   });
-  // });
+  // 🔥 ADD THIS
+   ioInstance = io;
 
   // const onlineUsers = new Set();
   io.on("connection", (socket) => {
@@ -616,15 +347,13 @@ export default async function startSocketServer(httpServer) {
       //   channelId,
       //   userId,
       // });
-//       io.to(socket.id).emit("channel_unread_clear", {
-//   channelId,userId
-// });
-io.to(socket.id).emit("channel_unread_clear", {
-  channelId,
-  userId,
-});
-
-
+      //       io.to(socket.id).emit("channel_unread_clear", {
+      //   channelId,userId
+      // });
+      io.to(socket.id).emit("channel_unread_clear", {
+        channelId,
+        userId,
+      });
 
       // 3️⃣ Get channel members
       const channel = await Channel.findById(channelId).select("members");
@@ -651,7 +380,59 @@ io.to(socket.id).emit("channel_unread_clear", {
         isSeenByAll,
       });
     });
+
+   
+
+    // actionable message delete
+    socket.on("message_deleted", ({ messageId }) => {
+      socket.broadcast.emit("message_deleted", { messageId });
+    });
+    // delete_message_file
+     socket.on("delete_message_file", async ({ messageId, fileId }) => {
+      if (!messageId || !fileId) return;
+      console.log("delete_message_file event received", messageId, fileId);
+
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      // remove file
+      message.files = message.files.filter((f) => f._id.toString() !== fileId);
+      console.log("message after file removal", message);
+
+      await message.save();
+
+      io.to(message.channelId || message.receiverId.toString()).emit(
+        "message_file_deleted",
+        { messageId, fileId }
+      );
+    });
+    // thread 
+//     socket.on("thread_reply", (msg) => {
+//   io.to(msg.channelId || msg.receiverId.toString())
+//     .emit("thread_reply", msg);
+// });
+socket.on("thread_reply", (msg) => {
+  // CHANNEL THREAD
+  if (msg.channelId) {
+    io.to(msg.channelId.toString()).emit("thread_reply", msg);
+    return;
+  }
+
+  // DM THREAD
+  if (msg.senderId && msg.receiverId) {
+    const room = [msg.senderId.toString(), msg.receiverId.toString()]
+      .sort()
+      .join("_");
+
+    io.to(room).emit("thread_reply", msg);
+  }
+});
+
+
+
   });
 
   return io;
 }
+
+export const getIO = () => ioInstance;

@@ -135,9 +135,15 @@
 // controllers/messageController.js
 import mongoose from "mongoose";
 import Message from "../models/messageModel.js";
-import messageModel from "../models/messageModel.js";
-import { onlineUsers } from "../socket.js";
+
+import { getIO, onlineUsers } from "../socket.js";
 import Channel from "../models/channelModel.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 /* CHAT HISTORY */
 export const getDMHistory = async (req, res) => {
@@ -298,7 +304,7 @@ export const getChannelHistory = async (req, res) => {
 
 export const sendChatMessage = async (req, res) => {
   try {
-    let { senderId, receiverId, channelId, text } = req.body;
+    let { senderId, receiverId, channelId, text,isForwarded,parentMessageId} = req.body;
 
     // 🔥 FIX: handle "null" string
     if (channelId === "null" || channelId === undefined) {
@@ -324,12 +330,21 @@ export const sendChatMessage = async (req, res) => {
       text,
       files,
       type: channelId ? "channel" : "dm",
+      isForwarded,
       deliveredAt: channelId
         ? new Date()
         : isReceiverOnline
         ? new Date()
         : null, // 🔥 socket will update
+      parentMessageId: parentMessageId || null,
+
     });
+    if (parentMessageId) {
+      await Message.findByIdAndUpdate(parentMessageId, {
+        $inc: { threadReplyCount: 1 },
+        lastThreadReplyAt: new Date(),
+      });
+    }
 
     res.json({ success: true, data: msg });
   } catch (err) {
@@ -425,4 +440,203 @@ export const getChannelUnreadCounts = async (req, res) => {
   });
 
   res.json({ success: true, data: result });
+};
+
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const msg = await Message.findById(req.params.id);
+
+    if(!msg) {
+      return res.status(404).json({ success: false });
+    }
+
+    msg.isDelete = true;
+    msg.text = "";
+    msg.files = [];
+
+    await msg.save();
+
+    res.json({ success: true, messageId: msg._id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+// messageController.js
+// export const deleteMessageFile = async (req, res) => {
+//   const { messageId, fileId } = req.body;
+//   const message = await Message.findById(messageId);
+//   if (!message) {
+//     return res.status(404).json({ success: false });
+//   }
+
+//   message.files = message.files.filter(
+//     (f) => f._id.toString() !== fileId
+//   );
+
+//   await message.save();
+
+//   // 🔥 SOCKET BROADCAST
+//   const room = message.channelId || message.receiverId;
+
+//   req.io.to(room).emit("file_deleted", {
+//     messageId,
+//     fileId,
+//   });
+
+//   res.json({ success: true });
+// };
+
+
+// POST /messages/delete-file
+
+
+
+// export const deleteMessageFile = async (req, res) => {
+//   try {
+//     const { messageId, fileId } =req.query;
+
+//     const message = await Message.findById(messageId);
+//     if (!message) {
+//       return res.status(404).json({ success: false });
+//     }
+
+//     message.files = message.files.filter(
+//       (f) => f._id.toString() !== fileId
+//     );
+
+//     await message.save();
+
+//     // 🔥 SOCKET EMIT HERE
+//     const io = getIO();
+
+//     let room;
+//     if (message.channelId) {
+//       room = message.channelId.toString();
+//     } else {
+//       room = [message.senderId.toString(), message.receiverId.toString()]
+//         .sort()
+//         .join("_");
+//     }
+
+//     io.to(room).emit("message_file_deleted", {
+//       messageId,
+//       fileId,
+//     });
+
+//     res.json({ success: true });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false });
+//   }
+// };
+
+export const deleteMessageFile = async (req, res) => {
+  try {
+    const { messageId, fileId } = req.query;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+
+    const file = message.files.id(fileId);
+    if (!file) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+
+    // 🔥 PHYSICAL FILE PATH
+    const filePath = path.join(__dirname, "..", "..", file.url);
+    // example file.url => /uploads/chat/abc.png
+    console.log("filePath", filePath);
+    // 🔥 REMOVE FILE FROM DISK
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error("File delete failed:", err.message);
+      }
+    });
+
+    // 🔥 SOFT DELETE IN DB
+    file.isDeleteFile = true;
+    await message.save();
+
+    // 🔥 SOCKET EMIT
+    const io = getIO();
+
+    let room;
+    if (message.channelId) {
+      room = message.channelId.toString();
+    } else {
+      room = [message.senderId.toString(), message.receiverId.toString()]
+        .sort()
+        .join("_");
+    }
+
+    io.to(room).emit("message_file_deleted", {
+      messageId,
+      fileId,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
+};
+
+
+// controllers/messageController.js
+export const editMessageFiles = async (req, res) => {
+  try {
+    const { messageId,text } = req.body;
+    console.log("messageId",messageId,"text",text,"req.files",req.files,req.query);
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
+    if(text){
+      message.text = text;
+    }
+    // Only add new files
+    if (req.files?.length) {
+      message.files.push(
+        ...req.files.map(f => ({
+          name: f.originalname,
+          url: `/uploads/chat/${f.filename}`,
+          type: f.mimetype,
+          size: f.size,
+        }))
+      );
+    }
+
+    // Save updated message
+    await message.save();
+     // 🔥 SOCKET EMIT
+    const io = getIO();
+
+    // Emit socket event
+    io.to(message.channelId || `${message.senderId}-${message.receiverId}`).emit("message_edited", message);
+
+    return res.json({ success: true, data: message });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getThreadReplies = async (req, res) => {
+
+  try{
+    const replies = await Message.find({
+    parentMessageId: req.params.parentId,
+  }).sort({ createdAt: 1 });
+
+  res.json({ success: true, data: replies});
+
+  }
+  catch(error)
+  {
+    res.status(500).json({success:false,error:error})
+  }
+  
 };

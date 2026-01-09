@@ -33,7 +33,14 @@ const ChannelSchema = new mongoose.Schema(
         ref: "Employee", // ✅ model name
       },
     ],
+    channelType: {
+  type: String,
+  // enum: ["public", "private", "dm"],
+  default: "private",
+},
+
   },
+ 
   { timestamps: true }
 );
 

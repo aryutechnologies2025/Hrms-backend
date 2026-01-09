@@ -105,8 +105,12 @@ const fileSchema = new mongoose.Schema(
     url: String,
     type: String,
     size: Number,
+    isDeleteFile: {
+    type: Boolean,
+    default: false,
   },
-  { _id: false }
+  },
+  { _id:true }
 );
 
 const MessageSchema = new mongoose.Schema(
@@ -153,6 +157,32 @@ const MessageSchema = new mongoose.Schema(
         ref: "Employee",
       },
     ],
+    
+    isDelete: {
+    type: Boolean,
+    default: false,
+  },
+   isForwarded: {
+      type: Boolean,
+      default: false,
+    },
+     // 🧵 THREAD FIELDS (COMMON)
+   /* 🔥 THREAD FIELD */
+    parentMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null, // null = normal message
+      index: true,
+    },
+
+    /* Optional but useful */
+    threadReplyCount: {
+      type: Number,
+      default: 0,
+    },
+
+
+  lastThreadReplyAt: Date,
   },
   { timestamps: true }
 );

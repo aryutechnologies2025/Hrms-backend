@@ -67,9 +67,13 @@
 // routes/messageRoutes.js
 import express from "express";
 import {
+  deleteMessage,
+  deleteMessageFile,
+  editMessageFiles,
   getChannelHistory,
   getChannelUnreadCounts,
   getDMHistory,
+  getThreadReplies,
   getUnreadCounts,
   markChannelMessagesSeen,
   markMessagesSeen,
@@ -91,6 +95,13 @@ router.post(
 router.get("/channel/:channelId", getChannelHistory);
 router.post("/channel-seen", markChannelMessagesSeen);
 router.get("/channels/unread/:userId", getChannelUnreadCounts);
+// routes/messageRoutes.js
+// message Actions
+router.patch("/messages/:id/delete", deleteMessage);
+router.delete("/messages/delete-file", deleteMessageFile);
+router.patch("/messages/edit",chatUpload.any(), editMessageFiles);
+router.get("/messages/thread/:parentId",getThreadReplies);
+
 
 
 export default router;
