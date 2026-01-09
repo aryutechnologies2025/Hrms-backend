@@ -12,12 +12,15 @@ import {
   clientInvoiceById,
   clientDashboard,
   selectInvoiceDocument,
-  clientInvoiceByProjectWise
+  clientInvoiceByProjectWise,
+  editInvoiceLogDetails,
+  deleteInvoiceLogDetails
 } from "../controllers/invoiceController.js";
 import upload from "../middlewares/upload.js";
 
 const invoiceRouter = express.Router();
-
+invoiceRouter.put("/edit-invoice-log/:id", editInvoiceLogDetails);
+invoiceRouter.delete("/delete-invoice-log/:id", deleteInvoiceLogDetails);
 invoiceRouter.post("/create-invoice", createInvoice);
 invoiceRouter.get("/view-invoice", getInvoiceDetails);
 invoiceRouter.put("/edit-invoice/:id", editInvoiceDetails);

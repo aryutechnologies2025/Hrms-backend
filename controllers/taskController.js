@@ -2185,7 +2185,7 @@ const particularTask = async (req, res) => {
         taskInReview: taskByStatus["in-review"].tasks,
         taskDone: taskByStatus["done"].tasks,
         taskBlock: taskByStatus["block"].tasks,
-        taskCompleted: taskByStatus["completed"].tasks,
+        // taskCompleted: taskByStatus["completed"].tasks,
         todayTasks,
         statusCounts,
       },
