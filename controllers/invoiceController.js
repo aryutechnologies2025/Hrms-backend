@@ -61,13 +61,13 @@ const createInvoice = async (req, res) => {
 
     const savedInvoice = await newInvoice.save();
 
-    if (req.body.status === "Invoice Raised") {
+    if (req.body.status === "invoice_raised") {
       await InvoiceStatusLog.create({
         invoiceId: savedInvoice._id,
         clientId: savedInvoice.clientId,
         project: savedInvoice.project,
         status: req.body.status,
-        amount: "0",
+        amount: req.body.total_amount,
         paymentType: req.body.paymentType,
         paidDate: req.body.paidDate,
       });
@@ -226,15 +226,15 @@ const editInvoiceDetails = async (req, res) => {
     //       { new: true }
     //     );
     //   } else {
-        await InvoiceStatusLog.create({
-          invoiceId: updatedInvoice._id,
-          clientId: updatedInvoice.clientId,
-          project: updatedInvoice.project,
-          status: req.body.status,
-          amount: req.body.amount,
-          paidDate: req.body.paidDate,
-          paymentType: req.body.paymentType,
-        });
+    await InvoiceStatusLog.create({
+      invoiceId: updatedInvoice._id,
+      clientId: updatedInvoice.clientId,
+      project: updatedInvoice.project,
+      status: req.body.status,
+      amount: req.body.amount,
+      paidDate: req.body.paidDate,
+      paymentType: req.body.paymentType,
+    });
     //   }
     // }
 
@@ -252,13 +252,17 @@ const editInvoiceDetails = async (req, res) => {
   }
 };
 
-const editInvoiceLogDetails = async(req,res) =>{
-  try{
-    const {id} = req.params;
-    const updatedInvoice = await InvoiceStatusLog.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+const editInvoiceLogDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedInvoice = await InvoiceStatusLog.findByIdAndUpdate(
+      id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
     if (!updatedInvoice) {
       return res.status(404).json({
         success: false,
@@ -269,18 +273,18 @@ const editInvoiceLogDetails = async(req,res) =>{
       success: true,
       message: "Invoice updated successfully",
       data: updatedInvoice,
-    })
-  }catch(error){
+    });
+  } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
-}
-const deleteInvoiceLogDetails = async(req,res) =>{
-  try{
-    const {id} = req.params;
+};
+const deleteInvoiceLogDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
     const deletedInvoiceLog = await InvoiceStatusLog.findByIdAndDelete(id);
     if (!deletedInvoiceLog) {
       return res.status(404).json({
@@ -292,15 +296,15 @@ const deleteInvoiceLogDetails = async(req,res) =>{
       success: true,
       message: "Invoice Deleted successfully",
       data: deletedInvoiceLog,
-    })
-  }catch(error){
+    });
+  } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
-}
+};
 
 // const uploadClientInvoice = async (req, res) => {
 //   try {
@@ -573,12 +577,22 @@ const clientInvoiceById = async (req, res) => {
 };
 
 const clientDashboard = async (req, res) => {
-  const { clientId } = req.query;
+  const { clientId, project } = req.query;
 
   try {
-    const invoices = await Invoice.find({ clientId })
-      .populate("clientId", "client_name")
-      .populate("project", "name");
+    let invoices;
+
+    if (!project) {
+      invoices = await Invoice.find({ clientId })
+        .sort({ createdAt: -1 })
+        .populate("clientId", "client_name")
+        .populate("project", "name");
+    } else {
+      invoices = await Invoice.find({ clientId, project })
+        .sort({ createdAt: -1 })
+        .populate("clientId", "client_name")
+        .populate("project", "name");
+    }
 
     const invoiceIds = invoices.map((inv) => inv._id);
 
@@ -615,12 +629,10 @@ const clientDashboard = async (req, res) => {
         total_amount: invoice.total_amount,
         paid_date: invoice.paid_date,
         document: selectedDocument || null,
-
         status: invoice.status,
         due: invoice.due_date,
         invoiceNumber: invoice.invoice_number,
         invoiceDate: invoice.invoice_date,
-
         totalPaymentAmount,
         balance,
         invoiceLogs,
@@ -777,5 +789,5 @@ export {
   selectInvoiceDocument,
   clientInvoiceByProjectWise,
   editInvoiceLogDetails,
-  deleteInvoiceLogDetails
+  deleteInvoiceLogDetails,
 };
