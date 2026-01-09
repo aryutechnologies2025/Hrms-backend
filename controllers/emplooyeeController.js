@@ -4510,6 +4510,7 @@ const dashboard = async (req, res) => {
   // 🔹 Active employees
   let activeEmployees = await Employee.find({
     employeeStatus: "1",
+    dutyStatus:"1",
     employeeId: { $nin: ["AYE201202", "AYE180301"] },
   })
     .select(

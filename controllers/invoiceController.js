@@ -35,7 +35,6 @@ const createInvoice = async (req, res) => {
       paid_date,
       paymentType,
       amount,
-    
     } = req.body;
 
     const newInvoice = new Invoice({
@@ -58,33 +57,31 @@ const createInvoice = async (req, res) => {
       paid_date,
       paymentType,
       amount,
- 
     });
 
     const savedInvoice = await newInvoice.save();
-    
-    if(req.body.status === "Invoice Raised"){
-      await InvoiceStatusLog.create({
-      invoiceId: savedInvoice._id,
-      clientId: savedInvoice.clientId,
-      project: savedInvoice.project,
-      status: req.body.status,
-      amount: "0",
-      paymentType: req.body.paymentType,
-      paidDate: req.body.paidDate,
-    })
-    }else{
 
-    InvoiceStatusLog.create({
-      invoiceId: savedInvoice._id,
-      clientId: savedInvoice.clientId,
-      project: savedInvoice.project,
-      status: req.body.status,
-      amount: req.body.amount,
-      paymentType: req.body.paymentType,
-      paidDate: req.body.paidDate,
-    });
-}
+    if (req.body.status === "Invoice Raised") {
+      await InvoiceStatusLog.create({
+        invoiceId: savedInvoice._id,
+        clientId: savedInvoice.clientId,
+        project: savedInvoice.project,
+        status: req.body.status,
+        amount: "0",
+        paymentType: req.body.paymentType,
+        paidDate: req.body.paidDate,
+      });
+    } else {
+      InvoiceStatusLog.create({
+        invoiceId: savedInvoice._id,
+        clientId: savedInvoice.clientId,
+        project: savedInvoice.project,
+        status: req.body.status,
+        amount: req.body.amount,
+        paymentType: req.body.paymentType,
+        paidDate: req.body.paidDate,
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -125,7 +122,11 @@ const getInvoiceDetails = async (req, res) => {
 
     const logs = await InvoiceStatusLog.find({
       invoiceId: { $in: invoiceIds },
-    })
+      amount: {
+        $exists: true,
+        $nin: ["", " ", "0", 0, null],
+      },
+    }).sort({ createdAt: -1 });
 
     const invoicesWithBalance = invoices.map((invoice) => {
       const selectedDocument = invoice.documents?.filter(
@@ -138,7 +139,6 @@ const getInvoiceDetails = async (req, res) => {
         (total, log) => total + Number(log.amount),
         0
       );
-      
 
       const balance = (invoice.total_amount - totalPaymentAmount).toFixed(2);
       //   const totalAmount = logs.aggregate([
@@ -191,11 +191,10 @@ const editInvoiceDetails = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const updatedInvoice = await Invoice.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const updatedInvoice = await Invoice.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedInvoice) {
       return res.status(404).json({
@@ -204,29 +203,29 @@ const editInvoiceDetails = async (req, res) => {
       });
     }
 
-    if (req.body.status) {
-      const existingStatusLog = await InvoiceStatusLog.findOne({
-        invoiceId: updatedInvoice._id,
-      }).sort({ createdAt: -1 });
+    // if (req.body.status) {
+    //   const existingStatusLog = await InvoiceStatusLog.findOne({
+    //     invoiceId: updatedInvoice._id,
+    //   }).sort({ createdAt: -1 });
 
-      if (
-        existingStatusLog &&
-        (existingStatusLog.status !== req.body.status &&
-         existingStatusLog.amount === req.body.amount || existingStatusLog.amount !== req.body.amount && existingStatusLog.status === req.body.status)
-      ) {
-        await InvoiceStatusLog.findByIdAndUpdate(
-          existingStatusLog._id,
-          {
-            amount: req.body.amount,
-            paidDate: req.body.paidDate,
-            status: req.body.status,
-            paymentType: req.body.paymentType,
-          },
-          { new: true }
-        );
-      }
-
-      else{
+    //   if (
+    //     existingStatusLog &&
+    //     ((existingStatusLog.status !== req.body.status &&
+    //       existingStatusLog.amount === req.body.amount) ||
+    //       (existingStatusLog.amount !== req.body.amount &&
+    //         existingStatusLog.status === req.body.status))
+    //   ) {
+    //     await InvoiceStatusLog.findByIdAndUpdate(
+    //       existingStatusLog._id,
+    //       {
+    //         amount: req.body.amount,
+    //         paidDate: req.body.paidDate,
+    //         status: req.body.status,
+    //         paymentType: req.body.paymentType,
+    //       },
+    //       { new: true }
+    //     );
+    //   } else {
         await InvoiceStatusLog.create({
           invoiceId: updatedInvoice._id,
           clientId: updatedInvoice.clientId,
@@ -236,8 +235,8 @@ const editInvoiceDetails = async (req, res) => {
           paidDate: req.body.paidDate,
           paymentType: req.body.paymentType,
         });
-      }
-    }
+    //   }
+    // }
 
     res.status(200).json({
       success: true,
@@ -253,9 +252,55 @@ const editInvoiceDetails = async (req, res) => {
   }
 };
 
-
-
-
+const editInvoiceLogDetails = async(req,res) =>{
+  try{
+    const {id} = req.params;
+    const updatedInvoice = await InvoiceStatusLog.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!updatedInvoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Invoice updated successfully",
+      data: updatedInvoice,
+    })
+  }catch(error){
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+const deleteInvoiceLogDetails = async(req,res) =>{
+  try{
+    const {id} = req.params;
+    const deletedInvoiceLog = await InvoiceStatusLog.findByIdAndDelete(id);
+    if (!deletedInvoiceLog) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Invoice Deleted successfully",
+      data: deletedInvoiceLog,
+    })
+  }catch(error){
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
 
 // const uploadClientInvoice = async (req, res) => {
 //   try {
@@ -512,8 +557,6 @@ const clientInvoiceById = async (req, res) => {
     const invoiceDetails = await Invoice.findById(id)
       .populate("clientId")
       .populate("project", "name");
-    
-      
 
     res.status(200).json({
       success: true,
@@ -533,17 +576,19 @@ const clientDashboard = async (req, res) => {
   const { clientId } = req.query;
 
   try {
-    const invoices = await Invoice.find({ clientId})
+    const invoices = await Invoice.find({ clientId })
       .populate("clientId", "client_name")
       .populate("project", "name");
 
     const invoiceIds = invoices.map((inv) => inv._id);
 
-
     const logs = await InvoiceStatusLog.find({
       invoiceId: { $in: invoiceIds },
-    });
-
+      amount: {
+        $exists: true,
+        $nin: ["", " ", "0", 0, null],
+      },
+    }).sort({ createdAt: -1 });
 
     const mappedData = invoices.map((invoice) => {
       const selectedDocument = invoice.documents?.filter(
@@ -554,12 +599,10 @@ const clientDashboard = async (req, res) => {
         (log) => log.invoiceId.toString() === invoice._id.toString()
       );
 
-
       const totalPaymentAmount = invoiceLogs.reduce(
         (total, log) => total + Number(log.amount || 0),
         0
       );
-
 
       const balance = (
         Number(invoice.total_amount || 0) - totalPaymentAmount
@@ -577,7 +620,6 @@ const clientDashboard = async (req, res) => {
         due: invoice.due_date,
         invoiceNumber: invoice.invoice_number,
         invoiceDate: invoice.invoice_date,
-
 
         totalPaymentAmount,
         balance,
@@ -599,30 +641,46 @@ const clientDashboard = async (req, res) => {
 };
 
 const clientInvoiceByProjectWise = async (req, res) => {
-  const {clientId, project} = req.query;
-  try{
-    const InvoiceDetails = await Invoice.find({clientId, project}).populate("clientId", "client_name")
+  const { id } = req.query;
+
+  try {
+    const invoice = await Invoice.findById(id)
+      .populate("clientId", "client_name")
       .populate("project", "name");
-    const InvoiceLog = await InvoiceStatusLog.find({invoiceId: {$in: InvoiceDetails.map(inv => inv._id)}})
-    const mappedData = InvoiceDetails.map((invoice) => {
 
-      return {
-        invoiceId: invoice._id,
-        clientName: invoice.clientId?.client_name || null,
-        projectName: invoice.project?.name || null,
-        amount: invoice.amount,
-        paid_date: invoice.paid_date,
-  
-        status: invoice.status,
-      };
-    })
-    res.status(200).json({ success: true, data: InvoiceLog });
-  }catch(error){
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    const invoiceLogs = await InvoiceStatusLog.find({
+      invoiceId: invoice._id,
+    }).sort({ createdAt: -1 });
+
+    const mappedData = {
+      invoiceId: invoice._id,
+      clientName: invoice.clientId?.client_name || null,
+      projectName: invoice.project?.name || null,
+      amount: invoice.amount,
+      paid_date: invoice.paid_date,
+      status: invoice.status,
+      logs: invoiceLogs,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: mappedData,
+    });
+  } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
-}
-
+};
 
 const deleteInvoiceDetails = async (req, res) => {
   const { id } = req.params;
@@ -717,5 +775,7 @@ export {
   clientInvoiceById,
   clientDashboard,
   selectInvoiceDocument,
-  clientInvoiceByProjectWise
+  clientInvoiceByProjectWise,
+  editInvoiceLogDetails,
+  deleteInvoiceLogDetails
 };
