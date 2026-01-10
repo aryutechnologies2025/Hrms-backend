@@ -5,16 +5,42 @@ import ProjectModel from "../models/projectModel.js";
 const createInvoice = async (req, res) => {
   console.log("req.body", req.body);
   try {
-    const lastInvoice = await Invoice.findOne({}).sort({ createdAt: -1 });
+    //     const lastInvoice = await Invoice.findOne({}).sort({ createdAt: -1 });
 
+    //     let nextNumber = 1;
+
+    //     if (lastInvoice && lastInvoice.invoice_number) {
+    //       const lastNumber = parseInt(lastInvoice.invoice_number.split("-")[1]);
+    //       nextNumber = lastNumber + 1;
+    //     }
+
+    //     // const invoice_number = `INV-${String(nextNumber).padStart(4, "0")}`;
+    //    let invoice_number;
+
+    // // Only use user-provided number if it's a valid string of your pattern
+    // if (req.body.invoice_number && typeof req.body.invoice_number === "string" && req.body.invoice_number.trim() !== "") {
+    //   invoice_number = req.body.invoice_number.trim();
+    // } else {
+    //   invoice_number = `INV-${String(nextNumber).padStart(4, "0")}`;
+    // }
+
+    // Get last invoice
+    const lastInvoice = await Invoice.findOne({
+      invoice_number: /^INV-\d{4}$/,
+    }).sort({ createdAt: -1 });
     let nextNumber = 1;
 
     if (lastInvoice && lastInvoice.invoice_number) {
-      const lastNumber = parseInt(lastInvoice.invoice_number.split("-")[1]);
-      nextNumber = lastNumber + 1;
+      const lastNum = parseInt(lastInvoice.invoice_number.split("-")[1], 10);
+      if (!isNaN(lastNum)) nextNumber = lastNum + 1;
     }
 
-    const invoice_number = `INV-${String(nextNumber).padStart(4, "0")}`;
+    let invoice_number;
+    if (req.body.invoice_number && req.body.invoice_number.trim() !== "") {
+      invoice_number = req.body.invoice_number.trim();
+    } else {
+      invoice_number = `INV-${String(nextNumber).padStart(4, "0")}`;
+    }
 
     const {
       clientId,
@@ -191,7 +217,13 @@ const editInvoiceDetails = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const updatedInvoice = await Invoice.findByIdAndUpdate(id, req.body, {
+    const updateData = { ...req.body };
+
+    if (updateData.status === "") {
+      delete updateData.status;
+    }
+
+    const updatedInvoice = await Invoice.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
@@ -203,40 +235,17 @@ const editInvoiceDetails = async (req, res) => {
       });
     }
 
-    // if (req.body.status) {
-    //   const existingStatusLog = await InvoiceStatusLog.findOne({
-    //     invoiceId: updatedInvoice._id,
-    //   }).sort({ createdAt: -1 });
-
-    //   if (
-    //     existingStatusLog &&
-    //     ((existingStatusLog.status !== req.body.status &&
-    //       existingStatusLog.amount === req.body.amount) ||
-    //       (existingStatusLog.amount !== req.body.amount &&
-    //         existingStatusLog.status === req.body.status))
-    //   ) {
-    //     await InvoiceStatusLog.findByIdAndUpdate(
-    //       existingStatusLog._id,
-    //       {
-    //         amount: req.body.amount,
-    //         paidDate: req.body.paidDate,
-    //         status: req.body.status,
-    //         paymentType: req.body.paymentType,
-    //       },
-    //       { new: true }
-    //     );
-    //   } else {
-    await InvoiceStatusLog.create({
-      invoiceId: updatedInvoice._id,
-      clientId: updatedInvoice.clientId,
-      project: updatedInvoice.project,
-      status: req.body.status,
-      amount: req.body.amount,
-      paidDate: req.body.paidDate,
-      paymentType: req.body.paymentType,
-    });
-    //   }
-    // }
+    if (req.body.status) {
+      await InvoiceStatusLog.create({
+        invoiceId: updatedInvoice._id,
+        clientId: updatedInvoice.clientId,
+        project: updatedInvoice.project,
+        status: req.body.status,
+        amount: req.body.amount,
+        paidDate: req.body.paidDate,
+        paymentType: req.body.paymentType,
+      });
+    }
 
     res.status(200).json({
       success: true,
