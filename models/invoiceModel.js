@@ -47,7 +47,7 @@ const invoice = new mongoose.Schema(
       paymentType:{type:String,required:[false,"Please provide a payment type"]},
       amount:{type:String,required:[false,"Please provide a payment amount"]},
       // paidDate:{type:Date,required:[false,"Please provide a payment date"]},
-    status: { type: String, required: [true, "Please select a status"] },
+    status: { type: String, required: [false, "Please select a status"] },
     paid_date:{type:String},
     documents: [
          {
