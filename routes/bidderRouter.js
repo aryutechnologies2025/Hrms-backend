@@ -25,7 +25,8 @@ import {
   getImportBiddingExcelReport,
   getBiddingTransaction,
   getBiddingClientName,
-  getTransactionBidder
+  getTransactionBidder,
+  editTransactionBidder,
   // getBidderField
   // filterBidder,
 } from "../controllers/bidderController.js";
@@ -37,6 +38,7 @@ router.post("/import-bidding-report",xlUpload.single("file"),importExcelBidding)
 //   importExcelBidding
 // );
 router.get("/get-import-bidding-excel-report", getImportBiddingExcelReport);
+router.put("/edit-transaction-bidder/:id", editTransactionBidder);
 // router.get("/get-bidder-field", getBidderField);
 router.post("/create-account-bidder", createAccountBidder);
 router.get("/view-account-bidder", getAccountBidder);
