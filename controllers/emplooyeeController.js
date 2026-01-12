@@ -4758,10 +4758,44 @@ const dashboard = async (req, res) => {
   });
 };
 
+
+// const allUserAdminAndEmployee=async(req, res) => {
+//   try {
+//     const employees = await Employee.find({dutyStatus:"1"}, "employeeName photo dutyStatus");
+//     const admin = await User.find({},"name email");
+
+//     const formatted = [
+//       ...employees.map((e) => ({
+//         _id: e._id,
+//         name: e.employeeName,
+//         photo: e.photo,
+//         online: e.dutyStatus == "1",
+//         type: "employee",
+//       })),
+//       ...admin.map((a) => ({
+//         _id: a._id,
+//         name: a.name,
+//         photo: "",
+//         online: true,
+//         type: "admin",
+//       })),
+//     ];
+//     res.json({ success: true, data: formatted });
+//   } catch (err) {
+//     res.status(500).json({ success: false, err });
+//   }
+// };
+
+// const allUserAdminAndEmployee = async (req, res) => {
+//   try {
+//     const employees = await Employee.find({ dutyStatus: "1" }, "employeeName photo dutyStatus");
+//     const admin = await User.find({}, "name email");
+
 const allUserAdminAndEmployee = async (req, res) => {
   try {
     const employees = await Employee.find({}, "employeeName photo dutyStatus");
     const admin = await User.find({ dutyStatus: "1" }, "name email");
+
 
     const formatted = [
       ...employees.map((e) => ({
@@ -4780,11 +4814,21 @@ const allUserAdminAndEmployee = async (req, res) => {
       })),
     ];
 
+    // Sort alphabetically by name (A-Z)
+    formatted.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
     res.json({ success: true, data: formatted });
   } catch (err) {
     res.status(500).json({ success: false, err });
   }
 };
+
 export {
   forgotPassword,
   resetPassword,

@@ -98,6 +98,21 @@
 // models/messageModel.js
 import mongoose from "mongoose";
 
+
+const fileSchema = new mongoose.Schema(
+  {
+    name: String,
+    url: String,
+    type: String,
+    size: Number,
+    isDeleteFile: {
+    type: Boolean,
+    default: false,
+  },
+  },
+  { _id:true }
+);
+
 const MessageSchema = new mongoose.Schema(
   {
     senderId: {
@@ -108,9 +123,23 @@ const MessageSchema = new mongoose.Schema(
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
-      required: true,
+      // required: true,
+      default: null,
     },
+    channelId: { type: mongoose.Schema.Types.ObjectId, ref: "Channel", default: null },
     text: String,
+    // files: [
+    //   {
+    //     name: String,
+    //     url: String,
+    //     type: String,
+    //     size: Number,
+    //   },
+    // ],
+    files: {
+      type: [fileSchema],
+      default: [],
+    },
 
     deliveredAt: {
       type: Date,
@@ -128,6 +157,32 @@ const MessageSchema = new mongoose.Schema(
         ref: "Employee",
       },
     ],
+    
+    isDelete: {
+    type: Boolean,
+    default: false,
+  },
+   isForwarded: {
+      type: Boolean,
+      default: false,
+    },
+     // 🧵 THREAD FIELDS (COMMON)
+   /* 🔥 THREAD FIELD */
+    parentMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null, // null = normal message
+      index: true,
+    },
+
+    /* Optional but useful */
+    threadReplyCount: {
+      type: Number,
+      default: 0,
+    },
+
+
+  lastThreadReplyAt: Date,
   },
   { timestamps: true }
 );
