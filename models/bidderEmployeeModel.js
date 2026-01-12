@@ -5,7 +5,7 @@ const bidderEmployeeSchema = new mongoose.Schema(
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     date: { type: String, required: [true, "Date is required"] },
     account: { type: mongoose.Schema.Types.ObjectId, ref: "AccountBidder" },
-    client: { type: String, required: [true, "Please provide a client"] },
+    client: { type: String, required: [false, "Please provide a client"] },
     technology: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TechnologyBidder",

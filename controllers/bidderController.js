@@ -545,6 +545,7 @@ const getBiddingTransaction = async (req, res) => {
             },
           },
 
+
           title: { $first: "$transactionSummary" },
         },
       },
@@ -567,6 +568,8 @@ const getBiddingTransaction = async (req, res) => {
           overallNetTotal: {
             $add: ["$overallEarnings", "$overallDeductions"],
           },
+
+
         },
       },
     ]);
@@ -576,6 +579,7 @@ const getBiddingTransaction = async (req, res) => {
       overallAmount: 0,
       overallTax: 0,
       overallNetTotal: 0,
+      earning: 0,
     };
 
     return res.status(200).json({
@@ -764,7 +768,7 @@ const getAccountAndTechnologyBidder = async (req, res) => {
     const bidderRole = await EmployeeRole.find({
       _id: "68c7edede2681e9879afdbd3",
     });
-    const bidder = await Employee.find({ roleId: bidderRole[0]._id }).select(
+    const bidder = await Employee.find({ roleId: bidderRole[0]._id, dutyStatus: "1" }).select(
       "employeeName "
     );
 
@@ -855,6 +859,45 @@ const getTransactionBidder = async (req, res) => {
       success: false,
       error: "Internal server error",
     });
+  }
+};
+
+const editTransactionBidder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updated = await BiddingTransactionReports.findByIdAndUpdate(
+      id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Bidder not found" });
+    }
+
+
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const errors = {};
+      for (let field in error.errors) {
+        errors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({ success: false, errors });
+    }
+
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -1303,20 +1346,59 @@ const createConnectPurchased = async (req, res) => {
   }
 };
 const getConnectPurchased = async (req, res) => {
+  const { fromDate, toDate, account } = req.query;
+
+  let filter = {};
+  if (account) {
+    filter.account = account;
+  }
+  if (fromDate || toDate) {
+    filter.createdAt = {};
+
+    if (fromDate) {
+      const startDate = new Date(fromDate);
+      startDate.setHours(0, 0, 0, 0);
+      filter.createdAt.$gte = startDate;
+    }
+
+    if (toDate) {
+      const endDate = new Date(toDate);
+      endDate.setHours(23, 59, 59, 999);
+      filter.createdAt.$lte = endDate;
+    }
+  }
+
   try {
-    const getConnectPurchased = await ConnectsPurchased.find({}).populate(
-      "account",
-      "name"
+    const connectsPurchased = await ConnectsPurchased
+      .find(filter)
+      .populate("account", "name");
+
+    // Sum the amount
+    const totalAmount = connectsPurchased.reduce(
+      (sum, item) => sum + (parseFloat(item.amount) || 0),
+      0
     );
+
+    const totalNoOfConnections = connectsPurchased.reduce(
+      (sum, item) => sum + (parseFloat(item.noOfConnections) || 0),
+      0
+    );
+
     res.status(200).json({
       success: true,
-      data: getConnectPurchased,
+      data: connectsPurchased,
+      totalAmount,
+      totalNoOfConnections,
     });
   } catch (error) {
     console.error("Error in getConnectPurchased:", error);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
   }
 };
+
 const editConnectPurchased = async (req, res) => {
   const { id } = req.params;
   try {
@@ -1575,6 +1657,7 @@ export {
   getBiddingTransaction,
   getBiddingClientName,
   getTransactionBidder,
+  editTransactionBidder,
   // getBidderField,
   // filterBidder,
 };
