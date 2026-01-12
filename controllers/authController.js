@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import ClientDetails from "../models/clientModals.js";
 import ClientSubUser from "../models/clientSubUserModel.js";
+import CustomerModel from "../models/customerModel.js";
 
 
 const createUser = async (req, res) => {
@@ -335,6 +336,13 @@ const loginUser = async (req, res) => {
         }
       }
     }
+    else if(type === "customer"){
+      const customer = await CustomerModel.findOne({ customerEmail: email });
+      if(customer){
+        userData = customer;
+        userType = "customer";
+      }
+    }
 
     if (!userData) {
       return res
@@ -424,6 +432,20 @@ const loginUser = async (req, res) => {
           subType: "subuser",
           project: userData.projectId,
           client: userData.clientId,
+        },
+        token,
+      });
+    }else if(userType === "customer"){
+      return res.status(200).json({
+        success: true,
+        message: "Customer login successful",
+        redirect: "/dashboard",
+        user: {
+          _id: userData._id,
+          name: userData.customerName,
+          email: userData.customerEmail,
+          companyName: userData.companyName,
+          type: "customer",
         },
         token,
       });

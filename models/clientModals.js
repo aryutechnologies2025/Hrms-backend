@@ -12,6 +12,7 @@ const clientDetails = new mongoose.Schema({
             message: "Client name must not exceed 40 characters"
         }
     },
+    trader_name:{type:String},
     company_name:{
         type:String,
         required:[false,"Please provide a company name"],

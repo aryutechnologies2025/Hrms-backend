@@ -24,12 +24,12 @@ const createDeclaration = async (req, res) => {
     // }
      if (Array.isArray(req.files)) {
       req.files.forEach((file) => {
-        if (file.fieldname === "document") {
-          documentsArray.push({
+        if (file.fieldname === "documents") {
+          documentArray.push({
             filepath: file.filename,
             originalName: file.originalname,
           });
-        } else if (file.fieldname === "originalDocument") {
+        } else if (file.fieldname === "originalDocuments") {
           originalDocumentsArray.push({
             filepath: file.filename,
             originalName: file.originalname,

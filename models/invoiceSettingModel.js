@@ -65,7 +65,11 @@ const settingsInvoiceSchema = new mongoose.Schema(
       type: String,
       required: [false, "Please provide a IGST "],
     },
-
+    
+    declaration:{
+      type: String,
+    },
+    invoiceId_option:{type:String},
 
   },
   {

@@ -2185,7 +2185,7 @@ const particularTask = async (req, res) => {
         taskInReview: taskByStatus["in-review"].tasks,
         taskDone: taskByStatus["done"].tasks,
         taskBlock: taskByStatus["block"].tasks,
-        taskCompleted: taskByStatus["completed"].tasks,
+        // taskCompleted: taskByStatus["completed"].tasks,
         todayTasks,
         statusCounts,
       },
@@ -2902,7 +2902,16 @@ const updateTaskStatus = async (req, res) => {
       //   findTask.projectManagerId
       // );
       //  only project manager and super admin and client and subUser client can mark as done/completed
-      const superAdmin = await User.findOne({ superUser: true });
+      // const userDetails = await User.findOne({ _id: updatedBy });
+
+        // if (!userDetails) {
+          // no _id match → skip or check superAdmin
+          const superAdmin = await User.findOne({
+            _id: updatedBy,
+            superUser: true
+          });
+        // }
+
       // console.log(
       //   updatedBy,
       //   superAdmin._id,
@@ -2949,7 +2958,7 @@ const updateTaskStatus = async (req, res) => {
       // --- Permission Logic ---
       const allowedUsers = [
         findTask.projectManagerId?.toString(),
-        superAdmin._id?.toString(),
+        superAdmin?._id?.toString(),
         clientIdAllowed,
         clientSubUserAllowed,
       ].filter(Boolean);
@@ -3115,7 +3124,7 @@ const particularTaskComments = async (req, res) => {
     if (!comment || !taskId || !createdBy) {
       return res
         .status(400)
-        .json({ success: true, message: "Require all details" });
+        .json({ success: true, message: "Comment Message required" });
     }
     const documentArray = [];
     if (Array.isArray(req.files)) {

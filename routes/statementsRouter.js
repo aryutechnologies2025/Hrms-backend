@@ -12,8 +12,8 @@ import  {
 const statementsRouter = express.Router();
 
 statementsRouter.post("/import",xlUpload.single('file'), (req, res,next) => {
-    console.log("Uploaded File:", req.file);     // 👈 logs file details
-    console.log("Body:", req.body);              // 👈 logs other form fields
+    console.log("Uploaded File:", req.file);     
+    console.log("Body:", req.body);         
     
    next();
 },importExcel);

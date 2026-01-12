@@ -62,9 +62,13 @@ import projectNotesRouter from "./routes/projectNotesRouter.js";
 import  startSocketServer  from "./socket.js";
 import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
+// <<<<<<< venu
 import favoritesRouter from "./routes/favoritiesRoutert.js";
 
 
+
+import customerRouter from "./routes/customerRouter.js";
+// >>>>>>> main
 // Load environment variables
 dotenv.config();
 
@@ -138,8 +142,11 @@ const startApp = async () => {
 
   app.use("/api/channel",channelRouter);
   app.use("/api/messages",messageRouter);
+
   app.use("/api/favorites",favoritesRouter);
   
+
+  app.use("/api/customer",customerRouter);
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);

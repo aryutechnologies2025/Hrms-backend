@@ -11,8 +11,8 @@ const createAnnouncement = async (req, res) => {
       visible,
       status,
     });
-    const savedAnnouncement = await newAnnouncement.save();
 
+    const savedAnnouncement = await newAnnouncement.save();
 
     res.status(201).json({
       success: true,
@@ -85,12 +85,10 @@ const editAnnouncement = async (req, res) => {
     if (!updatedAnnouncement) {
       return res.status(404).json({ message: "Announcement not found" });
     }
-    res
-      .status(200)
-      .json({
-        message: "Announcement updated successfully",
-        updatedAnnouncement,
-      });
+    res.status(200).json({
+      message: "Announcement updated successfully",
+      updatedAnnouncement,
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
@@ -104,12 +102,10 @@ const deleteAnnouncement = async (req, res) => {
     if (!deletedAnnouncement) {
       return res.status(404).json({ message: "Announcement not found" });
     }
-    res
-      .status(200)
-      .json({
-        message: "Announcement deleted successfully",
-        deletedAnnouncement,
-      });
+    res.status(200).json({
+      message: "Announcement deleted successfully",
+      deletedAnnouncement,
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
@@ -121,7 +117,9 @@ const getExpiredAnnouncements = async (req, res) => {
     const announcements = await Announcements.find();
 
     // Filter announcements that are expired
-    const expired = announcements.filter(a => new Date(a.expiryDate) < new Date());
+    const expired = announcements.filter(
+      (a) => new Date(a.expiryDate) < new Date()
+    );
 
     res.status(200).json({
       success: true,
@@ -137,13 +135,13 @@ const getExpiredAnnouncements = async (req, res) => {
   }
 };
 const getUserAnnouncements = async (req, res) => {
-    // console.log("req ",req.query);
+  // console.log("req ",req.query);
   try {
     const userRole = req.query.role; // e.g., "admin" or "employee"
     const announcements = await Announcements.find({
       visible: { $in: [userRole, "Both"] },
       expiryDate: { $gte: new Date() }, // not expired
-      status:"1"
+      status: "1",
     });
 
     res.status(200).json({
@@ -163,6 +161,5 @@ export {
   editAnnouncement,
   deleteAnnouncement,
   getExpiredAnnouncements, // <-- exported
-  getUserAnnouncements
+  getUserAnnouncements,
 };
-

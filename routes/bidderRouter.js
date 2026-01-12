@@ -1,4 +1,5 @@
 import express from "express";
+import xlUpload from "../middlewares/xlUploadBidder.js";
 import {
   createAccountBidder,
   getAccountBidder,
@@ -20,14 +21,30 @@ import {
   deleteConnectsPurchased,
   getAccountWise,
   getBidderByMultipleIds,
+  importExcelBidding,
+  getImportBiddingExcelReport,
+  getBiddingTransaction,
+  getBiddingClientName,
+  getTransactionBidder
+  // getBidderField
   // filterBidder,
 } from "../controllers/bidderController.js";
 const router = express.Router();
-
+router.post("/import-bidding-report",xlUpload.single("file"),importExcelBidding);
+// router.post(
+//   "/import-bidding",
+//   xlUpload.single("file"),
+//   importExcelBidding
+// );
+router.get("/get-import-bidding-excel-report", getImportBiddingExcelReport);
+// router.get("/get-bidder-field", getBidderField);
 router.post("/create-account-bidder", createAccountBidder);
 router.get("/view-account-bidder", getAccountBidder);
 router.put("/edit-account-bidder/:id", editAccountBidder);
 router.delete("/delete-account-bidder/:id", deleteAccountBidder);
+router.get("/get-transaction-bidder", getTransactionBidder);
+router.get("/get-bidding-transaction", getBiddingTransaction);
+router.get("/get-bidding-client-name", getBiddingClientName);
 
 //technology
 router.post("/create-technology-bidder", createTechnologyBidder);

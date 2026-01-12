@@ -3,18 +3,21 @@ import Employee from "../models/employeeModel.js";
 import LetterSchema from "../models/letterModel.js";
 import LetterDetails from "../models/letterModel.js";
 const createLetter = async (req, res) => {
-    try{
-        const {title,subject,content,status}= req.body;
-        const letterDetails = new LetterDetails({
-            title,subject,content,status
-        });
-        const saveLetter = await letterDetails.save();
-        res.status(201).json({
+  try {
+    const { title, subject, content, status } = req.body;
+    const letterDetails = new LetterDetails({
+      title,
+      subject,
+      content,
+      status,
+    });
+    const saveLetter = await letterDetails.save();
+    res.status(201).json({
       success: true,
       message: "Link created successfully",
       data: saveLetter,
     });
-    }catch (error) {
+  } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
       for (let field in error.errors) {
@@ -28,13 +31,12 @@ const createLetter = async (req, res) => {
 };
 
 const getLetterDetails = async (req, res) => {
-    try{
-      const letterDetails = await LetterDetails.find({});
-      res.status(200).json({ success: true, data: letterDetails });
-    }
-    catch(error){
-        res.status(500).json({ success: false, message: "Internal Server Error" });
-    }
+  try {
+    const letterDetails = await LetterDetails.find({});
+    res.status(200).json({ success: true, data: letterDetails });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
 };
 
 const editLetterDetails = async (req, res) => {
@@ -70,9 +72,13 @@ const letterDelete = async (req, res) => {
   try {
     const letterDetails = await LetterDetails.findByIdAndDelete(id);
     if (!letterDetails) {
-      return res.status(404).json({ success: false, message: "letterDetails not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "letterDetails not found" });
     }
-    res.status(200).json({ success: true, message: "letterDetails deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "letterDetails deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -81,19 +87,66 @@ const letterDelete = async (req, res) => {
 // 🔹 Utility function: Convert number to words
 function numberToWords(num) {
   const a = [
-    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
-    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen",
-    "Eighteen", "Nineteen"
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
   ];
-  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const b = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
 
   function inWords(n) {
     if (n < 20) return a[n];
     if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? " " + a[n % 10] : "");
-    if (n < 1000) return a[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + inWords(n % 100) : "");
-    if (n < 100000) return inWords(Math.floor(n / 1000)) + " Thousand" + (n % 1000 ? " " + inWords(n % 1000) : "");
-    if (n < 10000000) return inWords(Math.floor(n / 100000)) + " Lakh" + (n % 100000 ? " " + inWords(n % 100000) : "");
-    return inWords(Math.floor(n / 10000000)) + " Crore" + (n % 10000000 ? " " + inWords(n % 10000000) : "");
+    if (n < 1000)
+      return (
+        a[Math.floor(n / 100)] +
+        " Hundred" +
+        (n % 100 ? " " + inWords(n % 100) : "")
+      );
+    if (n < 100000)
+      return (
+        inWords(Math.floor(n / 1000)) +
+        " Thousand" +
+        (n % 1000 ? " " + inWords(n % 1000) : "")
+      );
+    if (n < 10000000)
+      return (
+        inWords(Math.floor(n / 100000)) +
+        " Lakh" +
+        (n % 100000 ? " " + inWords(n % 100000) : "")
+      );
+    return (
+      inWords(Math.floor(n / 10000000)) +
+      " Crore" +
+      (n % 10000000 ? " " + inWords(n % 10000000) : "")
+    );
   }
 
   // Handle decimals (paise)
@@ -175,7 +228,7 @@ function numberToWords(num) {
 // };
 const letterTemplate = async (req, res) => {
   console.log("Request Params:", req.params.id);
-const {id} = req.query;
+  const { id } = req.query;
   try {
     // Fetch template
     const template = await LetterSchema.findById(id);
@@ -192,38 +245,43 @@ const {id} = req.query;
         return values[key] || match;
       });
     }
-    const employee = await Employee.findById(req.params.id)
-      .populate({
-        path: "roleId",
-        model: "EmployeeRole",
-        populate: {
-          path: "departmentId",
-          model: "EmployeeDepartment",
-        },
-      });
-      console.log(employee);
+    const employee = await Employee.findById(req.params.id).populate({
+      path: "roleId",
+      model: "EmployeeRole",
+      populate: {
+        path: "departmentId",
+        model: "EmployeeDepartment",
+      },
+    });
+    console.log(employee);
     if (!employee) {
       return res.status(404).json({
         success: false,
         message: "Employee not found",
       });
     }
+    const salary = employee.salaryAmount;
     const values = {
       EMP_NAME: employee.employeeName,
       EMP_ID: employee.employeeId,
       EMP_ADDRESS: employee.address1,
       DEPARTMENT: employee.roleId?.departmentId?.name || "N/A",
       EMP_POSITION: employee.roleId?.name || "N/A",
-      EMP_JOINING_DATE: employee.dateOfJoining?.toISOString().split("T")[0] || "N/A",
+      EMP_JOINING_DATE:
+        employee.dateOfJoining?.toISOString().split("T")[0] || "N/A",
       SALARY: employee.salaryAmount,
-      SALARY_IN_WORDS: numberToWords(employee.salaryAmount),
+      SALARY_IN_WORDS: salary ? numberToWords(salary) : "N/A",
+      // SALARY_IN_WORDS: numberToWords(employee.salaryAmount),
 
       // EMP_POSITION:
       // GENDER:employee.employee.gender
 
-      EMP_RELEAVING_DATE: employee.relivingDate?.toISOString().split("T")[0] || "N/A",
-      GENDER: employee.gender === "male" ? "his" : (employee.gender === "female" ? "her" : "") || "N/A",
-
+      EMP_RELEAVING_DATE:
+        employee.relivingDate?.toISOString().split("T")[0] || "N/A",
+      GENDER:
+        employee.gender === "male"
+          ? "his"
+          : (employee.gender === "female" ? "her" : "") || "N/A",
     };
     // Fill template
     const filledLetter = fillTemplate(template.content, values);
@@ -242,10 +300,10 @@ const {id} = req.query;
   }
 };
 
-
-
-
-
-
-
-export { createLetter, getLetterDetails, editLetterDetails, letterDelete ,letterTemplate};
+export {
+  createLetter,
+  getLetterDetails,
+  editLetterDetails,
+  letterDelete,
+  letterTemplate,
+};

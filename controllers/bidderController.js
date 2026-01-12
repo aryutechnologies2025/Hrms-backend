@@ -4,6 +4,593 @@ import TechnologyBidder from "../models/technologyBidderModel.js";
 import bidderEmployeeModelSchema from "../models/bidderEmployeeModel.js";
 import ConnectsPurchased from "../models/connectsPurchasedModel.js";
 import { isModuleNamespaceObject } from "util/types";
+import XLSX from "xlsx";
+import BiddingTransactionReports from "../models/biddingTransactionReports.js";
+import BiddingStatusLog from "../models/biddingStatusLog.js";
+import Employee from "../models/employeeModel.js";
+import EmployeeRole from "../models/employeeRoleModel.js";
+
+function parseDate(value) {
+  if (!value) return null;
+
+  // If XLSX already gives Date object
+  if (value instanceof Date) {
+    return new Date(
+      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate())
+    );
+  }
+
+  // Excel serial number
+  if (typeof value === "number") {
+    const d = XLSX.SSF.parse_date_code(value);
+    if (!d) return null;
+    return new Date(Date.UTC(d.y, d.m - 1, d.d));
+  }
+
+  // String date - handle multiple formats
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    // Try parsing as ISO format or other common formats
+    let parsedDate = null;
+
+    // Try JavaScript Date parsing first
+    parsedDate = new Date(trimmed);
+    if (!isNaN(parsedDate.getTime())) {
+      return new Date(
+        Date.UTC(
+          parsedDate.getFullYear(),
+          parsedDate.getMonth(),
+          parsedDate.getDate()
+        )
+      );
+    }
+
+    // Handle "Jan 1, 2026" format specifically
+    const monthNames = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ];
+
+    const match = trimmed.match(/^([a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+    if (match) {
+      const monthName = match[1].toLowerCase().substring(0, 3);
+      const monthIndex = monthNames.indexOf(monthName);
+      if (monthIndex !== -1) {
+        const day = parseInt(match[2], 10);
+        const year = parseInt(match[3], 10);
+        return new Date(Date.UTC(year, monthIndex, day));
+      }
+    }
+
+    // Handle DD/MM/YYYY or MM/DD/YYYY or YYYY-MM-DD
+    const parts = trimmed
+      .split(/[-/\s,]+/)
+      .map((p) => p.trim())
+      .filter((p) => p);
+    if (parts.length === 3) {
+      let year, month, day;
+
+      // Try to identify which part is year (has 4 digits)
+      const yearIndex = parts.findIndex((p) => /^\d{4}$/.test(p));
+      if (yearIndex !== -1) {
+        year = parseInt(parts[yearIndex], 10);
+        const otherParts = parts.filter((_, i) => i !== yearIndex);
+
+        // If year is first: YYYY-MM-DD
+        if (yearIndex === 0) {
+          month = parseInt(otherParts[0], 10) - 1;
+          day = parseInt(otherParts[1], 10);
+        }
+        // If year is last: MM/DD/YYYY or DD/MM/YYYY
+        else {
+          // Try to guess format based on values
+          const first = parseInt(otherParts[0], 10);
+          const second = parseInt(otherParts[1], 10);
+
+          // If first part > 12, it's likely day (DD/MM/YYYY)
+          if (first > 12) {
+            day = first;
+            month = second - 1;
+          } else {
+            // Assume MM/DD/YYYY (American format)
+            month = first - 1;
+            day = second;
+          }
+        }
+
+        if (year && month >= 0 && day) {
+          return new Date(Date.UTC(year, month, day));
+        }
+      }
+    }
+  }
+
+  console.warn(`Could not parse date: ${value}`);
+  return null;
+}
+
+function normalizeAmount(v) {
+  if (v == null || v === "") return null;
+  const n = Number(
+    String(v)
+      .replace(/,/g, "")
+      .replace(/[^\d.-]/g, "")
+  );
+  return isNaN(n) ? null : n;
+}
+
+const headerMap = {
+  date: ["date"],
+  transactionId: ["transaction id"],
+  transactionType: ["transaction type"],
+  transactionSummary: ["transaction summary"],
+  transactionSummaryDetails: ["transaction summary details"],
+  description1: ["description 1"],
+  description2: ["description 2"],
+  description3: ["description 3"],
+  enteredDescription: ["entered description"],
+  agencyTeam: ["agency team"],
+  freelancer: ["freelancer"],
+  clientTeam: ["client team"],
+  accountName: ["account name"],
+  referenceId: ["ref id"],
+  amountDollar: ["amount $"],
+  amountINR: ["amount in local currency"],
+  currency: ["currency"],
+  currentBalance: ["current balance $"],
+  paymentMethod: ["payment method"],
+};
+
+const normalizeHeader = (h) =>
+  String(h || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+function mapHeaders(headers) {
+  const mapped = {};
+  const normalized = headers.map((h) => ({
+    raw: h,
+    norm: normalizeHeader(h),
+  }));
+
+  for (const key in headerMap) {
+    const aliases = headerMap[key].map(normalizeHeader);
+    const match = normalized.find((h) => aliases.includes(h.norm));
+    mapped[key] = match ? match.raw : null;
+  }
+  return mapped;
+}
+
+const importExcelBidding = async (req, res) => {
+  try {
+    const { account } = req.body;
+
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ success: false, message: "File not uploaded" });
+    }
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      defval: null,
+      raw: true,
+      cellDates: true,
+    });
+
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "Empty file" });
+    }
+
+    const headerLookup = mapHeaders(Object.keys(rows[0]));
+    const docs = [];
+    const errors = [];
+
+    const incomingKeys = [];
+
+    rows.forEach((row, i) => {
+      const get = (k) => (headerLookup[k] ? row[headerLookup[k]] : null);
+
+      const date = parseDate(get("date"));
+      const transactionId = get("transactionId");
+
+      if (!date || !transactionId) {
+        errors.push({ row: i + 2, error: "Missing Date or TransactionId" });
+        return;
+      }
+
+      incomingKeys.push({
+        transactionId,
+        date,
+      });
+
+      docs.push({
+        date,
+        transactionId,
+        transactionType: get("transactionType"),
+        transactionSummary: get("transactionSummary"),
+        transactionSummaryDetails: get("transactionSummaryDetails"),
+        description1: get("description1"),
+        description2: get("description2"),
+        description3: get("description3"),
+        enteredDescription: get("enteredDescription"),
+        agencyTeam: get("agencyTeam"),
+        freelancer: get("freelancer"),
+        clientTeam: get("clientTeam"),
+        accountName: account,
+        referenceId: get("referenceId"),
+        amountDollar: normalizeAmount(get("amountDollar")),
+        amountINR: normalizeAmount(get("amountINR")),
+        currency: get("currency"),
+        currentBalance: normalizeAmount(get("currentBalance")),
+        paymentMethod: get("paymentMethod"),
+      });
+    });
+
+    if (!docs.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid rows",
+        errors,
+      });
+    }
+
+    const existing = await BiddingTransactionReports.find(
+      {
+        accountName: account,
+        $or: incomingKeys,
+      },
+      { referenceId: 1, date: 1 }
+    ).lean();
+
+    const existingSet = new Set(
+      existing.map((e) => `${e.referenceId}_${new Date(e.date).toISOString()}`)
+    );
+
+    const finalDocs = docs.filter((d) => {
+      const key = `${d.referenceId}_${d.date.toISOString()}`;
+      return !existingSet.has(key);
+    });
+
+    if (!finalDocs.length) {
+      return res.status(409).json({
+        success: false,
+        message: "The Document already Exists",
+      });
+    }
+
+    const inserted = await BiddingTransactionReports.insertMany(finalDocs, {
+      ordered: false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "File imported successfully",
+      totalInserted: inserted.length,
+      skippedDuplicates: docs.length - finalDocs.length,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Import failed",
+      error: err.message,
+    });
+  }
+};
+
+// const getBidderField = async (req, res) => {
+//   const { type } = req.query;
+//   try {
+
+//       const transactionType = await BiddingTransactionReports.distinct(
+//         "transactionType"
+//       );
+
+//       const client = await BiddingTransactionReports.distinct("clientTeam");
+
+//       const description = await BiddingTransactionReports.distinct(
+//         "description1"
+//       );
+
+//     res.status(200).json({
+//       success: true,
+//       data: {
+//         transactionType,
+//         client,
+//         description,
+//       },
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: err.message,
+//     });
+//   }
+// };
+
+const getImportBiddingExcelReport = async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    let filter = {};
+
+    const rawTransactionType =
+      req.query.transactionType || req.query["transactionType[]"];
+    console.log("client", rawTransactionType);
+    if (rawTransactionType) {
+      const descriptionsArray = Array.isArray(rawTransactionType)
+        ? rawTransactionType
+        : [rawTransactionType];
+
+      filter.transactionType = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
+
+    const rawClient = req.query.client || req.query["client[]"];
+    console.log("client", rawClient);
+    if (rawClient) {
+      const descriptionsArray = Array.isArray(rawClient)
+        ? rawClient
+        : [rawClient];
+
+      filter.clientTeam = {
+        $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+      };
+    }
+
+    // const rawDescription =
+    //   req.query.contractType || req.query["contractType[]"];
+    // console.log("rawDescription", rawDescription);
+    // if (rawDescription) {
+    //   const descriptionsArray = Array.isArray(rawDescription)
+    //     ? rawDescription
+    //     : [rawDescription];
+
+    //   filter.transactionSummary = {
+    //     $in: descriptionsArray.map((d) => new RegExp(`^${d.trim()}$`, "i")),
+    //   };
+    // }
+
+    const rawDescription =
+      req.query.contractType || req.query["contractType[]"];
+
+    console.log("rawDescription", rawDescription);
+
+    if (rawDescription) {
+      const descriptionsArray = Array.isArray(rawDescription)
+        ? rawDescription
+        : [rawDescription];
+
+      // Clean descriptions FIRST
+      const cleanedDescriptions = descriptionsArray.map((desc) => {
+        const milestoneIndex = desc.indexOf(": ");
+        if (milestoneIndex !== -1) {
+          return desc.substring(milestoneIndex + 2).trim();
+        }
+        return desc.trim();
+      });
+
+      // Use flexible regex (contains match)
+      filter.transactionSummary = {
+        $in: cleanedDescriptions.map((d) => new RegExp(d, "i")),
+      };
+    }
+
+    // ---------------- Date Filter ----------------
+    if (fromDate || toDate) {
+      filter.date = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.date.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+
+    // ---------------- Debug: log filter ----------------
+    console.log("MongoDB filter:", filter);
+
+    // ---------------- Fetch Data ----------------
+    const excelDetails = await BiddingTransactionReports.find(filter).populate(
+      "accountName",
+      "name"
+    );
+    // .sort({ createdAt: -1 });
+
+    // ---------------- Response ----------------
+    res.status(200).json({
+      success: true,
+      data: excelDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching Excel report:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+const getBiddingClientName = async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+
+    let filter = {
+      clientTeam: { $ne: null },
+    };
+
+    if (fromDate || toDate) {
+      filter.date = {};
+
+      if (fromDate) {
+        filter.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+
+    console.log("Mongo Filter:", filter);
+
+    const clientNames = await BiddingTransactionReports.distinct(
+      "clientTeam",
+      filter
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: clientNames,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+const getBiddingTransaction = async (req, res) => {
+  try {
+    const { client, fromDate, toDate } = req.query;
+
+    let filter = {};
+
+    if (fromDate || toDate) {
+      filter.date = {};
+
+      if (fromDate) {
+        filter.date.$gte = new Date(fromDate);
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.date.$lte = endDate;
+      }
+    }
+
+    if (client) {
+      filter.clientTeam = client;
+    }
+
+    const result = await BiddingTransactionReports.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $group: {
+          _id: "$transactionId",
+
+          earnings: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["Fixed-price", "Bonus"]] },
+                "$amountDollar",
+                0,
+              ],
+            },
+          },
+
+          deductions: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["WHT", "Service Fee"]] },
+                "$amountDollar",
+                0,
+              ],
+            },
+          },
+          wht: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["WHT"]] },
+                { $abs: "$amountDollar" },
+                0,
+              ],
+            },
+          },
+          serviceFee: {
+            $sum: {
+              $cond: [
+                { $in: ["$transactionType", ["Service Fee"]] },
+                { $abs: "$amountDollar" },
+                0,
+              ],
+            },
+          },
+
+          title: { $first: "$transactionSummary" },
+        },
+      },
+
+      {
+        $addFields: {
+          netTotal: { $add: ["$earnings", "$deductions"] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          transactions: { $push: "$$ROOT" },
+          overallEarnings: { $sum: "$earnings" },
+          overallDeductions: { $sum: "$deductions" },
+        },
+      },
+      {
+        $addFields: {
+          overallNetTotal: {
+            $add: ["$overallEarnings", "$overallDeductions"],
+          },
+        },
+      },
+    ]);
+
+    const data = result[0] || {
+      transactions: [],
+      overallAmount: 0,
+      overallTax: 0,
+      overallNetTotal: 0,
+    };
+
+    return res.status(200).json({
+      success: true,
+      ...data,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
 const createAccountBidder = async (req, res) => {
   try {
     const { name, status } = req.body;
@@ -173,9 +760,95 @@ const getAccountAndTechnologyBidder = async (req, res) => {
   try {
     const accountBidder = await Bidder.find().select("name");
     const technologyBidder = await TechnologyBidder.find().select("name");
+
+    const bidderRole = await EmployeeRole.find({
+      _id: "68c7edede2681e9879afdbd3",
+    });
+    const bidder = await Employee.find({ roleId: bidderRole[0]._id }).select(
+      "employeeName "
+    );
+
+    const transactionType = await BiddingTransactionReports.find({
+      transactionType: "WHT",
+    }).distinct("transactionType");
+
+    const client = await BiddingTransactionReports.find({
+      clientTeam: { $ne: null },
+    }).distinct("clientTeam");
+
+    const description = await BiddingTransactionReports.find({
+      transactionType: ["Fixed-price", "Bonus"],
+    }).distinct("transactionSummary");
     res.status(200).json({
       success: true,
-      data: { accountBidder, technologyBidder },
+      data: {
+        accountBidder,
+        technologyBidder,
+        bidder,
+        transactionType,
+        client,
+        description,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+const getTransactionBidder = async (req, res) => {
+  const { account } = req.query;
+  try {
+    const accountBidder = await Bidder.find().select("name");
+    const technologyBidder = await TechnologyBidder.find().select("name");
+
+    const bidderRole = await EmployeeRole.find({
+      _id: "68c7edede2681e9879afdbd3",
+    });
+    const bidder = await Employee.find({ roleId: bidderRole[0]._id }).select(
+      "employeeName "
+    );
+
+    const transactionType = await BiddingTransactionReports.find({
+      accountName: account,
+    })
+      .distinct("transactionType")
+      .sort({ createdAt: -1 });
+
+    const client = await BiddingTransactionReports.find({
+      clientTeam: { $ne: null },
+      accountName: account,
+    })
+      .distinct("clientTeam")
+      .sort({ referenceId: -1 });
+
+    const description = await BiddingTransactionReports.distinct(
+      "transactionSummary",
+      {
+        transactionType: { $in: ["Fixed-price", "Bonus"] },
+        accountName: account,
+      }
+    );
+
+    const cleanedDescriptions = description.map((desc) => {
+      const milestoneIndex = desc.indexOf(": ");
+      if (milestoneIndex !== -1) {
+        return desc.substring(milestoneIndex + 2);
+      }
+      return desc;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        accountBidder,
+        technologyBidder,
+        bidder,
+        transactionType,
+        client,
+        description: cleanedDescriptions,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -199,6 +872,11 @@ const createEmployeeBidder = async (req, res) => {
       reply,
       link,
       noOfBoost,
+      country,
+      state,
+      timezone,
+      salesdate,
+      status,
     } = req.body;
 
     const newBidder = new bidderEmployeeModelSchema({
@@ -212,12 +890,28 @@ const createEmployeeBidder = async (req, res) => {
       reply,
       link,
       noOfBoost,
+      country,
+      state,
+      timezone,
+      salesdate,
+      status,
     });
     const savedBidder = await newBidder.save();
+
+    const statusLog = await BiddingStatusLog.create({
+      employeeId: req.body.employeeId,
+      account: req.body.account,
+      client: req.body.client,
+      technology: req.body.technology,
+      status: req.body.status,
+      date: req.body.date,
+    });
+
     res.status(200).json({
       success: true,
       message: "Bidder created successfully",
       data: savedBidder,
+      statusLog,
     });
   } catch (error) {
     // console.error(" Error creating project:", error);
@@ -239,6 +933,7 @@ const createEmployeeBidder = async (req, res) => {
 const editEmployeeBidder = async (req, res) => {
   try {
     const { id } = req.params;
+
     const updated = await bidderEmployeeModelSchema.findByIdAndUpdate(
       id,
       req.body,
@@ -254,7 +949,24 @@ const editEmployeeBidder = async (req, res) => {
         .json({ success: false, error: "Bidder not found" });
     }
 
-    res.status(200).json({ success: true, data: updated });
+    let statusLog = null;
+
+    if (req.body.status) {
+      statusLog = await BiddingStatusLog.create({
+        employeeId: req.body.employeeId,
+        account: req.body.account,
+        client: req.body.client,
+        technology: req.body.technology,
+        status: req.body.status,
+        date: req.body.date || new Date(),
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+      statusLog,
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
@@ -263,26 +975,64 @@ const editEmployeeBidder = async (req, res) => {
       }
       return res.status(400).json({ success: false, errors });
     }
+
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
 const getEmployeeBidder = async (req, res) => {
-  const { ids, bidder } = req.query;
-  if (bidder === "bidder") {
-    try {
+  try {
+    const {
+      ids,
+      bidder: bidder,
+      reply,
+      client,
+      account,
+      technology,
+      fromDate,
+      toDate,
+      status,
+      createdBy,
+    } = req.query;
+    console.log(req.query);
+
+    let filter = {};
+
+    if (reply) filter.reply = reply;
+    if (client) filter.client = client;
+    if (account) filter.account = account;
+    if (technology) filter.technology = technology;
+    if (status) filter.status = status;
+    if (createdBy) filter.createdBy = createdBy;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
+
+    if (bidder === "bidder") {
       if (!ids) {
         return res
           .status(400)
           .json({ success: false, message: "No IDs provided" });
       }
 
-      // Split, trim spaces, and filter out invalid IDs
       const idsArray = ids
         .split(",")
-        .map((id) => id.trim()) // remove spaces
-        .filter((id) => mongoose.Types.ObjectId.isValid(id)) // keep only valid ObjectIds
-        .map((id) => new mongoose.Types.ObjectId(id)); // safely convert to ObjectId
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
 
       if (idsArray.length === 0) {
         return res
@@ -297,16 +1047,12 @@ const getEmployeeBidder = async (req, res) => {
         .populate("employeeId", "employeeName")
         .populate("createdBy", "employeeName");
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: records,
       });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Server Error" });
     }
-  }
-  try {
+
     const totalConnections = await bidderEmployeeModelSchema.aggregate([
       {
         $group: {
@@ -316,41 +1062,45 @@ const getEmployeeBidder = async (req, res) => {
         },
       },
     ]);
-    const reply = await bidderEmployeeModelSchema
-      .find({
-        reply: "yes",
-      })
-      .countDocuments();
 
-    const bidder = await bidderEmployeeModelSchema
-      .find()
+    // ---------- COUNTS ----------
+    const replyCount = await bidderEmployeeModelSchema.countDocuments({
+      reply: "yes",
+    });
+
+    const bidderSalesConvertedCount =
+      await bidderEmployeeModelSchema.countDocuments({
+        status: "sales_converted",
+      });
+
+    // ---------- MAIN DATA ----------
+    const bidders = await bidderEmployeeModelSchema
+      .find(filter)
       .populate("account", "name")
       .populate("technology", "name")
       .populate("createdBy", "employeeName")
       .sort({ createdAt: -1 });
 
-    //no.of connect using the account
+    // ---------- ACCOUNT COUNT ----------
     const accountCount = await bidderEmployeeModelSchema.aggregate([
       {
         $group: {
-          _id: "$account", // group by account ObjectId
-          count: { $sum: 1 }, // number of bidders per account
+          _id: "$account",
+          count: { $sum: 1 },
         },
       },
       {
         $lookup: {
-          from: "accountbidders", // collection name in MongoDB
-          localField: "_id", // account ObjectId from group
-          foreignField: "_id", // _id in accounts collection
+          from: "accountbidders",
+          localField: "_id",
+          foreignField: "_id",
           as: "account",
         },
       },
-      {
-        $unwind: "$account", // convert account array → object
-      },
+      { $unwind: "$account" },
       {
         $project: {
-          _id: 0, // hide raw _id
+          _id: 0,
           accountId: "$account._id",
           accountName: "$account.name",
           count: 1,
@@ -358,16 +1108,36 @@ const getEmployeeBidder = async (req, res) => {
       },
     ]);
 
+    // ---------- TOTAL DETAILS ----------
+    const AllTotalDetails = bidders.reduce(
+      (acc, item) => {
+        acc.totalConnections += parseInt(item.noOfConnections) || 0;
+        acc.totalBoost += parseInt(item.noOfBoost) || 0;
+        if (item.reply === "yes") acc.replyYes += 1;
+        if (item.status === "sales_converted") acc.salesConverted += 1;
+        return acc;
+      },
+      {
+        totalConnections: 0,
+        totalBoost: 0,
+        replyYes: 0,
+        salesConverted: 0,
+      }
+    );
+
+    // ---------- RESPONSE ----------
     res.status(200).json({
       success: true,
-      data: bidder,
-      accountCount,
-      noOfConnects: totalConnections[0]?.noOfConnects || 0,
-      noOfBoosts: totalConnections[0]?.noOfBoosts || 0,
-      reply: reply,
+      data: bidders,
+      // accountCount,
+      // noOfConnects: totalConnections[0]?.noOfConnects || 0,
+      // noOfBoosts: totalConnections[0]?.noOfBoosts || 0,
+      // reply: replyCount,
+      // bidderSalesConvertedCount,
+      AllTotalDetails,
     });
   } catch (error) {
-    // console.error("Error in getEmployeeBidder:", error);
+    console.error("Error in getEmployeeBidder:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -379,21 +1149,79 @@ const getEmployeeBidder = async (req, res) => {
 const viewEmployeeBidderById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { reply, client, account, technology, fromDate, toDate, status } =
+      req.query;
+
+    let filter = { employeeId: id };
+
+    if (reply) filter.reply = reply;
+    if (client) filter.client = client;
+    if (account) filter.account = account;
+    if (technology) filter.technology = technology;
+    if (status) filter.status = status;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = startDate;
+      }
+
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
+
     const bidder = await bidderEmployeeModelSchema
-      .find({ employeeId: id })
+      .find(filter)
       .populate("account", "name")
       .populate("technology", "name");
-    if (!bidder) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Bidder not found" });
+
+    // if (!bidder || bidder.length === 0) {
+    //   return res.status(404).json({ success: false, error: "Bidder not found" });
+    // }
+
+    // Sum the noOfConnections
+    //   const totalConnections = bidder.reduce((sum, item) => {
+    //     return sum + (parseInt(item.noOfConnections) || 0);
+    //   }, 0);
+    //  const bidderCount = await bidderEmployeeModelSchema
+    // .find({ employeeId: id })
+    // .populate("account", "name")
+    // .populate("technology", "name");
+
+    const AllTotalDetails = bidder.reduce(
+      (acc, item) => {
+        acc.totalConnections += parseInt(item.noOfConnections) || 0;
+        acc.totalBoost += parseInt(item.noOfBoost) || 0;
+
+        if (item.reply === "yes") acc.replyYes += 1;
+        if (item.status === "sales_converted") acc.salesConverted += 1;
+
+        return acc;
+      },
+      {
+        totalConnections: 0,
+        totalBoost: 0,
+        replyYes: 0,
+        salesConverted: 0,
+      }
+    );
+
+    if (!bidder || bidder.length === 0) {
+      res.status(200).json({ success: true, data: [] });
+    } else {
+      res.status(200).json({ success: true, data: bidder, AllTotalDetails });
     }
-    res.status(200).json({ success: true, data: bidder });
   } catch (error) {
-    // console.error("Error in viewEmployeeBidderById:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
+
 //   const getEmployeeBidder = async (req, res) => {
 //     try {
 //         const bidder = await bidderEmployeeModelSchema.find().lean();
@@ -742,5 +1570,11 @@ export {
   deleteConnectsPurchased,
   getAccountWise,
   getBidderByMultipleIds,
+  importExcelBidding,
+  getImportBiddingExcelReport,
+  getBiddingTransaction,
+  getBiddingClientName,
+  getTransactionBidder,
+  // getBidderField,
   // filterBidder,
 };

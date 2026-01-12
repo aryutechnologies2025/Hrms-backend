@@ -10,7 +10,7 @@ const invoice = new mongoose.Schema(
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
     invoice_date: {
       type: Date,
-      required: [true, "Please provide a invoice date"],
+      required: [false, "Please provide a invoice date"],
     },
     due_date:{type:Date,required:[true,"Please provide a due date"]},
     currency: { type: String, required: [false, "Please provide a currency"] },
@@ -44,7 +44,11 @@ const invoice = new mongoose.Schema(
     sgst: { type: String, required: [false, "please provide a sgst"] },
     notes:{type:String,required:[false,"Please provide a notes"]},
     invoice_type:{type:String,required:[false,"Please provide a invoice type"]},
-    status: { type: String, required: [true, "Please select a status"] },
+      paymentType:{type:String,required:[false,"Please provide a payment type"]},
+      amount:{type:String,required:[false,"Please provide a payment amount"]},
+      // paidDate:{type:Date,required:[false,"Please provide a payment date"]},
+    status: { type: String, required: [false, "Please select a status"] },
+    paid_date:{type:String},
     documents: [
          {
       fieldname: String,
