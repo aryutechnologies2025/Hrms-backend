@@ -4786,15 +4786,15 @@ const dashboard = async (req, res) => {
 //   }
 // };
 
-// const allUserAdminAndEmployee = async (req, res) => {
-//   try {
-//     const employees = await Employee.find({ dutyStatus: "1" }, "employeeName photo dutyStatus");
-//     const admin = await User.find({}, "name email");
-
 const allUserAdminAndEmployee = async (req, res) => {
   try {
-    const employees = await Employee.find({}, "employeeName photo dutyStatus");
-    const admin = await User.find({ dutyStatus: "1" }, "name email");
+    const employees = await Employee.find({ dutyStatus: "1" }, "employeeName photo dutyStatus");
+    const admin = await User.find({}, "name email");
+
+// const allUserAdminAndEmployee = async (req, res) => {
+//   try {
+//     const employees = await Employee.find({}, "employeeName photo dutyStatus");
+//     const admin = await User.find({ dutyStatus: "1" }, "name email");
 
 
     const formatted = [
