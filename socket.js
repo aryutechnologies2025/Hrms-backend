@@ -427,9 +427,6 @@ socket.on("thread_reply", (msg) => {
     io.to(room).emit("thread_reply", msg);
   }
 });
-
-
-
   });
 
   return io;
