@@ -330,6 +330,21 @@ const getImportBiddingExcelReport = async (req, res) => {
     const { fromDate, toDate } = req.query;
     let filter = {};
 
+    // const mongoose = require("mongoose");
+
+const rawAccount = req.query.account || req.query["account[]"];
+
+if (rawAccount) {
+  const accountsArray = Array.isArray(rawAccount)
+    ? rawAccount
+    : [rawAccount];
+
+  filter.accountName = {
+    $in: accountsArray.map(id => new mongoose.Types.ObjectId(id)),
+  };
+}
+
+
     const rawTransactionType =
       req.query.transactionType || req.query["transactionType[]"];
     console.log("client", rawTransactionType);
@@ -649,7 +664,7 @@ const editAccountBidder = async (req, res) => {
       runValidators: true,
     });
 
-    if (!updatedBidder) {
+    if (!updated) {
       return res
         .status(404)
         .json({ success: false, error: "Bidder not found" });
@@ -731,7 +746,7 @@ const editTechnologyBidder = async (req, res) => {
       runValidators: true,
     });
 
-    if (!updatedBidder) {
+    if (!updated) {
       return res
         .status(404)
         .json({ success: false, error: "Bidder not found" });
