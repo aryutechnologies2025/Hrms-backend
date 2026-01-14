@@ -141,8 +141,11 @@ import Channel from "../models/channelModel.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import User from "../models/userModel.js";
+import ClientDetails from "../models/clientModals.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+import Employee from "../models/employeeModel.js"
 
 
 /* CHAT HISTORY */
@@ -639,4 +642,78 @@ export const getThreadReplies = async (req, res) => {
     res.status(500).json({success:false,error:error})
   }
   
+};
+
+
+
+
+export const getSeenMessage = async (req, res) => {
+  const { messageId } = req.params;
+
+  try {
+    const message = await Message.findById(messageId).select("seenBy");
+
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    // 🔥 resolve user info manually
+    const seenUsers = await Promise.all(
+      message.seenBy.map(async (id) => {
+        // Try Employee
+        let user = await Employee.findById(id).select(
+          "employeeName email avatar"
+        );
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.employeeName,
+            email: user.email,
+            avatar: user.avatar,
+            role: "Employee",
+          };
+        }
+
+        // Try User
+        user = await User.findById(id).select("name email avatar");
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            role: "User",
+          };
+        }
+
+        // Try Client
+        user = await ClientDetails.findById(id).select(
+          "clientName email avatar"
+        );
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.clientName,
+            email: user.email,
+            avatar: user.avatar,
+            role: "Client",
+          };
+        }
+        return null;
+      })
+    );
+
+    res.json({
+      success: true,
+      data: seenUsers.filter(Boolean),
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };
