@@ -28,7 +28,8 @@ export default async function startSocketServer(httpServer) {
   console.log("coming 1");
   const io = new Server(httpServer, {
     cors: {
-      origin: "http://localhost:5173",
+      // origin:"http://localhost:5173",
+      origin: true, // allow all origins
       credentials: true,
     },
   });
