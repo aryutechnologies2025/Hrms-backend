@@ -26,13 +26,24 @@ export default async function startSocketServer(httpServer) {
   
 
   console.log("coming 1");
+  // const io = new Server(httpServer, {
+  //   cors: {
+  //     // origin:"http://localhost:5173",
+  //     origin: true, // allow all origins
+  //     credentials: true,
+  //   },
+  // });
+
   const io = new Server(httpServer, {
-    cors: {
-      // origin:"http://localhost:5173",
-      origin: true, // allow all origins
-      credentials: true,
-    },
-  });
+  cors: {
+    origin: [
+      "https://hrms.aryuprojects.com",
+      "https://employee.aryuprojects.com",
+    ],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
+});
   console.log("coming 2");
 
   // --- Attach Redis Adapter ---
