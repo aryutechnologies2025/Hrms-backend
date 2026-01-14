@@ -73,6 +73,7 @@ import {
   getChannelHistory,
   getChannelUnreadCounts,
   getDMHistory,
+  getSeenMessage,
   getThreadReplies,
   getUnreadCounts,
   markChannelMessagesSeen,
@@ -101,6 +102,7 @@ router.patch("/messages/:id/delete", deleteMessage);
 router.delete("/messages/delete-file", deleteMessageFile);
 router.patch("/messages/edit",chatUpload.any(), editMessageFiles);
 router.get("/messages/thread/:parentId",getThreadReplies);
+router.get("/messages/seen-by/:messageId",getSeenMessage);
 
 
 
