@@ -10,7 +10,7 @@ export  const populateFavorites = async (fav) => {
   return {
     dm: fav.dm.map((d) => ({
       _id: d.id?._id,
-      name: d.id?.employeeName || d.id?.name,
+      name: d.id?.employeeName || d.id?.name ||d.id?.client_name,
       email: d.id?.email,
       photo: d.id?.photo,
       model: d.model,

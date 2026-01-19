@@ -93,7 +93,6 @@ export const toggleDMFavorite = async (req, res) => {
 
       await fav.save();
     }
-
     res.json({
       success: true,
       data: await populateFavorites(fav),
