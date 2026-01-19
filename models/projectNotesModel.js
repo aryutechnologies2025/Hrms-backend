@@ -8,12 +8,26 @@ const projectNotesSchema = new mongoose.Schema({
     },
     title:{
         type:String,
-        required:[true,"Please provide a title"]
+        required:[false,"Please provide a title"]
     },
     description:{
         type:String,
         required:[true,"Please provide a description"]    
     },
+    documents: [
+      {
+        filepath: String,
+        originalName: String,
+      },
+    ],
+    reporter:{
+        type:String,
+    },
+    createdBy:{
+        type:mongoose.Schema.Types.ObjectId,
+       
+       required: true,
+    }
 },{
     timestamps:true,
 });

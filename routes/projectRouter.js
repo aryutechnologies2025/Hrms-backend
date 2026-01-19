@@ -10,6 +10,8 @@ import {
   getProjectsById,
   checkOnlyProjectManeger,
   getClientProjectId,
+  getProjectNames,
+  getProjectManagerProjects
 } from "../controllers/projectController.js";
 
 // Importing upload middleware for file handling
@@ -60,6 +62,8 @@ projectRouter.put(
   updateProject
 );
 projectRouter.delete("/delete-project/:id", deleteProject);
+projectRouter.get("/get-project-name", getProjectNames);
+projectRouter.get("/get-project-manager-projects", getProjectManagerProjects);
 projectRouter.delete(
   "/delete-project-file/:id/:index",
   deleteProjectFileByIndex
