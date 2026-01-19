@@ -21,6 +21,8 @@ import RelivingModel from "../models/relivingCheckListModel.js";
 import RelivingList from "../models/RelivingVerifyModel.js";
 import ProjectModel from "../models/projectModel.js";
 import Announcements from "../models/announcementModel.js";
+import ClientDetails from "../models/clientModals.js";
+import ClientSubUser from "../models/clientSubUserModel.js";
 
 // const loginEmployee = async (req, res) => {
 //   try {
@@ -903,51 +905,53 @@ const allEmployeesUserDetails = async (req, res) => {
 
       /* ================= EXPERIENCE CALCULATION ================= */
       {
-  $addFields: {
-    diff: {
-      $dateDiff: {
-        startDate: "$dateOfJoining",
-        endDate: "$$NOW",
-        unit: "day"
-      }
-    }
-  }
-},
-{
-  $addFields: {
-    years: { $floor: { $divide: ["$diff", 365] } },
-    remainingDaysAfterYears: {
-      $mod: ["$diff", 365]
-    }
-  }
-},
-{
-  $addFields: {
-    months: {
-      $floor: { $divide: ["$remainingDaysAfterYears", 30] }
-    },
-    days: {
-      $mod: ["$remainingDaysAfterYears", 30]
-    }
-  }
-},
-{
-  $addFields: {
-    experience: {
-      years: "$years",
-      months: "$months",
-      days: "$days"
-    },
-    TotalExperienceTillJoining: {
-      $concat: [
-        { $toString: "$years" }, "Y-",
-        { $toString: "$months" }, "M-",
-        { $toString: "$days" }, "D"
-      ]
-    }
-  }
-},
-
+        $addFields: {
+          diff: {
+            $dateDiff: {
+              startDate: "$dateOfJoining",
+              endDate: "$$NOW",
+              unit: "day",
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          years: { $floor: { $divide: ["$diff", 365] } },
+          remainingDaysAfterYears: {
+            $mod: ["$diff", 365],
+          },
+        },
+      },
+      {
+        $addFields: {
+          months: {
+            $floor: { $divide: ["$remainingDaysAfterYears", 30] },
+          },
+          days: {
+            $mod: ["$remainingDaysAfterYears", 30],
+          },
+        },
+      },
+      {
+        $addFields: {
+          experience: {
+            years: "$years",
+            months: "$months",
+            days: "$days",
+          },
+          TotalExperienceTillJoining: {
+            $concat: [
+              { $toString: "$years" },
+              "Y-",
+              { $toString: "$months" },
+              "M-",
+              { $toString: "$days" },
+              "D",
+            ],
+          },
+        },
+      },
 
       /* ================= CLEANUP ================= */
       {
@@ -3737,7 +3741,8 @@ const relivingList = async (req, res) => {
       .select(
         "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate dutyStatus"
       )
-      .populate("roleId", "name").sort({ last_working_date: -1 });
+      .populate("roleId", "name")
+      .sort({ last_working_date: -1 });
 
     // Fetch checklists
     const relievingCheckList = await RelivingList.find({
@@ -4510,7 +4515,7 @@ const dashboard = async (req, res) => {
   // 🔹 Active employees
   let activeEmployees = await Employee.find({
     employeeStatus: "1",
-    dutyStatus:"1",
+    dutyStatus: "1",
     employeeId: { $nin: ["AYE201202", "AYE180301"] },
   })
     .select(
@@ -4758,7 +4763,6 @@ const dashboard = async (req, res) => {
   });
 };
 
-
 // const allUserAdminAndEmployee=async(req, res) => {
 //   try {
 //     const employees = await Employee.find({dutyStatus:"1"}, "employeeName photo dutyStatus");
@@ -4788,14 +4792,20 @@ const dashboard = async (req, res) => {
 
 const allUserAdminAndEmployee = async (req, res) => {
   try {
-    const employees = await Employee.find({ dutyStatus: "1" }, "employeeName photo dutyStatus");
+    const employees = await Employee.find(
+      { dutyStatus: "1" },
+      "employeeName photo dutyStatus"
+    );
     const admin = await User.find({}, "name email");
+    const client = await ClientDetails.find({
+      is_deleted: false,
+    },"client_name ");
+    const clientSubUser=await ClientSubUser.find({is_deleted: false})
 
-// const allUserAdminAndEmployee = async (req, res) => {
-//   try {
-//     const employees = await Employee.find({}, "employeeName photo dutyStatus");
-//     const admin = await User.find({ dutyStatus: "1" }, "name email");
-
+    // const allUserAdminAndEmployee = async (req, res) => {
+    //   try {
+    //     const employees = await Employee.find({}, "employeeName photo dutyStatus");
+    //     const admin = await User.find({ dutyStatus: "1" }, "name email");
 
     const formatted = [
       ...employees.map((e) => ({
@@ -4812,7 +4822,22 @@ const allUserAdminAndEmployee = async (req, res) => {
         online: true,
         type: "admin",
       })),
+      ...client.map((a) => ({
+        _id: a._id,
+        name: a.client_name,
+        photo: "",
+        online: true,
+        type: "client",
+      })),
+      ...clientSubUser.map((a) => ({
+        _id: a._id,
+        name: a.name,
+        photo: "",
+        online: true,
+        type: "clientSubUser",
+      })),
     ];
+    console.log("test formatted data",formatted);
 
     // Sort alphabetically by name (A-Z)
     formatted.sort((a, b) => {

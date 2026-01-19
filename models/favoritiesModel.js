@@ -59,7 +59,7 @@ const favoritesSchema = new mongoose.Schema(
       model: {
         type: String,
         required: true,
-        enum: ["AdminUser", "Employee", "ClientDetails"], // MUST match model names
+        enum: ["AdminUser", "Employee", "ClientDetails","ClientSubUser"], // MUST match model names
       },
     },
 
@@ -73,7 +73,7 @@ const favoritesSchema = new mongoose.Schema(
         model: {
           type: String,
           required: true,
-          enum: ["AdminUser", "Employee", "ClientDetails"],
+          enum: ["AdminUser", "Employee", "ClientDetails","ClientSubUser"],
         },
       },
     ],
