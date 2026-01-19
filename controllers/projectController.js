@@ -111,6 +111,46 @@ const getProjects = async (req, res) => {
   }
 };
 
+//get list by projectManager
+const getProjectManagerProjects = async (req, res) => {
+  const { projectManager } = req.query;
+  try {
+    const projects = await ProjectModel.find({ projectManager: projectManager })
+      .populate([
+        { path: "createdByAdmin", select: "name email" },
+        { path: "clientName", select: "client_name" },
+      ])
+      .sort({ createdAt: -1 });
+    const formatedProjects = await Promise.all(
+      projects.map(async (project) => {
+        return {
+          id: project._id,
+          projectName: project.name,
+          clientName: project.clientName?.client_name,
+          budget: project.budget || '0',
+          status: project.status,
+          priority: project.priority
+        }
+      }))
+    res.status(200).json({ success: true, data: formatedProjects });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+//get project name
+const getProjectNames = async (req, res) => {
+  try {
+    const projects = await ProjectModel.find()
+      .select("name")
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: projects });
+  } catch (error) {
+    // console.error("Error fetching projects:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 const getProjectsById = async (req, res) => {
   const { clientId } = req.query;
   try {
@@ -215,7 +255,7 @@ const updateProject = async (req, res) => {
     existingProject.name = name;
     existingProject.projectDescription = projectDescription;
     existingProject.createdByAdmin =
-    createdByAdmin || existingProject.createdByAdmin;
+      createdByAdmin || existingProject.createdByAdmin;
     existingProject.teamMembers = parsedMembers == null ? [] : parsedMembers;
     existingProject.status = status || existingProject.status;
     existingProject.projectManager = projectManager;
@@ -283,13 +323,9 @@ const deleteProject = async (req, res) => {
 
 const deleteProjectFileByIndex = async (req, res) => {
   const { id, index } = req.params;
-  console.log("Deleting file from project:", id, "at index:", index);
-  console.log("employeeId", id, "fileIndex", index);
 
   try {
-    console.log("Fetching project with ID:", id);
     const project = await ProjectModel.findById({ _id: id });
-    console.log("Fetching 222222222:", id);
     if (!project) {
       return res.status(404).json({ message: "ProjectModel not found" });
     }
@@ -402,6 +438,7 @@ export {
   deleteProjectFileByIndex,
   getProjectsById,
   checkOnlyProjectManeger,
-  getClientProjectId
-  
+  getClientProjectId,
+  getProjectNames,
+  getProjectManagerProjects
 };
