@@ -8,7 +8,6 @@ import User from "./models/userModel.js";
 import mongoose from "mongoose";
 let ioInstance;
 
-
 const verifyToken = (token) => {
   try {
     return jwt.verify(token, process.env.JWT_SECRET);
@@ -23,8 +22,6 @@ export default async function startSocketServer(httpServer) {
   // --- Init Redis ---
   const { pubClient, subClient } = await initRedis();
 
-  
-
   console.log("coming 1");
   // const io = new Server(httpServer, {
   //   cors: {
@@ -35,23 +32,22 @@ export default async function startSocketServer(httpServer) {
   // });
 
   const io = new Server(httpServer, {
-  cors: {
-    origin: [
-      "https://hrms.aryuprojects.com",
-      "https://employee.aryuprojects.com",
-    ],
-    credentials: true,
-  },
-  transports: ["websocket", "polling"],
-});
+    cors: {
+      origin: [
+        "https://hrms.aryuprojects.com",
+        "https://employee.aryuprojects.com",
+      ],
+      credentials: true,
+    },
+    transports: ["websocket", "polling"],
+  });
   console.log("coming 2");
 
   // --- Attach Redis Adapter ---
   io.adapter(getRedisAdapter());
-   
 
   // 🔥 ADD THIS
-   ioInstance = io;
+  ioInstance = io;
 
   // const onlineUsers = new Set();
   io.on("connection", (socket) => {
@@ -393,14 +389,12 @@ export default async function startSocketServer(httpServer) {
       });
     });
 
-   
-
     // actionable message delete
     socket.on("message_deleted", ({ messageId }) => {
       socket.broadcast.emit("message_deleted", { messageId });
     });
     // delete_message_file
-     socket.on("delete_message_file", async ({ messageId, fileId }) => {
+    socket.on("delete_message_file", async ({ messageId, fileId }) => {
       if (!messageId || !fileId) return;
       console.log("delete_message_file event received", messageId, fileId);
 
@@ -418,27 +412,27 @@ export default async function startSocketServer(httpServer) {
         { messageId, fileId }
       );
     });
-    // thread 
-//     socket.on("thread_reply", (msg) => {
-//   io.to(msg.channelId || msg.receiverId.toString())
-//     .emit("thread_reply", msg);
-// });
-socket.on("thread_reply", (msg) => {
-  // CHANNEL THREAD
-  if (msg.channelId) {
-    io.to(msg.channelId.toString()).emit("thread_reply", msg);
-    return;
-  }
+    // thread
+    //     socket.on("thread_reply", (msg) => {
+    //   io.to(msg.channelId || msg.receiverId.toString())
+    //     .emit("thread_reply", msg);
+    // });
+    socket.on("thread_reply", (msg) => {
+      // CHANNEL THREAD
+      if (msg.channelId) {
+        io.to(msg.channelId.toString()).emit("thread_reply", msg);
+        return;
+      }
 
-  // DM THREAD
-  if (msg.senderId && msg.receiverId) {
-    const room = [msg.senderId.toString(), msg.receiverId.toString()]
-      .sort()
-      .join("_");
+      // DM THREAD
+      if (msg.senderId && msg.receiverId) {
+        const room = [msg.senderId.toString(), msg.receiverId.toString()]
+          .sort()
+          .join("_");
 
-    io.to(room).emit("thread_reply", msg);
-  }
-});
+        io.to(room).emit("thread_reply", msg);
+      }
+    });
   });
 
   return io;

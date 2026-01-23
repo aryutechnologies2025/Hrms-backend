@@ -249,7 +249,7 @@ const loginEmployee = async (req, res) => {
     const token = jwt.sign(
       { userId: userData._id, email: userData.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     res.cookie("token", token, {
@@ -342,7 +342,7 @@ const createEmployee = async (req, res) => {
 
     req.files.forEach((file) => {
       const match = file.fieldname.match(
-        /^document\[(\d+)\]\[files\]\[(\d+)\]\[selectedfile\]$/
+        /^document\[(\d+)\]\[files\]\[(\d+)\]\[selectedfile\]$/,
       );
       // console.log("match", match, req.files);
       if (match) {
@@ -437,7 +437,7 @@ const forgotPassword = async (req, res) => {
     await sendEmail(
       email,
       "Reset Password",
-      `Click the link to reset your password: ${resetLink}`
+      `Click the link to reset your password: ${resetLink}`,
     );
     return res.status(200).json({
       success: true,
@@ -511,7 +511,7 @@ const changePassword = async (req, res) => {
       await User.findOneAndUpdate(
         { employeeId: id },
         { $set: { password: password } },
-        { new: true }
+        { new: true },
       );
     }
 
@@ -599,7 +599,7 @@ const editEmployee = async (req, res) => {
     //  Step 2: Handle uploaded files
     req.files?.forEach((file) => {
       const match = file.fieldname.match(
-        /^document\[(\d+)\]\[files\]\[(\d+)\]\[selectedfile\]$/
+        /^document\[(\d+)\]\[files\]\[(\d+)\]\[selectedfile\]$/,
       );
       if (match) {
         const docIndex = parseInt(match[1]);
@@ -637,7 +637,7 @@ const editEmployee = async (req, res) => {
     const updated = await Employee.findByIdAndUpdate(
       req.params.id,
       { $set: updatedData },
-      { new: true }
+      { new: true },
     );
 
     const user = await User.findOne({ employeeId: req.params.id });
@@ -645,7 +645,7 @@ const editEmployee = async (req, res) => {
       await User.findOneAndUpdate(
         { employeeId: req.params.id },
         { $set: { email: updatedData.email } },
-        { new: true }
+        { new: true },
       );
     }
 
@@ -677,7 +677,7 @@ const deleteEmployee = async (req, res) => {
     await Employee.findByIdAndUpdate(
       id,
       { $set: { employeeStatus: "0" } },
-      { new: true }
+      { new: true },
     );
 
     res
@@ -825,7 +825,7 @@ const allEmployeesUserDetails = async (req, res) => {
       if (toDate) {
         const [y, m, d] = toDate.split("-");
         baseMatch.dateOfJoining.$lte = new Date(
-          Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+          Date.UTC(y, m - 1, d, 23, 59, 59, 999),
         );
       }
     }
@@ -877,7 +877,7 @@ const allEmployeesUserDetails = async (req, res) => {
             {
               $match: {
                 "role.department._id": new mongoose.Types.ObjectId(
-                  departmentId
+                  departmentId,
                 ),
               },
             },
@@ -1821,7 +1821,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
       // last_working_date: { $lte: todayStr },
     })
       .select(
-        "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
+        "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus",
       )
       .populate("roleId", "name");
 
@@ -1882,7 +1882,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
         (e) =>
           e.reason === "Login" &&
           new Date(e.time) >= startOfDay &&
-          new Date(e.time) <= endOfDay
+          new Date(e.time) <= endOfDay,
       );
 
       if (loginEntry) {
@@ -1890,7 +1890,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
         presentSet.add(empId);
 
         const employee = activeEmployees.find(
-          (e) => e._id.toString() === empId
+          (e) => e._id.toString() === empId,
         );
         if (employee) presentData.push(employee);
 
@@ -1904,7 +1904,7 @@ const AllLoginEmployeeDetails = async (req, res) => {
 
     // 3. Absent employees = activeEmployees - present
     const absentData = activeEmployees.filter(
-      (e) => !presentSet.has(e._id.toString())
+      (e) => !presentSet.has(e._id.toString()),
     );
     res.status(200).json({
       success: true,
@@ -2555,7 +2555,7 @@ const payroll = async (req, res) => {
     console.log(currentMonthAttendance);
     // Step 2: Extract unique employee IDs who have attendance
     const attendanceEmployeeIds = currentMonthAttendance.map((e) =>
-      e._id.toString()
+      e._id.toString(),
     );
     // Step 3: Get all active employees
     let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
@@ -2581,7 +2581,7 @@ const payroll = async (req, res) => {
 
     // Step 4: Filter to include only employees who have attendance this month
     activeEmployees = activeEmployees.filter((emp) =>
-      attendanceEmployeeIds.includes(emp._id.toString())
+      attendanceEmployeeIds.includes(emp._id.toString()),
     );
 
     const finalResults = [];
@@ -2592,7 +2592,7 @@ const payroll = async (req, res) => {
         date: { $gte: start, $lte: end },
       }).populate(
         "employeeId",
-        "_id photo employeeName phoneNumber email employeeType employeeId"
+        "_id photo employeeName phoneNumber email employeeType employeeId",
       );
 
       const leaveList = await Leave.find({
@@ -2623,7 +2623,8 @@ const payroll = async (req, res) => {
           return attDate === currentDateStr;
         });
         const holiday = holidaysList.find(
-          (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
+          (h) =>
+            new Date(h.date).toISOString().split("T")[0] === currentDateStr,
         );
         const calculateTime = (entries) => {
           let workTime = 0;
@@ -2687,7 +2688,7 @@ const payroll = async (req, res) => {
           if (attData.entries.length > 0) {
             attData.result = calculateTime(attData.entries);
             const loginEntry = attData.entries.find(
-              (e) => e.reason === "Login"
+              (e) => e.reason === "Login",
             );
             const logoutEntry = [...attData.entries]
               .reverse()
@@ -2800,7 +2801,7 @@ const payroll = async (req, res) => {
         ctc,
         workingDays,
         totalDays,
-        employeeType
+        employeeType,
       ) => {
         let {
           payroll_basic_percent = 0,
@@ -2871,7 +2872,7 @@ const payroll = async (req, res) => {
             basic,
             hra,
             medicalAllowance,
-            conveyanceAllowance
+            conveyanceAllowance,
           );
 
           // Employee PF
@@ -2972,7 +2973,7 @@ const payroll = async (req, res) => {
             (grossSalary / totalDays) * workingDays +
               employerPF +
               employerEPS +
-              employerESI
+              employerESI,
           ),
           annualTax: f(annualTax),
           monthlyTax: f(monthlyTax),
@@ -2992,7 +2993,7 @@ const payroll = async (req, res) => {
         Math.abs(daysInMonth - totalHolidays),
         // 5,
         // 5,
-        emp.employeeType
+        emp.employeeType,
       );
       finalResults.push({
         employee: {
@@ -3046,7 +3047,7 @@ const forgotPassword_employee = async (req, res) => {
     await sendEmail(
       email,
       "Password Reset",
-      `Click the link to reset your password: ${resetLink}`
+      `Click the link to reset your password: ${resetLink}`,
     );
 
     res.status(200).json({ message: "Password reset link sent to your email" });
@@ -3719,7 +3720,7 @@ const relivingList = async (req, res) => {
         const previousMonth = new Date(
           endDate.getFullYear(),
           endDate.getMonth(),
-          0
+          0,
         );
         days += previousMonth.getDate();
       }
@@ -3739,7 +3740,7 @@ const relivingList = async (req, res) => {
       dutyStatus,
     })
       .select(
-        "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate dutyStatus"
+        "_id employeeName employeeId last_working_date email roleId dateOfJoining resignation_email_date relieving_reason notice_period relievingDate dutyStatus",
       )
       .populate("roleId", "name")
       .sort({ last_working_date: -1 });
@@ -3771,7 +3772,7 @@ const relivingList = async (req, res) => {
 
     // Fetch letters
     const letterTitle = await LetterSchema.find({ status: "1" }).select(
-      "title"
+      "title",
     );
 
     // Prepare response
@@ -3781,20 +3782,20 @@ const relivingList = async (req, res) => {
       const empOptionsAllYes =
         empChecklist.length > 0 &&
         empChecklist.every(
-          (item) => item.options && item.options.trim().toLowerCase() === "yes"
+          (item) => item.options && item.options.trim().toLowerCase() === "yes",
         );
 
       const empTodoTasks = todoTasks.filter((task) =>
-        task.assignedTo._id.equals(emp._id)
+        task.assignedTo._id.equals(emp._id),
       );
 
       const empInProgressTasks = inProgressTasks.filter((task) =>
-        task.assignedTo._id.equals(emp._id)
+        task.assignedTo._id.equals(emp._id),
       );
 
       const TotalExperienceTillJoining = getTenure(
         emp.dateOfJoining,
-        emp.last_working_date
+        emp.last_working_date,
       );
 
       return {
@@ -3858,9 +3859,9 @@ const updateReliving = async (req, res) => {
         ...(dutyStatus !== undefined && { dutyStatus }), // only update if provided
         ...(status !== undefined && { status }), // keep status separate
       },
-      { new: true }
+      { new: true },
     ).select(
-      "employeeName employeeId email resignation_email_date relieving_reason notice_period relivingDate dutyStatus status"
+      "employeeName employeeId email resignation_email_date relieving_reason notice_period relivingDate dutyStatus status",
     );
 
     if (!updatedEmployee) {
@@ -4519,7 +4520,7 @@ const dashboard = async (req, res) => {
     employeeId: { $nin: ["AYE201202", "AYE180301"] },
   })
     .select(
-      "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
+      "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus",
     )
     .populate("roleId", "name");
 
@@ -4586,7 +4587,7 @@ const dashboard = async (req, res) => {
       (e) =>
         e.reason === "Login" &&
         new Date(e.time) >= startOfDay &&
-        new Date(e.time) <= endOfDay
+        new Date(e.time) <= endOfDay,
     );
 
     if (loginEntry) {
@@ -4626,7 +4627,7 @@ const dashboard = async (req, res) => {
   });
 
   const absentData = activeEmployees.filter(
-    (e) => !presentSet.has(e._id.toString())
+    (e) => !presentSet.has(e._id.toString()),
   );
 
   // 🔹 Future employees
@@ -4654,7 +4655,7 @@ const dashboard = async (req, res) => {
     },
   })
     .select(
-      "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus"
+      "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus",
     )
     .populate("roleId", "name");
 
@@ -4735,7 +4736,7 @@ const dashboard = async (req, res) => {
             isCurrent: today < endDate && today >= oneWeekBeforeEnd,
           };
         })
-        .filter(({ isCurrent }) => isCurrent)
+        .filter(({ isCurrent }) => isCurrent),
     );
 
   res.status(200).json({
@@ -4790,23 +4791,194 @@ const dashboard = async (req, res) => {
 //   }
 // };
 
-const allUserAdminAndEmployee = async (req, res) => {
+// const allUserAdminAndEmployee = async (req, res) => {
+//   const {userId,type}=req.query;
+//   try {
+//     let employeeFilter={};
+//     if(type=='client')
+//     {
+//        employeeFilter.dutyStatus="1";
+       
+//     }
+
+//     const employees = await Employee.find(
+//       { dutyStatus: "1" },
+//       "employeeName photo dutyStatus",
+//     );
+//     const admin = await User.find({}, "name email");
+//     const client = await ClientDetails.find(
+//       {
+//         is_deleted: false,
+//       },
+//       "client_name ",
+//     );
+//     const clientSubUser = await ClientSubUser.find({ is_deleted: false });
+
+//     // const allUserAdminAndEmployee = async (req, res) => {
+//     //   try {
+//     //     const employees = await Employee.find({}, "employeeName photo dutyStatus");
+//     //     const admin = await User.find({ dutyStatus: "1" }, "name email");
+
+//     const formatted = [
+//       ...employees.map((e) => ({
+//         _id: e._id,
+//         name: e.employeeName,
+//         photo: e.photo,
+//         online: e.dutyStatus == "1",
+//         type: "employee",
+//       })),
+//       ...admin.map((a) => ({
+//         _id: a._id,
+//         name: a.name,
+//         photo: "",
+//         online: true,
+//         type: "admin",
+//       })),
+//       ...client.map((a) => ({
+//         _id: a._id,
+//         name: a.client_name,
+//         photo: "",
+//         online: true,
+//         type: "client",
+//       })),
+//       ...clientSubUser.map((a) => ({
+//         _id: a._id,
+//         name: a.name,
+//         photo: "",
+//         online: true,
+//         type: "clientSubUser",
+//       })),
+//     ];
+//     console.log("test formatted data", formatted);
+
+//     // Sort alphabetically by name (A-Z)
+//     formatted.sort((a, b) => {
+//       const nameA = a.name.toLowerCase();
+//       const nameB = b.name.toLowerCase();
+//       if (nameA < nameB) return -1;
+//       if (nameA > nameB) return 1;
+//       return 0;
+//     });
+
+//     res.json({ success: true, data: formatted });
+//   } catch (err) {
+//     res.status(500).json({ success: false, err });
+//   }
+// };
+
+
+ const allUserAdminAndEmployee = async (req, res) => {
+  const { userId, type } = req.query;
+  console.log("allUserAdminAndEmployee params", req.query,userId, type );
+
   try {
-    const employees = await Employee.find(
-      { dutyStatus: "1" },
-      "employeeName photo dutyStatus"
-    );
-    const admin = await User.find({}, "name email");
-    const client = await ClientDetails.find({
-      is_deleted: false,
-    },"client_name ");
-    const clientSubUser=await ClientSubUser.find({is_deleted: false})
+    let employees = [];
+    let admins = [];
+    let clients = [];
+    let clientSubUsers = [];
 
-    // const allUserAdminAndEmployee = async (req, res) => {
-    //   try {
-    //     const employees = await Employee.find({}, "employeeName photo dutyStatus");
-    //     const admin = await User.find({ dutyStatus: "1" }, "name email");
+    // 🔹 SUPER ADMIN
+    if (type === "superAdmin") {
+      employees = await Employee.find({ dutyStatus: "1" });
+      admins = await User.find({});
+      clients = await ClientDetails.find({ is_deleted: false });
+      clientSubUsers = await ClientSubUser.find({ is_deleted: false });
+    }
 
+    // 🔹 ADMIN
+    if (type === "admin") {
+      admins = await User.find({});
+      employees = await Employee.find({ dutyStatus: "1" });
+
+      const projects = await ProjectModel.find({
+        $or: [
+          { createdByAdmin: userId },
+          { projectManager: userId },
+          {teamMembers:userId}
+        ]
+      });
+
+      const clientIds = projects.map(p => p.clientName);
+      const projectIds = projects.map(p => p._id);
+
+      clients = await ClientDetails.find({ _id: { $in: clientIds } });
+      clientSubUsers = await ClientSubUser.find({ projectId: { $in: projectIds } });
+    }
+
+    // 🔹 EMPLOYEE
+    if (type === "employee") {
+      admins = await User.find({});
+      employees = await Employee.find({ dutyStatus: "1" });
+
+      const projects = await ProjectModel.find({
+        $or: [
+          { projectManager: userId },
+          { teamMembers: userId },
+        ]
+      });
+
+      const clientIds = projects.map(p => p.clientName);
+      const projectIds = projects.map(p => p._id);
+
+      clients = await ClientDetails.find({ _id: { $in: clientIds } });
+      clientSubUsers = await ClientSubUser.find({ projectId: { $in: projectIds } });
+    }
+
+    // 🔹 CLIENT
+    if (type === "client") {
+      admins = await User.find({superUser:true});
+      clients = await ClientDetails.find({ _id: userId });
+
+      const projects = await ProjectModel.find({ clientName: userId });
+
+      const employeeIds = [
+        ...projects.map(p => p.projectManager),
+        ...projects.flatMap(p => p.teamMembers)
+      ];
+      
+      employees = await Employee.find({ _id: { $in: employeeIds } });
+      clientSubUsers = await ClientSubUser.find({ clientId: userId });
+    }
+
+    // 🔹 CLIENT SUBUSER
+    if (type === "subuser") {
+      admins = await User.find({superUser:true});
+      //  admins=[]
+      const subUser = await ClientSubUser.findById(userId);
+      clients = await ClientDetails.find({ _id: subUser.clientId });
+
+      const project = await ProjectModel.findById(subUser.projectId);
+
+      employees = await Employee.find({
+        _id: { $in: [project.projectManager, ...project.teamMembers] }
+      });
+    }
+
+    // 🔄 FORMAT RESPONSE
+    // const formatted = [
+    //   ...employees.map(e => ({
+    //     _id: e._id,
+    //     name: e.employeeName,
+    //     type: "employee"
+    //   })),
+    //   ...admins.map(a => ({
+    //     _id: a._id,
+    //     name: a.name,
+    //     type: "admin"
+    //   })),
+    //   ...clients.map(c => ({
+    //     _id: c._id,
+    //     name: c.client_name,
+    //     type: "client"
+    //   })),
+    //   ...clientSubUsers.map(cu => ({
+    //     _id: cu._id,
+    //     name: cu.name,
+    //     type: "clientSubuser"
+    //   }))
+    // ];
+
+    // res.json({ success: true, data: formatted });
     const formatted = [
       ...employees.map((e) => ({
         _id: e._id,
@@ -4815,21 +4987,21 @@ const allUserAdminAndEmployee = async (req, res) => {
         online: e.dutyStatus == "1",
         type: "employee",
       })),
-      ...admin.map((a) => ({
+      ...admins.map((a) => ({
         _id: a._id,
         name: a.name,
         photo: "",
         online: true,
         type: "admin",
       })),
-      ...client.map((a) => ({
+      ...clients.map((a) => ({
         _id: a._id,
         name: a.client_name,
         photo: "",
         online: true,
         type: "client",
       })),
-      ...clientSubUser.map((a) => ({
+      ...clientSubUsers.map((a) => ({
         _id: a._id,
         name: a.name,
         photo: "",
@@ -4837,7 +5009,7 @@ const allUserAdminAndEmployee = async (req, res) => {
         type: "clientSubUser",
       })),
     ];
-    console.log("test formatted data",formatted);
+    console.log("test formatted data", formatted);
 
     // Sort alphabetically by name (A-Z)
     formatted.sort((a, b) => {
@@ -4849,10 +5021,13 @@ const allUserAdminAndEmployee = async (req, res) => {
     });
 
     res.json({ success: true, data: formatted });
+
   } catch (err) {
-    res.status(500).json({ success: false, err });
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
 
 export {
   forgotPassword,
