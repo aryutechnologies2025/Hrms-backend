@@ -34,8 +34,12 @@ export default async function startSocketServer(httpServer) {
   const io = new Server(httpServer, {
     cors: {
       origin: [
-        "https://hrms.aryuprojects.com",
-        "https://employee.aryuprojects.com",
+        // statging socket
+        // "https://hrms.aryuprojects.com",
+        // "https://employee.aryuprojects.com",
+         // live socket
+        "https://employee.aryutechnologies.com",
+        "https://portal.aryutechnologies.com"
       ],
       credentials: true,
     },
