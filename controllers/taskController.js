@@ -24,7 +24,7 @@ const generateTaskId = async () => {
   const counter = await Counter.findOneAndUpdate(
     { id: "taskId" },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { new: true, upsert: true },
   );
 
   const paddedSeq = counter.seq.toString().padStart(3, "0"); // AY001, AY002
@@ -315,7 +315,7 @@ const createTask = async (req, res) => {
         getEmployeeEmail,
         "New Task Created",
         `Task "${projectDetails.name}" assigned to ${getEmployeeName}`,
-        getEmployeeName
+        getEmployeeName,
       );
     } else {
       // Notify all team members if no assigned employee
@@ -327,7 +327,7 @@ const createTask = async (req, res) => {
           member.email,
           "New Task Created",
           `Task "${projectDetails.name}" has been created.`,
-          member.employeeName
+          member.employeeName,
         );
       }
     }
@@ -788,20 +788,20 @@ const allTaskList = async (req, res) => {
       if (day) {
         const [year, month, date] = day.split("-");
         matchStage.$match.createdAt.$gte = new Date(
-          Date.UTC(year, month - 1, date, 0, 0, 0)
+          Date.UTC(year, month - 1, date, 0, 0, 0),
         );
       }
       if (toDate) {
         const [year, month, date] = toDate.split("-");
         matchStage.$match.createdAt.$lte = new Date(
-          Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+          Date.UTC(year, month - 1, date, 23, 59, 59, 999),
         );
       }
     } else if (todayTaskDate) {
       const [year, month, date] = todayTaskDate.split("-");
       const startOfDay = new Date(Date.UTC(year, month - 1, date, 0, 0, 0));
       const endOfDay = new Date(
-        Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+        Date.UTC(year, month - 1, date, 23, 59, 59, 999),
       );
       matchStage.$match.createdAt = { $gte: startOfDay, $lte: endOfDay };
     }
@@ -884,22 +884,19 @@ const allTaskList = async (req, res) => {
       return null;
     };
 
-  
     taskList = await Promise.all(
       taskList.map(async (task) => {
         const [docRecord, createdByName] = await Promise.all([
           TaskDocument.findOne({ taskId: task.taskId }).lean(),
           getUserName(task.createdById),
-         
         ]);
-        
 
         return {
           ...task,
           document: docRecord?.document || [],
           createdByName, // 👈 added
         };
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -1184,13 +1181,13 @@ const allTaskListById = async (req, res) => {
       if (day) {
         const [year, month, date] = day.split("-");
         pipeline[0].$match.createdAt.$gte = new Date(
-          Date.UTC(year, month - 1, date, 0, 0, 0)
+          Date.UTC(year, month - 1, date, 0, 0, 0),
         );
       }
       if (toDate) {
         const [year, month, date] = toDate.split("-");
         pipeline[0].$match.createdAt.$lte = new Date(
-          Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+          Date.UTC(year, month - 1, date, 23, 59, 59, 999),
         );
       }
     } else if (todayTaskDate) {
@@ -1368,7 +1365,7 @@ const getAllTasks = async (req, res) => {
           { path: "projectManagerId", select: "employeeName" },
           { path: "projectId", select: "name" },
         ]),
-      ]
+      ],
     );
 
     res.status(200).json({
@@ -1948,7 +1945,7 @@ const particularTask = async (req, res) => {
       const [year, month, date] = todayTaskDate.split("-");
       const startOfDay = new Date(Date.UTC(year, month - 1, date, 0, 0, 0));
       const endOfDay = new Date(
-        Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+        Date.UTC(year, month - 1, date, 23, 59, 59, 999),
       );
       baseFilter.createdAt = { $gte: startOfDay, $lte: endOfDay };
     }
@@ -1959,13 +1956,13 @@ const particularTask = async (req, res) => {
       if (day) {
         const [year, month, date] = day.split("-");
         baseFilter.createdAt.$gte = new Date(
-          Date.UTC(year, month - 1, date, 0, 0, 0)
+          Date.UTC(year, month - 1, date, 0, 0, 0),
         );
       }
       if (toDate) {
         const [year, month, date] = toDate.split("-");
         baseFilter.createdAt.$lte = new Date(
-          Date.UTC(year, month - 1, date, 23, 59, 59, 999)
+          Date.UTC(year, month - 1, date, 23, 59, 59, 999),
         );
       }
     }
@@ -2013,7 +2010,7 @@ const particularTask = async (req, res) => {
     const buildPipeline = (
       statusFilter,
       extraMatch = {},
-      countOnly = false
+      countOnly = false,
     ) => {
       const pipeline = [
         { $match: { ...baseFilter, ...extraMatch } },
@@ -2037,9 +2034,23 @@ const particularTask = async (req, res) => {
         { $unwind: { path: "$projectId", preserveNullAndEmptyArrays: true } },
       ];
 
+        /* 🔥 EMPLOYEE COMMON CHECK (STRING BASED) */
+      if (employeeId) {
+        pipeline.push({
+          $match: {
+            $or: [
+              // { assignedTo: employeeId },                 // assigned task
+              { "projectId.projectManager": employeeId },  // project manager
+              { "projectId.teamMembers": employeeId },      // team member
+            ],
+          },
+        });
+      }
+
       if (statusFilter) pipeline.push({ $match: { status: statusFilter } });
-      if (searchConditions.length > 0)
+      if (searchConditions.length > 0) {
         pipeline.push({ $match: { $or: searchConditions } });
+      }
 
       if (countOnly) {
         pipeline.push({ $count: "count" });
@@ -2049,7 +2060,7 @@ const particularTask = async (req, res) => {
       pipeline.push(
         { $sort: { createdAt: -1 } },
         { $skip: (pageInt - 1) * limitInt },
-        { $limit: limitInt }
+        { $limit: limitInt },
       );
 
       return pipeline;
@@ -2134,6 +2145,17 @@ const particularTask = async (req, res) => {
         },
       },
       { $unwind: { path: "$projectId", preserveNullAndEmptyArrays: true } },
+      {
+        $match: employeeId
+          ? {
+              $or: [
+                { "project.projectManager": employeeId },
+                { "project.teamMembers": employeeId },
+              ],
+            }
+          : {},
+      },
+      
     ];
 
     if (searchConditions.length > 0) {
@@ -2199,6 +2221,243 @@ const particularTask = async (req, res) => {
     });
   }
 };
+
+// const particularTask = async (req, res) => {
+//   try {
+//     const {
+//       employeeId,
+//       projectId,
+//       day,
+//       toDate,
+//       taskId,
+//       todayTaskDate,
+//       searchTerm,
+//       page = 1,
+//       limit = 10,
+//     } = req.query;
+
+//     const pageInt = parseInt(page);
+//     const limitInt = parseInt(limit);
+
+//     /* ---------------- BASE FILTER ---------------- */
+//     const baseFilter = {};
+
+//     // Today date filter
+//     if (todayTaskDate) {
+//       const [y, m, d] = todayTaskDate.split("-");
+//       baseFilter.createdAt = {
+//         $gte: new Date(Date.UTC(y, m - 1, d, 0, 0, 0)),
+//         $lte: new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999)),
+//       };
+//     }
+
+//     // Range date filter
+//     if (day || toDate) {
+//       baseFilter.createdAt = {};
+//       if (day) {
+//         const [y, m, d] = day.split("-");
+//         baseFilter.createdAt.$gte = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+//       }
+//       if (toDate) {
+//         const [y, m, d] = toDate.split("-");
+//         baseFilter.createdAt.$lte = new Date(
+//           Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+//         );
+//       }
+//     }
+
+//     // Project filter (projectId is ObjectId in Task)
+//     if (projectId) {
+//       baseFilter.projectId = new mongoose.Types.ObjectId(projectId);
+//     }
+
+//     // TaskId filter
+//     if (taskId) {
+//       baseFilter.taskId = { $regex: taskId, $options: "i" };
+//     }
+
+//     /* ---------------- SEARCH ---------------- */
+//     const searchConditions = searchTerm
+//       ? [
+//           { title: { $regex: searchTerm, $options: "i" } },
+//           { taskId: { $regex: searchTerm, $options: "i" } },
+//           { "assignedTo.employeeName": { $regex: searchTerm, $options: "i" } },
+//           { "project.name": { $regex: searchTerm, $options: "i" } },
+//         ]
+//       : [];
+
+//     /* ---------------- PIPELINE BUILDER ---------------- */
+//     const buildPipeline = (status, countOnly = false) => {
+//       const pipeline = [
+//         { $match: baseFilter },
+
+//         // Assigned employee lookup
+//         {
+//           $lookup: {
+//             from: "employees",
+//             localField: "assignedTo",
+//             foreignField: "_id",
+//             as: "assignedTo",
+//           },
+//         },
+//         { $unwind: { path: "$assignedTo", preserveNullAndEmptyArrays: true } },
+
+//         // Project lookup
+//         {
+//           $lookup: {
+//             from: "projects",
+//             localField: "projectId",
+//             foreignField: "_id",
+//             as: "project",
+//           },
+//         },
+//         { $unwind: { path: "$project", preserveNullAndEmptyArrays: true } },
+//       ];
+
+//       /* 🔥 EMPLOYEE COMMON CHECK (STRING BASED) */
+//       if (employeeId) {
+//         pipeline.push({
+//           $match: {
+//             $or: [
+//               { assignedTo: employeeId },                 // assigned task
+//               { "project.projectManager": employeeId },  // project manager
+//               { "project.teamMembers": employeeId },      // team member
+//             ],
+//           },
+//         });
+//       }
+
+//       if (status) {
+//         pipeline.push({ $match: { status } });
+//       }
+
+//       if (searchConditions.length) {
+//         pipeline.push({ $match: { $or: searchConditions } });
+//       }
+
+//       if (countOnly) {
+//         pipeline.push({ $count: "count" });
+//         return pipeline;
+//       }
+
+//       pipeline.push(
+//         { $sort: { createdAt: -1 } },
+//         { $skip: (pageInt - 1) * limitInt },
+//         { $limit: limitInt }
+//       );
+
+//       return pipeline;
+//     };
+
+//     /* ---------------- STATUS WISE FETCH ---------------- */
+//     const taskByStatus = {};
+
+//     // TODO
+//     const [todoTasks, todoCountArr] = await Promise.all([
+//       Task.aggregate(buildPipeline("todo")),
+//       Task.aggregate(buildPipeline("todo", true)),
+//     ]);
+//     taskByStatus.todo = {
+//       tasks: todoTasks,
+//       count: todoCountArr[0]?.count || 0,
+//     };
+
+//     const statusList = ["in-progress", "in-review", "done", "block", "completed"];
+
+//     for (const status of statusList) {
+//       const [tasks, countArr] = await Promise.all([
+//         Task.aggregate(buildPipeline(status)),
+//         Task.aggregate(buildPipeline(status, true)),
+//       ]);
+//       taskByStatus[status] = {
+//         tasks,
+//         count: countArr[0]?.count || 0,
+//       };
+//     }
+
+//     /* ---------------- TODAY TASKS ---------------- */
+//     const todayStart = new Date();
+//     todayStart.setHours(0, 0, 0, 0);
+//     const todayEnd = new Date();
+//     todayEnd.setHours(23, 59, 59, 999);
+
+//     const todayTasks = await Task.aggregate([
+//       {
+//         $match: {
+//           ...baseFilter,
+//           createdAt: { $gte: todayStart, $lte: todayEnd },
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "projects",
+//           localField: "projectId",
+//           foreignField: "_id",
+//           as: "project",
+//         },
+//       },
+//       { $unwind: "$project" },
+//       {
+//         $match: employeeId
+//           ? {
+//               $or: [
+//                 { assignedTo: employeeId },
+//                 { "project.projectManager": employeeId },
+//                 { "project.teamMembers": employeeId },
+//               ],
+//             }
+//           : {},
+//       },
+//     ]);
+//     /* ---------------- COUNTS ---------------- */
+//     const totalProjectCount = employeeId
+//       ? await ProjectModel.countDocuments({
+//           $or: [
+//             { projectManager: employeeId },
+//             { teamMembers: { $in: [employeeId] } },
+//           ],
+//         })
+//       : await ProjectModel.countDocuments();
+
+//     const statusCounts = Object.fromEntries(
+//       Object.entries(taskByStatus).map(([k, v]) => [k, v.count])
+//     );
+
+//     const maxCount = Math.max(...Object.values(statusCounts));
+
+//     /* ---------------- RESPONSE ---------------- */
+//     res.status(200).json({
+//       success: true,
+//       message: "Tasks fetched successfully",
+//       pagination: {
+//         currentPage: pageInt,
+//         limit: limitInt,
+//         totalTasks: maxCount,
+//         totalPages: Math.ceil(maxCount / limitInt),
+//       },
+//       counts: {
+//         totalProjectCount,
+//         todayTasks: todayTasks.length,
+//       },
+//       data: {
+//         taskToDo: taskByStatus.todo.tasks,
+//         taskInProcess: taskByStatus["in-progress"].tasks,
+//         taskInReview: taskByStatus["in-review"].tasks,
+//         taskDone: taskByStatus.done.tasks,
+//         taskBlock: taskByStatus.block.tasks,
+//         todayTasks,
+//         statusCounts,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching tasks:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error fetching tasks",
+//       error: error.message,
+//     });
+//   }
+// };
 
 const particularTaskById = async (req, res) => {
   try {
@@ -2272,13 +2531,13 @@ const particularTaskById = async (req, res) => {
       if (day) {
         const d = new Date(day);
         matchFilter.createdAt.$gte = new Date(
-          Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+          Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0),
         );
       }
       if (toDate) {
         const d = new Date(toDate);
         matchFilter.createdAt.$lte = new Date(
-          Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+          Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59),
         );
       }
     }
@@ -2367,12 +2626,12 @@ const particularTaskById = async (req, res) => {
         limit: limitInt,
         totalTasks: Object.values(taskByStatus).reduce(
           (a, b) => a + b.count,
-          0
+          0,
         ),
         totalPages: Math.max(
           ...Object.values(taskByStatus).map((s) =>
-            Math.ceil(s.count / limitInt)
-          )
+            Math.ceil(s.count / limitInt),
+          ),
         ),
       },
       data: {
@@ -2383,7 +2642,7 @@ const particularTaskById = async (req, res) => {
         taskBlock: taskByStatus["block"].tasks,
         taskCompleted: taskByStatus["completed"].tasks,
         statusCounts: Object.fromEntries(
-          statuses.map((s) => [s, taskByStatus[s].count])
+          statuses.map((s) => [s, taskByStatus[s].count]),
         ),
       },
     });
@@ -2712,7 +2971,8 @@ const updateTaskStatus = async (req, res) => {
       "block",
       "completed",
     ];
-    const task = await Task.findOne({ taskId: id });
+    const task = await Task.findOne({ taskId: id }).populate("projectId");
+    console.log("Found Task:", task);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
@@ -2720,7 +2980,7 @@ const updateTaskStatus = async (req, res) => {
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
         { $set: { taskType } },
-        { new: true }
+        { new: true },
       );
 
       return res.status(200).json({
@@ -2734,7 +2994,7 @@ const updateTaskStatus = async (req, res) => {
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
         { $set: { assignedTo } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
       // Step 7: Save task log
       // const taskLogEntry = new TaskLogsModel({
@@ -2756,7 +3016,7 @@ const updateTaskStatus = async (req, res) => {
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
         { $set: { status } },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
 
       if (!updatedTask) {
@@ -2904,13 +3164,13 @@ const updateTaskStatus = async (req, res) => {
       //  only project manager and super admin and client and subUser client can mark as done/completed
       // const userDetails = await User.findOne({ _id: updatedBy });
 
-        // if (!userDetails) {
-          // no _id match → skip or check superAdmin
-          const superAdmin = await User.findOne({
-            _id: updatedBy,
-            superUser: true
-          });
-        // }
+      // if (!userDetails) {
+      // no _id match → skip or check superAdmin
+      const superAdmin = await User.findOne({
+        _id: updatedBy,
+        superUser: true,
+      });
+      // }
 
       // console.log(
       //   updatedBy,
@@ -2957,6 +3217,7 @@ const updateTaskStatus = async (req, res) => {
 
       // --- Permission Logic ---
       const allowedUsers = [
+        task?.projectId?.projectManager,
         findTask.projectManagerId?.toString(),
         superAdmin?._id?.toString(),
         clientIdAllowed,
@@ -2973,13 +3234,12 @@ const updateTaskStatus = async (req, res) => {
             "Only Project Manager, Admin, Client or Sub-Client can mark task as done/completed",
         });
       }
-
       // Step 5: Prepare update fields
       const updateFields = {
         status,
         startTime,
         endTime,
-        taskType
+        taskType,
       };
 
       // If task not assigned yet, assign it to updatedBy
@@ -2987,12 +3247,11 @@ const updateTaskStatus = async (req, res) => {
       if (!findTask.assignedTo && status == "in-progress") {
         updateFields.assignedTo = updatedBy;
       }
-
       // Step 6: Update the task
       const updatedTask = await Task.findOneAndUpdate(
         { taskId: id },
         { $set: updateFields },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
 
       if (!updatedTask) {
@@ -3084,7 +3343,7 @@ const tasklogsList = async (req, res) => {
           ...log,
           updatedBy: { employeeName: updatedByName },
         };
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -3221,7 +3480,7 @@ const getParticularTaskComments = async (req, res) => {
           comment.photo = null;
         }
         return comment;
-      })
+      }),
     );
 
     return res.status(200).json({
@@ -3465,7 +3724,7 @@ const taskHold = async (req, res) => {
       {
         $push: { pauseComments: pauseEntry },
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedTask) {
@@ -3518,7 +3777,7 @@ const testerStatus = async (req, res) => {
     const updatedTask = await Task.findOneAndUpdate(
       { taskId: taskId },
       { $set: { testerStatus: testerStatus } },
-      { new: true }
+      { new: true },
     );
     // console.log("update", updatedTask);
 
@@ -3688,7 +3947,7 @@ const particularMonthlyReport = async (req, res) => {
       date: { $gte: start, $lte: end },
     }).populate(
       "employeeId",
-      "_id photo employeeName phoneNumber email employeeType employeeId"
+      "_id photo employeeName phoneNumber email employeeType employeeId",
     );
     // console.log("login",attendanceList);
     const leaveList = await Leave.find({
@@ -3720,7 +3979,7 @@ const particularMonthlyReport = async (req, res) => {
       });
 
       const holiday = holidaysList.find(
-        (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
+        (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr,
       );
 
       if (holiday || (dayName === "Sunday" && !attendance)) {
@@ -4267,7 +4526,7 @@ const deleteTaskFileByIndex = async (req, res) => {
         process.cwd(),
         "uploads",
         "others",
-        path.basename(normalized)
+        path.basename(normalized),
       );
     }
 

@@ -1,4 +1,5 @@
 import Channel from "../models/channelModel.js";
+import { getIO } from "../socket.js";
 
 const createChannel = async (req, res) => {
   try {
@@ -11,8 +12,14 @@ const createChannel = async (req, res) => {
       type,
       members: [createdBy, ...members], // creator auto-joined
     });
+   // Notify members about the new channel
+
+    const io = getIO();
+
+    io.to(members.map(m => m._id)).emit("channel_created", channel);
 
     res.json({ success: true, data: channel });
+    
   } catch (err) {
     console.log("err", err);
     res.status(500).json({ success: false, message: err.message });

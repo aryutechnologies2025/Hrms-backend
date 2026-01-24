@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import ProjectModel from "../models/projectModel.js";
 import ClientSubUser from "../models/clientSubUserModel.js";
+import Task from "../models/taskModal.js";
 
 const createProject = async (req, res) => {
   const {
@@ -172,7 +173,7 @@ const getProjectById = async (req, res) => {
     const { id } = req.params;
     const project = await ProjectModel.findById(id).populate(
       "createdByAdmin",
-      "name email"
+      "name email",
     );
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
@@ -213,6 +214,7 @@ const updateProject = async (req, res) => {
     if (!existingProject) {
       return res.status(404).json({ error: "Project not found" });
     }
+    const oldProjectManager = existingProject.projectManager;
     const checkProjectName = await ProjectModel.find();
     checkProjectName.map((project) => {
       if (project.name === name && project._id.toString() !== id) {
@@ -282,6 +284,12 @@ const updateProject = async (req, res) => {
 
     // Save updated project
     const updatedProject = await existingProject.save();
+    if (oldProjectManager?.toString() !== req.body.projectManager?.toString()) {
+      await Task.updateMany(
+        { projectId: id },
+        { projectManagerId: req.body.projectManager },
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -416,18 +424,16 @@ const getClientProjectId = async (req, res) => {
 
     // 2. Fetch projects for this client assigned to this sub-user
     const projects = await ProjectModel.find({
-      clientName: clientId,          // <- FIXED field name
+      clientName: clientId, // <- FIXED field name
       _id: { $in: projectIds },
     });
 
     res.status(200).json({ success: true, data: projects });
-
   } catch (error) {
     console.error("Error fetching client projects:", error);
     res.status(500).json({ success: false, error: "Internal server error" });
   }
 };
-
 
 export {
   createProject,
@@ -439,6 +445,7 @@ export {
   getProjectsById,
   checkOnlyProjectManeger,
   getClientProjectId,
+  getProjectManagerProjects,
   getProjectNames,
-  getProjectManagerProjects
+  
 };
