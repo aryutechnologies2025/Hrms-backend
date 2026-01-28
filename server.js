@@ -65,7 +65,7 @@ import messageRouter from "./routes/messageRouter.js";
 // <<<<<<< venu
 import favoritesRouter from "./routes/favoritiesRoutert.js";
 
-
+import TechnologyPortfolio from "./routes/technologyPortfolioRouter.js";
 
 import customerRouter from "./routes/customerRouter.js";
 import digitalMarketingRouter from "./routes/digitalMarketingRouter.js";
@@ -149,6 +149,7 @@ const startApp = async () => {
 
   app.use("/api/customer",customerRouter);
   app.use("/api/digital-marketing",digitalMarketingRouter);
+  app.use("/api/Technology-Portfolio",TechnologyPortfolio);
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);
