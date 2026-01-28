@@ -149,7 +149,7 @@ const startApp = async () => {
 
   app.use("/api/customer",customerRouter);
   app.use("/api/digital-marketing",digitalMarketingRouter);
-  app.use("/api/Technology-Portfolio",TechnologyPortfolio);
+  app.use("/api/technology-Portfolio",TechnologyPortfolio);
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);
