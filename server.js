@@ -63,6 +63,9 @@ import  startSocketServer  from "./socket.js";
 import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
 
+
+import TechnologyPortfolio from "./routes/technologyPortfolioRouter.js";
+
 import favoritesRouter from "./routes/favoritiesRoutert.js";
 import customerRouter from "./routes/customerRouter.js";
 import digitalMarketingRouter from "./routes/digitalMarketingRouter.js";
@@ -146,6 +149,7 @@ const startApp = async () => {
 
   app.use("/api/customer",customerRouter);
   app.use("/api/digital-marketing",digitalMarketingRouter);
+  app.use("/api/technology-Portfolio",TechnologyPortfolio);
   // socket sever
   const server = http.createServer(app);
    startSocketServer(server);
