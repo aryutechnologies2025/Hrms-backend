@@ -3,8 +3,8 @@ import PortfolioProject from "../models/portfolioProjectModel.js";
 
 const createTechnologyPortfolio = async (req, res) => {
   try {
-    const { name } = req.body;
-    const newTechnologyPortfolio = new TechnologyPortfolio({ name });
+    const { name,status } = req.body;
+    const newTechnologyPortfolio = new TechnologyPortfolio({ name,status });
     const savedTechnologyPortfolio = await newTechnologyPortfolio.save();
     res.status(201).json({ success: true, data: savedTechnologyPortfolio });
   } catch (error) {
@@ -33,6 +33,15 @@ const getTechnologyPortfolio= async (req, res) => {
   }
 };
 
+const getTechnologyPortfolioActive= async (req, res) => {
+  try {
+    const TechnologyPortfolioDetails = await TechnologyPortfolio.find({status : "1"});
+    res.status(200).json({ success: true, data: TechnologyPortfolioDetails });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const editTechnologyPortfolio = async (req, res) => {
   try {
     const { id } = req.params;
@@ -51,6 +60,7 @@ const editTechnologyPortfolio = async (req, res) => {
 
 const deleteTechnologyPortfolio = async (req, res) => {
   const {id} = req.params;
+  console.log("id",id);
   try {
     const deleted = await TechnologyPortfolio.findByIdAndDelete(id);
     if (!deleted) {
@@ -66,7 +76,8 @@ const deleteTechnologyPortfolio = async (req, res) => {
 //portfo project list
 const createPortfolioProject = async (req, res) => {
   try {
-    const { technologyPortfolio,title,link,documents,status } = req.body;
+    const { technologyPortfolio,title,link,status } = req.body;
+    console.log("req.files",req.body);
      const documentArray = [];
         if (Array.isArray(req.files)) {
             req.files.forEach((file) => {
@@ -79,7 +90,9 @@ const createPortfolioProject = async (req, res) => {
 
             });
         }
+      console.log("documentArray",documentArray);
     const newTechnologyProject = new PortfolioProject({  technologyPortfolio,title,link,documents:documentArray,status });
+    console.log("newTechnologyProject",newTechnologyProject);
     const savedTechnologyProject = await newTechnologyProject.save();
     res.status(201).json({ success: true, data: savedTechnologyProject });
   } catch (error) {
@@ -108,6 +121,18 @@ const getTechnologyProject= async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+const getSelectedTechnologyProject= async (req, res) => {
+  const {type} = req.query;
+  try {
+    const TechnologyProjectDetails = await PortfolioProject.find({status : "1",technologyPortfolio : type}).populate("technologyPortfolio", "name")
+    .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: TechnologyProjectDetails });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
 const editTechnologyProject = async (req, res) => {
   try {
     const { id } = req.params;
@@ -158,5 +183,7 @@ export {
     createPortfolioProject,
     getTechnologyProject,
     editTechnologyProject,
-    deleteTechnologyProject
+    deleteTechnologyProject,
+    getTechnologyPortfolioActive,
+    getSelectedTechnologyProject
 }
