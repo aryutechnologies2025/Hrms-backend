@@ -101,7 +101,7 @@ const createPortfolioProject = async (req, res) => {
 
 const getTechnologyProject= async (req, res) => {
   try {
-    const TechnologyProjectDetails = await PortfolioProject.find().populate("technologyPortfolio", "name")
+    const TechnologyProjectDetails = await PortfolioProject.find({status : "1"}).populate("technologyPortfolio", "name")
     .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: TechnologyProjectDetails });
   } catch (error) {
