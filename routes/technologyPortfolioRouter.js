@@ -19,6 +19,7 @@ TechnologyPortfolioRouter.delete("/delete-technology-portfolio/:id", deleteTechn
 
 TechnologyPortfolioRouter.post("/create-technology-portfolio-project",upload.any(), createPortfolioProject);
 TechnologyPortfolioRouter.get("/view-technology-portfolio-project", getTechnologyProject);
+// TechnologyPortfolioRouter.get("/view-selected-technology-portfolio-project", getSelectedTechnologyProject);
 TechnologyPortfolioRouter.get("/view-selected-technology-portfolio-project", getSelectedTechnologyProject);
 TechnologyPortfolioRouter.put("/edit-technology-portfolio-project/:id",upload.any(), editTechnologyProject);
 TechnologyPortfolioRouter.delete("/delete-technology-portfolio-project/:id", deleteTechnologyProject);
