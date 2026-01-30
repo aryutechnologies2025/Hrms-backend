@@ -59,9 +59,52 @@ import Favorites from "../models/favoritiesModel.js";
 /* =========================
    TOGGLE DM FAVORITE
 ========================= */
+// export const toggleDMFavorite = async (req, res) => {
+//   try {
+//     console.log("req.body", req.body);
+//     const { userId, userModel, dmId, dmModel } = req.body;
+
+//     if (!userId || !userModel || !dmId || !dmModel) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "userId, userModel, dmId, dmModel required",
+//       });
+//     }
+
+//     let fav = await Favorites.findOne({
+//       "user.id": userId,
+//       "user.model": userModel,
+//     });
+
+//     if (!fav) {
+//       fav = await Favorites.create({
+//         user: { id: userId, model: userModel },
+//         dm: [{ id: dmId, model: dmModel }],
+//         channels: [],
+//       });
+//     } else {
+//       const index = fav.dm.findIndex(
+//         (d) => d.id.toString() === dmId && d.model === dmModel
+//       );
+
+//       index > -1
+//         ? fav.dm.splice(index, 1)
+//         : fav.dm.push({ id: dmId, model: dmModel });
+
+//       await fav.save();
+//     }
+//     res.json({
+//       success: true,
+//       data: await populateFavorites(fav),
+//     });
+//   } catch(err) {
+//     console.log("err", err);
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
+
 export const toggleDMFavorite = async (req, res) => {
   try {
-    console.log("req.body", req.body);
     const { userId, userModel, dmId, dmModel } = req.body;
 
     if (!userId || !userModel || !dmId || !dmModel) {
@@ -84,21 +127,24 @@ export const toggleDMFavorite = async (req, res) => {
       });
     } else {
       const index = fav.dm.findIndex(
-        (d) => d.id.toString() === dmId && d.model === dmModel
+        (d) => d.id.toString() === dmId // 🔥 FIX HERE
       );
 
-      index > -1
-        ? fav.dm.splice(index, 1)
-        : fav.dm.push({ id: dmId, model: dmModel });
+      if (index > -1) {
+        fav.dm.splice(index, 1);
+      } else {
+        fav.dm.push({ id: dmId, model: dmModel });
+      }
 
       await fav.save();
     }
+
     res.json({
       success: true,
       data: await populateFavorites(fav),
     });
-  } catch(err) {
-    console.log("err", err);
+  } catch (err) {
+    console.error("err", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
