@@ -62,15 +62,16 @@ import projectNotesRouter from "./routes/projectNotesRouter.js";
 import  startSocketServer  from "./socket.js";
 import channelRouter from "./routes/channelRouter.js";
 import messageRouter from "./routes/messageRouter.js";
-// <<<<<<< venu
-import favoritesRouter from "./routes/favoritiesRoutert.js";
+
 
 import TechnologyPortfolio from "./routes/technologyPortfolioRouter.js";
 
+import favoritesRouter from "./routes/favoritiesRoutert.js";
 import customerRouter from "./routes/customerRouter.js";
 import digitalMarketingRouter from "./routes/digitalMarketingRouter.js";
+
 import backupRouter from "./routes/backupRouter.js";
-// >>>>>>> main
+
 // Load environment variables
 dotenv.config();
 
