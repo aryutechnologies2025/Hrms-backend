@@ -70,6 +70,8 @@ import favoritesRouter from "./routes/favoritiesRoutert.js";
 import customerRouter from "./routes/customerRouter.js";
 import digitalMarketingRouter from "./routes/digitalMarketingRouter.js";
 
+import backupRouter from "./routes/backupRouter.js";
+
 // Load environment variables
 dotenv.config();
 
@@ -150,9 +152,10 @@ const startApp = async () => {
   app.use("/api/customer",customerRouter);
   app.use("/api/digital-marketing",digitalMarketingRouter);
   app.use("/api/technology-Portfolio",TechnologyPortfolio);
+  app.use("/api/backup",backupRouter);
   // socket sever
   const server = http.createServer(app);
-   startSocketServer(server);
+  startSocketServer(server);
 
 //   app.use("/api/attendance",useAuth, attendanceRoutes);
 //   app.use("/api/leave",useAuth, leaveRoutes);
