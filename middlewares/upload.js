@@ -97,6 +97,25 @@ const storage = multer.diskStorage({
     }else if(file.fieldname === 'portfolioDocuments'){
       destPath = path.join(__dirname, "../uploads/portfolioDocuments");
     }
+    else if (file.fieldname === "backupFilesDocuments") {
+  const { projectList, type, date } = req.body;
+
+  if (!projectList || !type || !date) {
+    return cb(new Error("Missing backup fields"));
+  }
+
+
+  const safeDate = date.replace(/[:.]/g, "-");
+
+  destPath = path.join(
+    __dirname,
+    "../uploads/backup",
+    projectList,
+    type === "db" ? "db" : "files",
+    safeDate
+  );
+}
+
     // else if (file.fieldname === 'files'){
     //   console.log("download 123");
     //   destPath =path.join(__dirname,'../uploads/documents');
