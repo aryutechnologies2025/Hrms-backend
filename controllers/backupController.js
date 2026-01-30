@@ -34,7 +34,7 @@ const createBackup = async (req, res) => {
 
 const getBackup= async (req, res) => {
   try {
-    const BackupDetails = await Backup.find().populate("createdBy", "name")
+    const BackupDetails = await Backup.find().populate("createdBy", "name").populate("projectList", "name")
     .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: BackupDetails });
   } catch (error) {
@@ -45,7 +45,7 @@ const getBackup= async (req, res) => {
 const getBackupById = async(req,res)=>{
     const {id} = req.query;
     try{
-        const backupDetails = await Backup.find({createdBy:id}).sort({createdAt:-1});
+        const backupDetails = await Backup.find({createdBy:id}).populate("createdBy", "name").populate("projectList", "name").sort({createdAt:-1});
         res.status(200).json({success:true,data:backupDetails});
     }catch(error){
         res.status(500).json({success:false,error:error.message});
