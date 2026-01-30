@@ -121,6 +121,16 @@ const getTechnologyProject= async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+// const getSelectedTechnologyProject= async (req, res) => {
+//   const {type} = req.query;
+//   try {
+//     const TechnologyProjectDetails = await PortfolioProject.find({status : "1",technologyPortfolio : type}).populate("technologyPortfolio", "name")
+//     .sort({ createdAt: -1 });
+//     res.status(200).json({ success: true, data: TechnologyProjectDetails });
+//   } catch (error) {
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
 const getSelectedTechnologyProject= async (req, res) => {
   const {type} = req.query;
   try {
