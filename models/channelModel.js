@@ -23,10 +23,9 @@ const ChannelSchema = new mongoose.Schema(
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee", // ✅ model name
+      ref: "AdminUser", // ✅ model name
       required: true,
     },
-
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
