@@ -84,37 +84,38 @@ const storage = multer.diskStorage({
     else if (file.fieldname === "fileUpload") {
       destPath = path.join(__dirname, "../uploads/assets");
     }
-    else if(file.fieldname === 'clientInvoice'){
-      destPath =path.join(__dirname,'../uploads/clientInvoices');
-    }else if (file.fieldname === "originalDocuments") {
+    else if (file.fieldname === 'clientInvoice') {
+      destPath = path.join(__dirname, '../uploads/clientInvoices');
+    } else if (file.fieldname === "originalDocuments") {
       destPath = path.join(__dirname, "../uploads/originalDeclarationDocuments");
-    }else if (file.fieldname === "documents") {
+    } else if (file.fieldname === "documents") {
       destPath = path.join(__dirname, "../uploads/DeclarationDocuments");
-    }else if(file.fieldname === "projectDocuments") {
+    } else if (file.fieldname === "projectDocuments") {
       destPath = path.join(__dirname, "../uploads/projectDocuments");
-    }else if (file.fieldname === 'digitalMarketingDocuments'){
+    } else if (file.fieldname === 'digitalMarketingDocuments') {
       destPath = path.join(__dirname, "../uploads/digitalMarketingDocuments");
-    }else if(file.fieldname === 'portfolioDocuments'){
+    } else if (file.fieldname === 'portfolioDocuments') {
       destPath = path.join(__dirname, "../uploads/portfolioDocuments");
     }
     else if (file.fieldname === "backupFilesDocuments") {
-  const { projectList, type, date } = req.body;
+      const { projectList, type, date } = req.body;
 
-  if (!projectList || !type || !date) {
-    return cb(new Error("Missing backup fields"));
-  }
+      if (!projectList || !type || !date) {
+        return cb(new Error("Missing backup fields"));
+      }
 
 
-  const safeDate = date.replace(/[:.]/g, "-");
+      // const safeDate = date.replace(/[:.]/g, "-");
+      const safeDate = date.split("T")[0];
 
-  destPath = path.join(
-    __dirname,
-    "../uploads/backup",
-    projectList,
-    type === "db" ? "db" : "files",
-    safeDate
-  );
-}
+      destPath = path.join(
+        __dirname,
+        "../uploads/backup",
+        projectList,
+        type === "db" ? "db" : "files",
+        safeDate
+      );
+    }
 
     // else if (file.fieldname === 'files'){
     //   console.log("download 123");
@@ -156,17 +157,17 @@ const upload = multer({
   //     cb(new Error("Only images and PDF files are allowed!"));
   //   }
   // }
-//   fileFilter: (req, file, cb) => {
-//   const allowedTypes = /jpeg|jpg|png|gif|pdf|mp4|mkv|avi/; //  Added video types
-//   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-//   const mimetype = allowedTypes.test(file.mimetype);
+  //   fileFilter: (req, file, cb) => {
+  //   const allowedTypes = /jpeg|jpg|png|gif|pdf|mp4|mkv|avi/; //  Added video types
+  //   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  //   const mimetype = allowedTypes.test(file.mimetype);
 
-//   if (extname && mimetype) {
-//     cb(null, true);
-//   } else {
-//     cb(new Error("Only images, videos, and PDF files are allowed"));
-//   }
-// }
+  //   if (extname && mimetype) {
+  //     cb(null, true);
+  //   } else {
+  //     cb(new Error("Only images, videos, and PDF files are allowed"));
+  //   }
+  // }
 
   // Optional: Validate allowed file types
   // fileFilter: (req, file, cb) => {  
