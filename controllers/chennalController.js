@@ -16,14 +16,13 @@ const createChannel = async (req, res) => {
       type,
       members: [createdBy, ...members], // creator auto-joined
     });
-   // Notify members about the new channel
+    // Notify members about the new channel
 
     const io = getIO();
 
-    io.to(members.map(m => m._id)).emit("channel_created", channel);
+    io.to(members.map((m) => m._id)).emit("channel_created", channel);
 
     res.json({ success: true, data: channel });
-    
   } catch (err) {
     console.log("err", err);
     res.status(500).json({ success: false, message: err.message });
@@ -46,7 +45,7 @@ const listChannels = async (req, res) => {
           { members: userId }, // array contains userId
           { senderId: userId }, // creator
         ],
-      })
+      });
       res.status(200).json({ success: true, data: channels });
     }
   } catch (err) {
@@ -186,7 +185,6 @@ const listChannels = async (req, res) => {
 //   }
 // };
 
-
 const updateChannel = async (req, res) => {
   try {
     const { id } = req.params;
@@ -208,7 +206,7 @@ const updateChannel = async (req, res) => {
     const updatedChannel = await Channel.findByIdAndUpdate(
       id,
       { $set: updateData }, // ⭐ VERY IMPORTANT
-      { new: true }
+      { new: true },
     ).populate("members", "name email");
 
     if (!updatedChannel) {
@@ -222,7 +220,6 @@ const updateChannel = async (req, res) => {
       success: true,
       data: updatedChannel,
     });
-
   } catch (err) {
     console.log("update error:", err);
     res.status(500).json({
@@ -231,7 +228,6 @@ const updateChannel = async (req, res) => {
     });
   }
 };
-
 
 const deleteChannel = async (req, res) => {
   try {
@@ -253,7 +249,6 @@ const deleteChannel = async (req, res) => {
       success: true,
       message: "Channel deleted successfully",
     });
-
   } catch (error) {
     console.log("delete channel error:", error);
 
@@ -264,7 +259,4 @@ const deleteChannel = async (req, res) => {
   }
 };
 
-
-
-
-export { createChannel, listChannels,updateChannel,deleteChannel};
+export { createChannel, listChannels, updateChannel, deleteChannel };
