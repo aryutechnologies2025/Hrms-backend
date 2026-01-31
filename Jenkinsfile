@@ -43,10 +43,10 @@ pipeline {
       }
     }
 
-    stage("Start or Reload PM2") {
+    stage("Restart PM2") {
       steps {
         sh """
-          pm2 reload hrms-staging-api || pm2 start /var/www/ayhrms-staging-node/ecosystem.config.js
+          pm2 restart hrms-staging-api --update-env
         """
       }
     }
