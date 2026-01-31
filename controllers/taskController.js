@@ -1922,7 +1922,7 @@ const fixAssignedTo = async (tasks) => {
 // };
 
 const particularTask = async (req, res) => {
-  try {
+try {
     const {
       employeeId,
       projectId,
@@ -1938,82 +1938,105 @@ const particularTask = async (req, res) => {
     const pageInt = parseInt(page);
     const limitInt = parseInt(limit);
 
-    // Base filter
+    /* ---------------- BASE FILTER ---------------- */
     const baseFilter = {};
-    // Date filter
+
     if (todayTaskDate) {
       const [year, month, date] = todayTaskDate.split("-");
-      const startOfDay = new Date(Date.UTC(year, month - 1, date, 0, 0, 0));
-      const endOfDay = new Date(
-        Date.UTC(year, month - 1, date, 23, 59, 59, 999),
-      );
-      baseFilter.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      baseFilter.createdAt = {
+        $gte: new Date(Date.UTC(year, month - 1, date, 0, 0, 0)),
+        $lte: new Date(Date.UTC(year, month - 1, date, 23, 59, 59, 999)),
+      };
     }
 
-    //  Date filter
     if (day || toDate) {
       baseFilter.createdAt = {};
       if (day) {
-        const [year, month, date] = day.split("-");
-        baseFilter.createdAt.$gte = new Date(
-          Date.UTC(year, month - 1, date, 0, 0, 0),
-        );
+        const [y, m, d] = day.split("-");
+        baseFilter.createdAt.$gte = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
       }
       if (toDate) {
-        const [year, month, date] = toDate.split("-");
-        baseFilter.createdAt.$lte = new Date(
-          Date.UTC(year, month - 1, date, 23, 59, 59, 999),
-        );
+        const [y, m, d] = toDate.split("-");
+        baseFilter.createdAt.$lte = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
       }
     }
 
-    //  Project filter
     if (projectId) {
       baseFilter.projectId = new mongoose.Types.ObjectId(projectId);
     }
 
-    //  Task ID filter
     if (taskId) {
       baseFilter.taskId = { $regex: taskId, $options: "i" };
     }
 
-    //  Employee filter
-    let employeeProjects = [];
-    let projectIds = [];
+    /* ---------------- EMPLOYEE ACCESS ---------------- */
     let employeeObjectId;
+    let managedProjectIds = [];
+    let employeeProjectIds = [];
+    let isProjectManager = false;
 
     if (employeeId) {
       employeeObjectId = new mongoose.Types.ObjectId(employeeId);
 
-      employeeProjects = await ProjectModel.find({
-        $or: [
-          { projectManagerId: employeeId },
-          { teamMembers: { $in: [employeeId] } },
-        ],
+      // PM projects
+      const managedProjects = await ProjectModel.find({
+        projectManager: employeeId,
       }).select("_id");
 
-      projectIds = employeeProjects.map((p) => p._id);
+      managedProjectIds = managedProjects.map(p => p._id);
+      isProjectManager = managedProjectIds.length > 0;
+
+      // Employee assigned projects
+      const employeeProjects = await ProjectModel.find({
+        teamMembers: employeeId, // adjust field name if different
+      }).select("_id");
+
+      employeeProjectIds = employeeProjects.map(p => p._id);
     }
 
-    //  Search conditions (including populated fields)
+    /* ---------------- FINAL ACCESS CONDITION ---------------- */
+    const employeeAccessMatch = employeeId
+      ? {
+          $or: [
+            { assignedTo: employeeObjectId },
+            ...(isProjectManager
+              ? [{ projectId: { $in: managedProjectIds } }]
+              : []),
+            ...(!isProjectManager
+              ? [
+                  {
+                    $and: [
+                      {
+                        $or: [
+                          { assignedTo: null },
+                          { assignedTo: { $exists: false } },
+                        ],
+                      },
+                      { projectId: { $in: employeeProjectIds } },
+                    ],
+                  },
+                ]
+              : []),
+          ],
+        }
+      : {};
+
+    /* ---------------- SEARCH ---------------- */
     const searchConditions = searchTerm
       ? [
           { title: { $regex: searchTerm, $options: "i" } },
-          // { description: { $regex: searchTerm, $options: "i" } },
           { taskId: { $regex: searchTerm, $options: "i" } },
           { "assignedTo.employeeName": { $regex: searchTerm, $options: "i" } },
           { "projectId.name": { $regex: searchTerm, $options: "i" } },
         ]
       : [];
 
-    //  Helper: Aggregation pipeline builder
-    const buildPipeline = (
-      statusFilter,
-      extraMatch = {},
-      countOnly = false,
-    ) => {
+    /* ---------------- PIPELINE BUILDER ---------------- */
+    const buildPipeline = (status, countOnly = false) => {
       const pipeline = [
-        { $match: { ...baseFilter, ...extraMatch } },
+        { $match: baseFilter },
+        ...(employeeId ? [{ $match: employeeAccessMatch }] : []),
+        ...(status ? [{ $match: { status } }] : []),
         {
           $lookup: {
             from: "employees",
@@ -2034,21 +2057,7 @@ const particularTask = async (req, res) => {
         { $unwind: { path: "$projectId", preserveNullAndEmptyArrays: true } },
       ];
 
-        /* 🔥 EMPLOYEE COMMON CHECK (STRING BASED) */
-      if (employeeId) {
-        pipeline.push({
-          $match: {
-            $or: [
-              // { assignedTo: employeeId },                 // assigned task
-              { "projectId.projectManager": employeeId },  // project manager
-              { "projectId.teamMembers": employeeId },      // team member
-            ],
-          },
-        });
-      }
-
-      if (statusFilter) pipeline.push({ $match: { status: statusFilter } });
-      if (searchConditions.length > 0) {
+      if (searchConditions.length) {
         pipeline.push({ $match: { $or: searchConditions } });
       }
 
@@ -2060,60 +2069,28 @@ const particularTask = async (req, res) => {
       pipeline.push(
         { $sort: { createdAt: -1 } },
         { $skip: (pageInt - 1) * limitInt },
-        { $limit: limitInt },
+        { $limit: limitInt }
       );
 
       return pipeline;
     };
 
-    //  Employee-based filters
-    const todoExtraMatch = {};
-    const otherExtraMatch = {};
-
-    if (employeeId) {
-      todoExtraMatch.$or = [
-        { assignedTo: employeeObjectId },
-        { assignedTo: { $exists: false }, projectId: { $in: projectIds } },
-        { assignedTo: null, projectId: { $in: projectIds } },
-        { projectManagerId: employeeObjectId },
-      ];
-
-      otherExtraMatch.$or = [
-        { assignedTo: employeeObjectId },
-        { projectManagerId: employeeObjectId },
-      ];
-    }
-
-    //  Fetch tasks by status (with search-aware counts)
+    /* ---------------- STATUS WISE FETCH ---------------- */
+    const statuses = ["todo", "in-progress", "in-review", "done", "block", "completed"];
     const taskByStatus = {};
+    const statusCounts = {};
 
-    // --- ToDo ---
-    const [taskToDo, todoCountResult] = await Promise.all([
-      Task.aggregate(buildPipeline("todo", todoExtraMatch)),
-      Task.aggregate(buildPipeline("todo", todoExtraMatch, true)),
-    ]);
-    const todoCount = todoCountResult[0]?.count || 0;
-    taskByStatus["todo"] = { tasks: taskToDo, count: todoCount };
-
-    // --- Other statuses ---
-    const statusList = [
-      "in-progress",
-      "in-review",
-      "done",
-      "block",
-      "completed",
-    ];
-
-    for (const status of statusList) {
-      const [tasks, countResult] = await Promise.all([
-        Task.aggregate(buildPipeline(status, otherExtraMatch)),
-        Task.aggregate(buildPipeline(status, otherExtraMatch, true)),
+    for (const status of statuses) {
+      const [tasks, countRes] = await Promise.all([
+        Task.aggregate(buildPipeline(status)),
+        Task.aggregate(buildPipeline(status, true)),
       ]);
-      const count = countResult[0]?.count || 0;
-      taskByStatus[status] = { tasks, count };
+
+      taskByStatus[status] = { tasks, count: countRes[0]?.count || 0 };
+      statusCounts[status] = countRes[0]?.count || 0;
     }
 
-    //  Today's tasks
+    /* ---------------- TODAY TASKS ---------------- */
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -2123,10 +2100,10 @@ const particularTask = async (req, res) => {
       {
         $match: {
           ...baseFilter,
-          ...otherExtraMatch,
           createdAt: { $gte: todayStart, $lte: todayEnd },
         },
       },
+      ...(employeeId ? [{ $match: employeeAccessMatch }] : []),
       {
         $lookup: {
           from: "employees",
@@ -2145,56 +2122,39 @@ const particularTask = async (req, res) => {
         },
       },
       { $unwind: { path: "$projectId", preserveNullAndEmptyArrays: true } },
-      {
-        $match: employeeId
-          ? {
-              $or: [
-                { "project.projectManager": employeeId },
-                { "project.teamMembers": employeeId },
-              ],
-            }
-          : {},
-      },
-      
     ];
-
-    if (searchConditions.length > 0) {
-      todayPipeline.push({ $match: { $or: searchConditions } });
-    }
 
     const todayTasks = await Task.aggregate(todayPipeline);
 
-    //  Counts and pagination info
+    /* ---------------- TOTAL PROJECT COUNT ---------------- */
     const totalProjectCount = employeeId
       ? await ProjectModel.countDocuments({
           $or: [
-            { projectManagerId: employeeId },
-            { teamMembers: { $in: [employeeId] } },
+            { projectManager: employeeId },
+            { teamMembers: employeeId },
           ],
         })
       : await ProjectModel.countDocuments();
 
-    const totalUserTasks = await Task.countDocuments({
-      ...baseFilter,
-      ...otherExtraMatch,
-    });
-
-    const statusCounts = {
-      todo: todoCount,
-      ...Object.fromEntries(statusList.map((s) => [s, taskByStatus[s].count])),
+    /* ---------------- TOTAL USER TASKS ---------------- */
+    const getTotalAccessibleTaskCount = async () => {
+      const result = await Task.aggregate(buildPipeline(null, true));
+      return result[0]?.count || 0;
     };
+    const totalUserTasks = await getTotalAccessibleTaskCount();
 
-    const findMaxValue = Math.max(...Object.values(statusCounts));
+    /* ---------------- MAX COUNT for pagination ---------------- */
+    const maxCount = Math.max(...Object.values(statusCounts));
 
-    //  Final response
+    /* ---------------- RESPONSE ---------------- */
     res.status(200).json({
       success: true,
       message: "Tasks fetched successfully",
       pagination: {
         currentPage: pageInt,
         limit: limitInt,
-        totalTodoTasks: findMaxValue,
-        totalPages: Math.ceil(findMaxValue / limitInt),
+        totalTasks: maxCount,
+        totalPages: Math.ceil(maxCount / limitInt),
       },
       counts: {
         totalProjectCount,
@@ -2202,24 +2162,20 @@ const particularTask = async (req, res) => {
         todayTasks: todayTasks.length,
       },
       data: {
-        taskToDo,
+        taskToDo: taskByStatus["todo"].tasks,
         taskInProcess: taskByStatus["in-progress"].tasks,
         taskInReview: taskByStatus["in-review"].tasks,
         taskDone: taskByStatus["done"].tasks,
         taskBlock: taskByStatus["block"].tasks,
-        // taskCompleted: taskByStatus["completed"].tasks,
         todayTasks,
         statusCounts,
       },
     });
   } catch (error) {
-    console.error("Error fetching tasks:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching tasks",
-      error: error.message,
-    });
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
+
 };
 
 // const particularTask = async (req, res) => {
