@@ -30,159 +30,241 @@ const createChannel = async (req, res) => {
   }
 };
 
-// const listChannels = async (req, res) => {
-//   const { userType, userId } = req.query;
-//   console.log("userType", userType, "userId", userId);
-//   try {
-//     let channels;
-//     if (userType && userType === "SuperAdmin") {
-//       channels = await Channel.find({})
-//         .populate("createdBy", "name email")
-//         .populate("members", "name email photo");
-//     } else {
-//       channels = await Channel.find({
-//         $or: [
-//           { type: "general" }, // public channels
-//           { members: userId }, // array contains userId
-//           { senderId: userId }, // creator
-//         ],
-//       }).populate("createdBy", "name email")
-//         .populate("members", "name email photo");;
-//       res.status(200).json({ success: true, data: channels });
-//     }
-//   } catch (err) {
-//     console.error("Error listing channels:", err);
-//     res.status(500).json({ success: false, message: err.message });
-//     return;
-//   }
-// };
-
 const listChannels = async (req, res) => {
-  const { userId, isSuperAdmin } = req.query;
-
+  const { userType, userId } = req.query;
+  console.log("userType", userType, "userId", userId);
   try {
-    /* ---------------- FETCH CHANNELS ---------------- */
     let channels;
-
-    if (isSuperAdmin === "true") {
+    if (userType && userType === "SuperAdmin") {
       channels = await Channel.find({})
-        .populate("createdBy", "email")
-        .populate("members", "email photo")
-        .lean();
+        .populate("createdBy", "name email")
+        .populate("members", "name email photo");
     } else {
       channels = await Channel.find({
         $or: [
-          { channelType: "public" },
-          { members: userId },
-          { createdBy: userId },
+          { type: "general" }, // public channels
+          { members: userId }, // array contains userId
+          { senderId: userId }, // creator
         ],
       })
-        .populate("createdBy", "email")
-        .populate("members", "email photo")
-        .lean();
+      res.status(200).json({ success: true, data: channels });
     }
-
-    /* ---------------- COLLECT ALL USER IDS ---------------- */
-    const userIds = new Set();
-
-    channels.forEach((ch) => {
-      if (ch.createdBy?._id) {
-        userIds.add(ch.createdBy._id.toString());
-      }
-
-      ch.members?.forEach((m) => {
-        if (m?._id) userIds.add(m._id.toString());
-      });
-    });
-
-    const idsArray = [...userIds];
-
-    /* ---------------- FETCH FROM ALL COLLECTIONS ---------------- */
-    const [admins, employees, clients, subUsers] = await Promise.all([
-      User.find({ _id: { $in: idsArray } })
-        .select("_id name email")
-        .lean(),
-
-      Employee.find({ _id: { $in: idsArray } })
-        .select("_id employeeName email photo")
-        .lean(),
-
-      ClientDetails.find({ _id: { $in: idsArray } })
-        .select("_id client_name email")
-        .lean(),
-
-      ClientSubUser.find({ _id: { $in: idsArray } })
-        .select("_id name email")
-        .lean(),
-    ]);
-
-    /* ---------------- BUILD ID → USER MAP ---------------- */
-    const userMap = {};
-
-    admins.forEach((u) => {
-      userMap[u._id.toString()] = {
-        name: u.name,
-        email: u.email,
-        type: "admin",
-      };
-    });
-
-    employees.forEach((u) => {
-      userMap[u._id.toString()] = {
-        name: u.employeeName,
-        email: u.email,
-        photo: u.photo,
-        type: "employee",
-      };
-    });
-
-    clients.forEach((u) => {
-      userMap[u._id.toString()] = {
-        name: u.client_name,
-        email: u.email,
-        type: "client",
-      };
-    });
-
-    subUsers.forEach((u) => {
-      userMap[u._id.toString()] = {
-        name: u.name,
-        email: u.email,
-        type: "clientSubUser",
-      };
-    });
-
-    /* ---------------- ATTACH NAME TO CHANNEL DATA ---------------- */
-    channels.forEach((ch) => {
-      // createdBy name
-      if (ch.createdBy?._id) {
-        const info = userMap[ch.createdBy._id.toString()];
-        if (info) ch.createdBy.name = info.name;
-      }
-
-      // members name
-      ch.members = ch.members.map((m) => {
-        const info = userMap[m._id.toString()];
-        return {
-          ...m,
-          name: info?.name || "Unknown",
-          userType: info?.type,
-        };
-      });
-    });
-
-    /* ---------------- RESPONSE ---------------- */
-    return res.status(200).json({
-      success: true,
-      data: channels,
-    });
   } catch (err) {
     console.error("Error listing channels:", err);
-    return res.status(500).json({
+    res.status(500).json({ success: false, message: err.message });
+    return;
+  }
+};
+
+// const listChannels = async (req, res) => {
+//   const { userId, isSuperAdmin } = req.query;
+
+//   try {
+//     /* ---------------- FETCH CHANNELS ---------------- */
+//     let channels;
+
+//     if (isSuperAdmin === "true") {
+//       channels = await Channel.find({})
+//         .populate("createdBy", "email")
+//         .populate("members", "email photo")
+//         .lean();
+//     } else {
+//       channels = await Channel.find({
+//         $or: [
+//           { channelType: "public" },
+//           { members: userId },
+//           { createdBy: userId },
+//         ],
+//       })
+//         .populate("createdBy", "email")
+//         .populate("members", "email photo")
+//         .lean();
+//     }
+
+//     /* ---------------- COLLECT ALL USER IDS ---------------- */
+//     const userIds = new Set();
+
+//     channels.forEach((ch) => {
+//       if (ch.createdBy?._id) {
+//         userIds.add(ch.createdBy._id.toString());
+//       }
+
+//       ch.members?.forEach((m) => {
+//         if (m?._id) userIds.add(m._id.toString());
+//       });
+//     });
+
+//     const idsArray = [...userIds];
+//     console.log("Unique user IDs involved:", idsArray);
+
+//     /* ---------------- FETCH FROM ALL COLLECTIONS ---------------- */
+//     const [admins, employees, clients, subUsers] = await Promise.all([
+//       User.find({ _id: { $in: idsArray } })
+//         .select("_id name email")
+//         .lean(),
+
+//       Employee.find({ _id: { $in: idsArray } })
+//         .select("_id employeeName email photo")
+//         .lean(),
+
+//       ClientDetails.find({ _id: { $in: idsArray } })
+//         .select("_id client_name email")
+//         .lean(),
+
+//       ClientSubUser.find({ _id: { $in: idsArray } })
+//         .select("_id name email")
+//         .lean(),
+//     ]);
+
+//     /* ---------------- BUILD ID → USER MAP ---------------- */
+//     const userMap = {};
+
+//     admins.forEach((u) => {
+//       userMap[u._id.toString()] = {
+//         name: u.name,
+//         email: u.email,
+//         type: "admin",
+//       };
+//     });
+
+//     employees.forEach((u) => {
+//       userMap[u._id.toString()] = {
+//         name: u.employeeName,
+//         email: u.email,
+//         photo: u.photo,
+//         type: "employee",
+//       };
+//     });
+
+//     clients.forEach((u) => {
+//       userMap[u._id.toString()] = {
+//         name: u.client_name,
+//         email: u.email,
+//         type: "client",
+//       };
+//     });
+
+//     subUsers.forEach((u) => {
+//       userMap[u._id.toString()] = {
+//         name: u.name,
+//         email: u.email,
+//         type: "clientSubUser",
+//       };
+//     });
+//     console.log("User Map:", channels);
+//     /* ---------------- ATTACH NAME TO CHANNEL DATA ---------------- */
+//     channels.forEach((ch) => {
+//       // createdBy name
+//       if (ch.createdBy?._id) {
+//         const info = userMap[ch.createdBy._id.toString()];
+//         if (info) ch.createdBy.name = info.name;
+//       }
+
+//       // members name
+//       ch.members = ch.members.map((m) => {
+//         const info = userMap[m._id.toString()];
+//         console.log("Member info:", m.members);
+//         return {
+//           ...m,
+//           name: info?.name || "Unknown",
+//           userType: info?.type,
+//         };
+//       });
+//     });
+
+//     /* ---------------- RESPONSE ---------------- */
+//     return res.status(200).json({
+//       success: true,
+//       data: channels,
+//     });
+//   } catch (err) {
+//     console.error("Error listing channels:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
+
+
+const updateChannel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, members } = req.body;
+    console.log("Update channel req.body:", req.body);
+
+    const updateData = {};
+
+    // ✅ Update name ONLY if provided
+    if (name !== undefined) {
+      updateData.name = name;
+    }
+
+    // ✅ Update members ONLY if provided
+    if (members !== undefined) {
+      updateData.members = [...new Set(members)];
+    }
+
+    const updatedChannel = await Channel.findByIdAndUpdate(
+      id,
+      { $set: updateData }, // ⭐ VERY IMPORTANT
+      { new: true }
+    ).populate("members", "name email");
+
+    if (!updatedChannel) {
+      return res.status(404).json({
+        success: false,
+        message: "Channel not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: updatedChannel,
+    });
+
+  } catch (err) {
+    console.log("update error:", err);
+    res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Server error",
     });
   }
 };
 
-export { createChannel, listChannels };
+
+const deleteChannel = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedChannel = await Channel.findByIdAndDelete(id);
+
+    if (!deletedChannel) {
+      return res.status(404).json({
+        success: false,
+        message: "Channel not found",
+      });
+    }
+
+    // ✅ optional socket
+    // req.io?.emit("channel_deleted", id);
+
+    res.json({
+      success: true,
+      message: "Channel deleted successfully",
+    });
+
+  } catch (error) {
+    console.log("delete channel error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+
+
+export { createChannel, listChannels,updateChannel,deleteChannel};
