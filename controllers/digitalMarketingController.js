@@ -6,6 +6,7 @@ const createDigitalMarketing = async (req, res) => {
     try {
         const {
             taskId,
+            task,
             title,
             projectId,
             description,
@@ -30,21 +31,22 @@ const createDigitalMarketing = async (req, res) => {
             });
         }
 
-        let taskObjectId = null;
-        if (taskId) {
-            const taskDetails = await Task.findOne({ taskId });
-            if (!taskDetails) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Task not found",
-                });
-            }
-            taskObjectId = taskDetails._id;
-        }
+        // let taskObjectId = null;
+        // if (taskId) {
+        //     const taskDetails = await Task.findOne({ taskId });
+        //     // if (!taskDetails) {
+        //     //     return res.status(404).json({
+        //     //         success: false,
+        //     //         message: "Task not found",
+        //     //     });
+        //     // }
+        //     taskObjectId = taskDetails._id;
+        // }
 
         const newDigitalMarketing = new DigitalMarketing({
             taskId,             
-            task: taskObjectId,  
+            // task: taskObjectId,  
+            task,  
             projectId,
             documents: documentArray,
             title,
@@ -188,6 +190,7 @@ const getDigitalMarketing = async (req, res) => {
 };
 const editDigitalMarketing = async (req, res) => {
     const { id } = req.params;
+    console.log("Editing Digital Marketing ID:", id);
     const { title, description,postType,postUrl,postDate,status, documents } = req.body;
     let newDocuments = [];
     if (req.files && req.files.length > 0) {
