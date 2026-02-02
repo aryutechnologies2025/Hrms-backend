@@ -35,13 +35,13 @@ export default async function startSocketServer(httpServer) {
     cors: {
       origin: [
         // statging socket
-        // "https://hrms.aryuprojects.com",
-        // "https://employee.aryuprojects.com",
+        "https://hrms.aryuprojects.com",
+        "https://employee.aryuprojects.com",
         //  // live socket
         // "https://employee.aryutechnologies.com",
         // "https://portal.aryutechnologies.com"
         // // local testing
-        "http://localhost:5000",
+        // "http://localhost:5000",
         // "http://localhost:500",
 
       ],
