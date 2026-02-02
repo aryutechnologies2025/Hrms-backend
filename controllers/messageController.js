@@ -136,7 +136,7 @@
 import mongoose from "mongoose";
 import Message from "../models/messageModel.js";
 
-import { getIO, onlineUsers } from "../socket.js";
+import { getIO } from "../socket.js";
 import Channel from "../models/channelModel.js";
 import fs from "fs";
 import path from "path";
@@ -145,8 +145,8 @@ import User from "../models/userModel.js";
 import ClientDetails from "../models/clientModals.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import Employee from "../models/employeeModel.js"
-
+import Employee from "../models/employeeModel.js";
+import { initRedis } from "../redis.js";
 
 /* CHAT HISTORY */
 export const getDMHistory = async (req, res) => {
@@ -191,7 +191,7 @@ export const markMessagesSeen = async (req, res) => {
   const updated = await Message.updateMany(
     { senderId, receiverId, seenAt: null },
     { $set: { seenAt: new Date() } },
-    { $addToSet: { seenBy: receiverId } }
+    { $addToSet: { seenBy: receiverId } },
   );
   // const updated = Message.updateMany(
   //   { senderId, receiverId, seenBy: { $ne: receiverId } },
@@ -275,23 +275,23 @@ export const getChannelHistory = async (req, res) => {
 
     let updated = [];
     // if (channel.type === "general") {
-      // public channel
-      const messages = await Message.find({ channelId })
-        .sort({ createdAt: 1 })
-        .lean();
+    // public channel
+    const messages = await Message.find({ channelId })
+      .sort({ createdAt: 1 })
+      .lean();
 
-      const memberCount = channel.members.length;
+    const memberCount = channel.members.length;
 
-      updated = messages.map((msg) => {
-        const requiredSeen = memberCount - 1;
+    updated = messages.map((msg) => {
+      const requiredSeen = memberCount - 1;
 
-        return {
-          ...msg,
-          isSeenByAll:
-            msg.seenBy.length >= requiredSeen &&
-            !msg.seenBy.includes(msg.senderId.toString()),
-        };
-      });
+      return {
+        ...msg,
+        isSeenByAll:
+          msg.seenBy.length >= requiredSeen &&
+          !msg.seenBy.includes(msg.senderId.toString()),
+      };
+    });
     // }
     // else {
     //   // private channel
@@ -307,7 +307,14 @@ export const getChannelHistory = async (req, res) => {
 
 export const sendChatMessage = async (req, res) => {
   try {
-    let { senderId, receiverId, channelId, text,isForwarded,parentMessageId} = req.body;
+    let {
+      senderId,
+      receiverId,
+      channelId,
+      text,
+      isForwarded,
+      parentMessageId,
+    } = req.body;
 
     // 🔥 FIX: handle "null" string
     if (channelId === "null" || channelId === undefined) {
@@ -324,7 +331,18 @@ export const sendChatMessage = async (req, res) => {
       type: file.mimetype,
       size: file.size,
     }));
-    const isReceiverOnline = onlineUsers.has(receiverId);
+
+    // check if receiver is online
+    const { pubClient } = await initRedis();
+    // const isReceiverOnline = onlineUsers.has(receiverId);
+    // console.log("isReceiverOnline", isReceiverOnline, "onlineUsers", onlineUsers);
+    const onlineUser = await pubClient.sMembers("online_users");
+    console.log("onlineUser:", onlineUser);
+    const isReceiverOnline = receiverId
+      ? await pubClient.sIsMember("online_users", receiverId.toString())
+      : false;
+
+    console.log("isReceiverOnline:", isReceiverOnline);
 
     const msg = await Message.create({
       senderId,
@@ -337,10 +355,9 @@ export const sendChatMessage = async (req, res) => {
       deliveredAt: channelId
         ? new Date()
         : isReceiverOnline
-        ? new Date()
-        : null, // 🔥 socket will update
+          ? new Date()
+          : null, // 🔥 socket will update
       parentMessageId: parentMessageId || null,
-
     });
     if (parentMessageId) {
       await Message.findByIdAndUpdate(parentMessageId, {
@@ -409,7 +426,7 @@ export const markChannelMessagesSeen = async (req, res) => {
       },
       {
         $addToSet: { seenBy: userId },
-      }
+      },
     );
     res.json({ success: true });
   } catch (err) {
@@ -445,12 +462,11 @@ export const getChannelUnreadCounts = async (req, res) => {
   res.json({ success: true, data: result });
 };
 
-
 export const deleteMessage = async (req, res) => {
   try {
     const msg = await Message.findById(req.params.id);
 
-    if(!msg) {
+    if (!msg) {
       return res.status(404).json({ success: false });
     }
 
@@ -465,7 +481,6 @@ export const deleteMessage = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
-
 
 // messageController.js
 // export const deleteMessageFile = async (req, res) => {
@@ -492,10 +507,7 @@ export const deleteMessage = async (req, res) => {
 //   res.json({ success: true });
 // };
 
-
 // POST /messages/delete-file
-
-
 
 // export const deleteMessageFile = async (req, res) => {
 //   try {
@@ -542,12 +554,16 @@ export const deleteMessageFile = async (req, res) => {
 
     const message = await Message.findById(messageId);
     if (!message) {
-      return res.status(404).json({ success: false, message: "Message not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found" });
     }
 
     const file = message.files.id(fileId);
     if (!file) {
-      return res.status(404).json({ success: false, message: "File not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "File not found" });
     }
 
     // 🔥 PHYSICAL FILE PATH
@@ -589,36 +605,55 @@ export const deleteMessageFile = async (req, res) => {
   }
 };
 
-
 // controllers/messageController.js
 export const editMessageFiles = async (req, res) => {
   try {
-    const { messageId,text } = req.body;
-    console.log("messageId",messageId,"text",text,"req.files",req.files,req.query);
+    const { messageId, text } = req.body;
+    console.log(
+      "messageId",
+      messageId,
+      "text",
+      text,
+      "req.files",
+      req.files,
+      req.query,
+    );
     const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
-    if(text){
+    if (!message)
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found" });
+    if (text) {
       message.text = text;
     }
     // Only add new files
     if (req.files?.length) {
       message.files.push(
-        ...req.files.map(f => ({
+        ...req.files.map((f) => ({
           name: f.originalname,
           url: `/uploads/chat/${f.filename}`,
           type: f.mimetype,
           size: f.size,
-        }))
+        })),
       );
     }
 
     // Save updated message
     await message.save();
-     // 🔥 SOCKET EMIT
+    // 🔥 SOCKET EMIT
+    
     const io = getIO();
 
+    let room;
+    if (message.channelId) {
+      room = message.channelId.toString();
+    } else {
+      room = [message.senderId.toString(), message.receiverId.toString()]
+        .sort()
+        .join("_");
+    }
     // Emit socket event
-    io.to(message.channelId || `${message.senderId}-${message.receiverId}`).emit("message_edited", message);
+    io.to(room).emit("message_edited", message);
 
     return res.json({ success: true, data: message });
   } catch (err) {
@@ -628,24 +663,16 @@ export const editMessageFiles = async (req, res) => {
 };
 
 export const getThreadReplies = async (req, res) => {
-
-  try{
+  try {
     const replies = await Message.find({
-    parentMessageId: req.params.parentId,
-  }).sort({ createdAt: 1 });
+      parentMessageId: req.params.parentId,
+    }).sort({ createdAt: 1 });
 
-  res.json({ success: true, data: replies});
-
+    res.json({ success: true, data: replies });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error });
   }
-  catch(error)
-  {
-    res.status(500).json({success:false,error:error})
-  }
-  
 };
-
-
-
 
 export const getSeenMessage = async (req, res) => {
   const { messageId } = req.params;
@@ -665,7 +692,7 @@ export const getSeenMessage = async (req, res) => {
       message.seenBy.map(async (id) => {
         // Try Employee
         let user = await Employee.findById(id).select(
-          "employeeName email avatar"
+          "employeeName email avatar",
         );
         if (user) {
           return {
@@ -691,7 +718,7 @@ export const getSeenMessage = async (req, res) => {
 
         // Try Client
         user = await ClientDetails.findById(id).select(
-          "clientName email avatar"
+          "clientName email avatar",
         );
         if (user) {
           return {
@@ -703,7 +730,7 @@ export const getSeenMessage = async (req, res) => {
           };
         }
         return null;
-      })
+      }),
     );
 
     res.json({

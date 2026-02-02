@@ -35,11 +35,15 @@ export default async function startSocketServer(httpServer) {
     cors: {
       origin: [
         // statging socket
-        "https://hrms.aryuprojects.com",
-        "https://employee.aryuprojects.com",
+        // "https://hrms.aryuprojects.com",
+        // "https://employee.aryuprojects.com",
         //  // live socket
         // "https://employee.aryutechnologies.com",
         // "https://portal.aryutechnologies.com"
+        // // local testing
+        "http://localhost:5000",
+        // "http://localhost:500",
+
       ],
       credentials: true,
     },
@@ -56,13 +60,21 @@ export default async function startSocketServer(httpServer) {
   // const onlineUsers = new Set();
   io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
+    
 
     /* USER ONLINE */
 
     socket.on("user_online", async (userId) => {
       socket.userId = userId.toString();
+
+      // storing online users in memory set
       onlineUsers.add(socket.userId);
       console.log("onlineUsers", onlineUsers);
+      // store online users in redis set
+        await pubClient.sAdd("online_users", socket.userId);
+
+         const users = await pubClient.sMembers("online_users");
+         console.log("Redis online users:", users);
 
       const now = new Date();
 
@@ -122,9 +134,13 @@ export default async function startSocketServer(httpServer) {
     });
 
     /* DISCONNECT */
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async() => {
       if (socket.userId) {
+
         onlineUsers.delete(socket.userId);
+        // remove from redis set
+         await pubClient.sRem("online_users", socket.userId);
+        const users = await pubClient.sMembers("online_users");
         io.emit("online_users", [...onlineUsers]);
       }
     });
