@@ -1,6 +1,6 @@
 import Backup from "../models/backupModel.js";
 const createBackup = async (req, res) => {
-    const { date, projectList, type, createdBy } = req.body;
+    const { date, projectList,project, type, createdBy } = req.body;
 
     const documentArray = [];
         if (Array.isArray(req.files)) {
@@ -16,7 +16,7 @@ const createBackup = async (req, res) => {
         }
        
     try {
-        const backup = new Backup({ date, projectList, type, documents: documentArray, createdBy });
+        const backup = new Backup({ date, projectList,project, type, documents: documentArray, createdBy });
         await backup.save();
         res.status(201).json({ message: "Backup created successfully", backup });
     } catch (error) {
@@ -34,7 +34,7 @@ const createBackup = async (req, res) => {
 
 const getBackup= async (req, res) => {
   try {
-    const BackupDetails = await Backup.find().populate("createdBy", "name").populate("projectList", "name")
+    const BackupDetails = await Backup.find().populate("createdBy", "employeeName").populate("projectList", "name")
     .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: BackupDetails });
   } catch (error) {
@@ -45,7 +45,7 @@ const getBackup= async (req, res) => {
 const getBackupById = async(req,res)=>{
     const {id} = req.query;
     try{
-        const backupDetails = await Backup.find({createdBy:id}).populate("createdBy", "name").populate("projectList", "name").sort({createdAt:-1});
+        const backupDetails = await Backup.find({createdBy:id}).populate("createdBy", "employeeName").populate("projectList", "name").sort({createdAt:-1});
         res.status(200).json({success:true,data:backupDetails});
     }catch(error){
         res.status(500).json({success:false,error:error.message});
@@ -54,7 +54,7 @@ const getBackupById = async(req,res)=>{
 
 const editBackupById = async (req, res) => {
   const { id } = req.params;
-  const { date, projectList, type } = req.body;
+  const { date, projectList,type } = req.body;
   const newDocuments = [];
 
     if (req.files && req.files.length > 0) {

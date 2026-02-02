@@ -60,6 +60,7 @@ import path from "path";
 import fs from "fs";
 
 import { fileURLToPath } from "url";
+import ProjectModel from "../models/projectModel.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,7 +73,7 @@ const ensureDirExists = (dirPath) => {
 
 // Multer storage config
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: async (req, file, cb) => {
     let destPath;
     console.log("file.fieldname", file.fieldname);
     console.log("Incoming fields:", file);
@@ -97,25 +98,68 @@ const storage = multer.diskStorage({
     } else if (file.fieldname === 'portfolioDocuments') {
       destPath = path.join(__dirname, "../uploads/portfolioDocuments");
     }
+    // else if (file.fieldname === "backupFilesDocuments") {
+    //   const { projectList, type, date } = req.body;
+
+    //   if (!projectList || !type || !date) {
+    //     return cb(new Error("Missing backup fields"));
+    //   }
+
+    //   const projectDetails = await ProjectModel.findById(projectList);
+    //   if (!projectDetails) {
+    //     return cb(new Error("Project not found"));
+    //   }
+
+    //   // const safeDate = date.replace(/[:.]/g, "-");
+    //   const safeDate = date.split("T")[0];
+
+    //   destPath = path.join(
+    //     __dirname,
+    //     "../uploads/backup",
+    //     projectDetails.name,
+    //     type === "db" ? "db" : "file",
+    //     safeDate
+    //   );
+    // }
     else if (file.fieldname === "backupFilesDocuments") {
-      const { projectList, type, date } = req.body;
-
-      if (!projectList || !type || !date) {
-        return cb(new Error("Missing backup fields"));
-      }
+  try {
+    const { projectList, type, date } = req.body;
 
 
-      // const safeDate = date.replace(/[:.]/g, "-");
-      const safeDate = date.split("T")[0];
-
-      destPath = path.join(
-        __dirname,
-        "../uploads/backup",
-        projectList,
-        type === "db" ? "db" : "files",
-        safeDate
-      );
+    if (!projectList || !type || !date) {
+      return cb(new Error("Missing backup fields"));
     }
+
+
+    const projectDetails = await ProjectModel.findById(projectList);
+    if (!projectDetails) {
+      return cb(new Error("Project not found"));
+    }
+
+
+    const safeDate = date.split("T")[0];
+
+
+    const folder = type === "db" ? "db" : "file";
+
+
+    destPath = path.join(
+      __dirname,
+      "../uploads/backup",
+      projectDetails.name,
+      folder,
+      safeDate
+    );
+
+ 
+    fs.mkdirSync(destPath, { recursive: true });
+
+    cb(null, destPath);
+  } catch (error) {
+    cb(error);
+  }
+}
+
 
     // else if (file.fieldname === 'files'){
     //   console.log("download 123");

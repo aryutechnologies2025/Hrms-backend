@@ -6,6 +6,9 @@ const backupSchema = new mongoose.Schema({
         ref: "Project",
         required: [true, "Please provide a project name"],
     },
+    project:{
+        type: String,
+    },
     type: { type: String, required: [true, "Please provide a Type"] },
     documents: [
         {
