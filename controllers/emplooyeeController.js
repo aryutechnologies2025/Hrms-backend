@@ -4869,7 +4869,7 @@ const dashboard = async (req, res) => {
 
  const allUserAdminAndEmployee = async (req, res) => {
   const { userId, type } = req.query;
-  console.log("allUserAdminAndEmployee params", req.query,userId, type );
+  // console.log("allUserAdminAndEmployee params", req.query,userId, type );
 
   try {
     let employees = [];
@@ -5009,7 +5009,7 @@ const dashboard = async (req, res) => {
         type: "clientSubUser",
       })),
     ];
-    console.log("test formatted data", formatted);
+    // console.log("test formatted data", formatted);
 
     // Sort alphabetically by name (A-Z)
     formatted.sort((a, b) => {

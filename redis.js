@@ -36,3 +36,5 @@ export const getRedisAdapter = () => {
   }
   return createAdapter(pubClient, subClient);
 };
+
+
