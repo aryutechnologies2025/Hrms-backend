@@ -5,8 +5,6 @@ pipeline {
     BASE = "/var/www/ayhrms-staging-node"
     RELEASES = "${BASE}/releases"
     CURRENT = "${BASE}/current"
-    TIME = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
-    RELEASE = "${RELEASES}/${TIME}"
   }
 
   stages {
@@ -17,11 +15,20 @@ pipeline {
       }
     }
 
+    stage("Prepare Release Path") {
+      steps {
+        script {
+          env.TIME = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
+          env.RELEASE = "${RELEASES}/${TIME}"
+        }
+      }
+    }
+
     stage("Create Release") {
       steps {
         sh """
           mkdir -p ${RELEASE}
-          rsync -av --delete ./ ${RELEASE}/
+          rsync -av --delete --exclude='.git' ./ ${RELEASE}/
         """
       }
     }
@@ -43,10 +50,10 @@ pipeline {
       }
     }
 
-    stage("Restart PM2") {
+    stage("Restart PM2 (staging)") {
       steps {
         sh """
-          pm2 restart hrms-staging-api --update-env
+          sudo -u aryu_user pm2 reload hrms-staging-api --update-env
         """
       }
     }
