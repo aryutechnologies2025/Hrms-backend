@@ -1484,9 +1484,23 @@ const getTaskById = async (req, res) => {
       { path: "assignedTo", select: "employeeName " },
     ]);
 
-    const comments = await TaskComments.find({ taskId: taskId }).populate([
-      { path: "createdBy", select: "employeeName " },
-    ]);
+    // const comments = await TaskComments.find({ taskId: taskId }).populate([
+    //   { path: "createdBy", select: "employeeName " },
+    // ]);
+    const commentsRaw = await TaskComments.find({ taskId })
+    .sort({ createdAt: -1 })
+    .lean();
+
+    const comments = await Promise.all(
+      commentsRaw.map(async (comment) => ({
+        ...comment,
+        createdBy: {
+          _id: comment.createdBy,
+          name: await getUserName(comment.createdBy),
+        },
+      }))
+    );
+
 
     // taskDocument
     const docRecord = await TaskDocument.findOne({ taskId });
@@ -1922,7 +1936,7 @@ const fixAssignedTo = async (tasks) => {
 // };
 
 const particularTask = async (req, res) => {
-try {
+  try {
     const {
       employeeId,
       projectId,
@@ -1997,38 +2011,38 @@ try {
     /* ---------------- FINAL ACCESS CONDITION ---------------- */
     const employeeAccessMatch = employeeId
       ? {
-          $or: [
-            { assignedTo: employeeObjectId },
-            ...(isProjectManager
-              ? [{ projectId: { $in: managedProjectIds } }]
-              : []),
-            ...(!isProjectManager
-              ? [
+        $or: [
+          { assignedTo: employeeObjectId },
+          ...(isProjectManager
+            ? [{ projectId: { $in: managedProjectIds } }]
+            : []),
+          ...(!isProjectManager
+            ? [
+              {
+                $and: [
                   {
-                    $and: [
-                      {
-                        $or: [
-                          { assignedTo: null },
-                          { assignedTo: { $exists: false } },
-                        ],
-                      },
-                      { projectId: { $in: employeeProjectIds } },
+                    $or: [
+                      { assignedTo: null },
+                      { assignedTo: { $exists: false } },
                     ],
                   },
-                ]
-              : []),
-          ],
-        }
+                  { projectId: { $in: employeeProjectIds } },
+                ],
+              },
+            ]
+            : []),
+        ],
+      }
       : {};
 
     /* ---------------- SEARCH ---------------- */
     const searchConditions = searchTerm
       ? [
-          { title: { $regex: searchTerm, $options: "i" } },
-          { taskId: { $regex: searchTerm, $options: "i" } },
-          { "assignedTo.employeeName": { $regex: searchTerm, $options: "i" } },
-          { "projectId.name": { $regex: searchTerm, $options: "i" } },
-        ]
+        { title: { $regex: searchTerm, $options: "i" } },
+        { taskId: { $regex: searchTerm, $options: "i" } },
+        { "assignedTo.employeeName": { $regex: searchTerm, $options: "i" } },
+        { "projectId.name": { $regex: searchTerm, $options: "i" } },
+      ]
       : [];
 
     /* ---------------- PIPELINE BUILDER ---------------- */
@@ -2129,11 +2143,11 @@ try {
     /* ---------------- TOTAL PROJECT COUNT ---------------- */
     const totalProjectCount = employeeId
       ? await ProjectModel.countDocuments({
-          $or: [
-            { projectManager: employeeId },
-            { teamMembers: employeeId },
-          ],
-        })
+        $or: [
+          { projectManager: employeeId },
+          { teamMembers: employeeId },
+        ],
+      })
       : await ProjectModel.countDocuments();
 
     /* ---------------- TOTAL USER TASKS ---------------- */
@@ -3703,9 +3717,8 @@ const taskHold = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Task ${
-        pauseProject === "hold" ? "paused" : "resumed"
-      } successfully`,
+      message: `Task ${pauseProject === "hold" ? "paused" : "resumed"
+        } successfully`,
       data: updatedTask,
     });
   } catch (error) {
@@ -3963,22 +3976,22 @@ const particularMonthlyReport = async (req, res) => {
           // Format login and logout times
           const loginTime = loginEntry
             ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           const logout = logoutEntry
             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           // Push one clean object instead of multiple pushes
