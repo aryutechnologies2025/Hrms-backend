@@ -43,7 +43,6 @@ export default async function startSocketServer(httpServer) {
         // // local testing
         // "http://localhost:5000",
         // "http://localhost:500",
-
       ],
       credentials: true,
     },
@@ -60,7 +59,6 @@ export default async function startSocketServer(httpServer) {
   // const onlineUsers = new Set();
   io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
-    
 
     /* USER ONLINE */
 
@@ -71,10 +69,10 @@ export default async function startSocketServer(httpServer) {
       onlineUsers.add(socket.userId);
       console.log("onlineUsers", onlineUsers);
       // store online users in redis set
-        await pubClient.sAdd("online_users", socket.userId);
+      await pubClient.sAdd("online_users", socket.userId);
 
-         const users = await pubClient.sMembers("online_users");
-         console.log("Redis online users:", users);
+      const users = await pubClient.sMembers("online_users");
+      console.log("Redis online users:", users);
 
       const now = new Date();
 
@@ -90,7 +88,7 @@ export default async function startSocketServer(httpServer) {
         // 2️⃣ Update deliveredAt
         await Message.updateMany(
           { _id: { $in: messages.map((m) => m._id) } },
-          { $set: { deliveredAt: now } }
+          { $set: { deliveredAt: now } },
         );
 
         // 3️⃣ Notify EACH sender 🔥
@@ -118,7 +116,7 @@ export default async function startSocketServer(httpServer) {
       if (pending.length) {
         await Message.updateMany(
           { _id: { $in: pending.map((m) => m._id) } },
-          { $set: { deliveredAt: now } }
+          { $set: { deliveredAt: now } },
         );
 
         pending.forEach((m) => {
@@ -134,12 +132,11 @@ export default async function startSocketServer(httpServer) {
     });
 
     /* DISCONNECT */
-    socket.on("disconnect", async() => {
+    socket.on("disconnect", async () => {
       if (socket.userId) {
-
         onlineUsers.delete(socket.userId);
         // remove from redis set
-         await pubClient.sRem("online_users", socket.userId);
+        await pubClient.sRem("online_users", socket.userId);
         const users = await pubClient.sMembers("online_users");
         io.emit("online_users", [...onlineUsers]);
       }
@@ -193,7 +190,7 @@ export default async function startSocketServer(httpServer) {
         {
           $set: { seenAt: now },
           $addToSet: { seenBy: receiverId },
-        }
+        },
       );
       console.log("result", result);
 
@@ -367,7 +364,7 @@ export default async function startSocketServer(httpServer) {
         {
           $addToSet: { seenBy: uid },
           $set: { updatedAt: new Date() },
-        }
+        },
       );
 
       //  2️⃣ EMIT UNREAD CLEAR (THIS WAS MISSING)
@@ -429,7 +426,7 @@ export default async function startSocketServer(httpServer) {
 
       io.to(message.channelId || message.receiverId.toString()).emit(
         "message_file_deleted",
-        { messageId, fileId }
+        { messageId, fileId },
       );
     });
     // thread
