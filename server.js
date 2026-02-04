@@ -193,6 +193,14 @@ const startApp = async () => {
 //   app.use("/api/statement", useAuth,statementsRouter);
 //   app.use("/api/announcement",useAuth, announcementRouter);
 //   app.use("/api/projectNotes",useAuth, projectNotesRouter);
+app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err.stack);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Something went wrong",
+  });
+});
 
   // Base route
   app.get('/api', (req, res) => res.send('API is running... coming'));

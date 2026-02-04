@@ -35,11 +35,11 @@ export default async function startSocketServer(httpServer) {
     cors: {
       origin: [
         // statging socket
-        "https://hrms.aryuprojects.com",
-        "https://employee.aryuprojects.com",
+        // "https://hrms.aryuprojects.com",
+        // "https://employee.aryuprojects.com",
         //  // live socket
-        // "https://employee.aryutechnologies.com",
-        // "https://portal.aryutechnologies.com"
+        "https://employee.aryutechnologies.com",
+        "https://portal.aryutechnologies.com"
         // // local testing
         // "http://localhost:5000",
         // "http://localhost:500",
@@ -83,6 +83,8 @@ export default async function startSocketServer(httpServer) {
         receiverId: socket.userId,
         deliveredAt: null,
       }).select("_id senderId receiverId");
+
+      console.log("messages",messages)
 
       if (messages.length) {
         // 2️⃣ Update deliveredAt
