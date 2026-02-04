@@ -284,10 +284,9 @@ const logoutUser = (req, res) => {
 
 const loginUser = async (req, res) => {
   const { type } = req.params;
-  // console.log("Login type:", type);
+  console.log("Login type:", type);
   try {
     const { email, password } = req.body;
-
     let userData = null;
     let userType = "";
 
