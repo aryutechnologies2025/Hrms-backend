@@ -7,17 +7,17 @@ import { getIO } from "../socket.js";
 
 const createChannel = async (req, res) => {
   try {
-    const { name, createdBy, type } = req.body;
+    const { name, createdBy, channelType } = req.body;
+       console.log("member",req.body);
     const members = req.body.members || [];
 
     const channel = await Channel.create({
       name,
       createdBy,
-      type,
+      channelType,
       members: [createdBy, ...members], // creator auto-joined
     });
     // Notify members about the new channel
-
     const io = getIO();
 
     io.to(members.map((m) => m._id)).emit("channel_created", channel);
