@@ -49,6 +49,14 @@ pipeline {
         """
       }
     }
+    stage("Cleanup Old Releases") {
+      steps {
+        sh """
+          cd ${RELEASES}
+          ls -1dt */ | tail -n +4 | xargs -r rm -rf
+        """
+      }
+    }
 
     stage("Restart PM2 (staging)") {
       steps {
@@ -57,6 +65,7 @@ pipeline {
         """
       }
     }
+
   }
 }
 
