@@ -18,7 +18,8 @@ const attendance = new mongoose.Schema({
     updatedBy:{type:String},
     updatedTime:{type:Date,default:new Date()}
 
-  }]
+  }],
+  compLeave:{type:Number,default:0},
 }, {
   timestamps: true // adds createdAt and updatedAt fields
 });
