@@ -7,8 +7,6 @@ import moment from "moment";
 import Settings from "../models/settings.js";
 import Announcements from "../models/announcementModel.js";
 const markAttendance = async (req, res) => {
-  // console.log("markAttendance called with body:", req.body);
-
   const calculateTime = (entries) => {
     let workTime = 0;
     let breakTime = 0;
@@ -19,8 +17,6 @@ const markAttendance = async (req, res) => {
     for (let i = 0; i < entries.length; i++) {
       const { reason, time } = entries[i];
 
-      // console.log("hhhhh",reason,time)
-      //  Fixed conditional check
       if (reason === "Break In" || reason === "Login") {
         if (lastBreakOutTime) {
           breakTime += new Date(time) - new Date(lastBreakOutTime);
@@ -59,18 +55,22 @@ const markAttendance = async (req, res) => {
       breakTime: format(breakTime),
     };
   };
+
   try {
-    const { employeeId, dateTime, shift, workType, reason, comments } =
-      req.body;
+    const { employeeId, dateTime, shift, workType, reason, comments } = req.body;
+
     if (!reason) {
-      return res
-        .status(400)
-        .json({ success: true, message: { reason: "Reason is required" } });
+      return res.status(400).json({
+        success: false,
+        message: { reason: "Reason is required" },
+      });
     }
+
     if (!workType) {
-      return res
-        .status(400)
-        .json({ success: true, message: { workType: "workType is required" } });
+      return res.status(400).json({
+        success: false,
+        message: { workType: "workType is required" },
+      });
     }
 
     const entry = {
@@ -79,18 +79,19 @@ const markAttendance = async (req, res) => {
     };
 
     const dateOnly = new Date(dateTime).toISOString().split("T")[0];
-    const startOfDay = new Date(dateOnly); // "2025-07-07T00:00:00.000Z"
+    const startOfDay = new Date(dateOnly);
     const endOfDay = new Date(dateOnly);
-    endOfDay.setDate(endOfDay.getDate() + 1); // "2025-07-08T00:00:00.000Z"
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const upcomingHoliday = await UpcomingHoliday.findOne({
+      date: { $gte: startOfDay, $lt: endOfDay },
+    });
 
     let attendance = await Attendance.findOne({
       employeeId,
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay,
-      },
+      date: { $gte: startOfDay, $lt: endOfDay },
     });
-    // check double api call and check new reason and previous reason
+
 
     if (attendance && attendance.entries.length > 0) {
       const lastEntry = attendance.entries[attendance.entries.length - 1];
@@ -105,7 +106,6 @@ const markAttendance = async (req, res) => {
     if (attendance) {
       attendance.entries.push(entry);
       if (comments) attendance.comments.push(comments);
-      await attendance.save();
     } else {
       attendance = new Attendance({
         employeeId,
@@ -114,15 +114,32 @@ const markAttendance = async (req, res) => {
         workType,
         entries: [entry],
         comments: comments ? [comments] : [],
+        ...(upcomingHoliday && { compLeave: "1" }),
       });
-      await attendance.save();
     }
+
+    await attendance.save();
+
+
+    await attendance.save();
+
+    // if (upcomingHoliday) {
+    //   const compLeave = new Attendance({
+    //     employeeId,
+    //     leaveType: "Leave",
+    //     startDate: startOfDay,
+    //     endDate: endOfDay,
+    //     status: "pending",
+    //   });
+    //   await compLeave.save();
+    // }
 
     const result = calculateTime(attendance.entries);
 
     res.status(200).json({
+      success: true,
       message: "Attendance saved",
-      employee: reason,
+      employee: employeeId,
       attendance,
       summary: {
         workTime: result.workTime,
@@ -130,10 +147,142 @@ const markAttendance = async (req, res) => {
       },
     });
   } catch (error) {
-    // console.error("Error saving attendance:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
+// const markAttendance = async (req, res) => {
+//   // console.log("markAttendance called with body:", req.body);
+
+//   const calculateTime = (entries) => {
+//     let workTime = 0;
+//     let breakTime = 0;
+
+//     let lastInTime = null;
+//     let lastBreakOutTime = null;
+
+//     for (let i = 0; i < entries.length; i++) {
+//       const { reason, time } = entries[i];
+
+//       // console.log("hhhhh",reason,time)
+//       //  Fixed conditional check
+//       if (reason === "Break In" || reason === "Login") {
+//         if (lastBreakOutTime) {
+//           breakTime += new Date(time) - new Date(lastBreakOutTime);
+//           lastBreakOutTime = null;
+//         }
+//         lastInTime = new Date(time);
+//       }
+
+//       if (reason === "Break Out") {
+//         if (lastInTime) {
+//           workTime += new Date(time) - lastInTime;
+//           lastInTime = null;
+//         }
+//         lastBreakOutTime = new Date(time);
+//       }
+
+//       if (reason === "Logout") {
+//         if (lastInTime) {
+//           workTime += new Date(time) - lastInTime;
+//           lastInTime = null;
+//         }
+//         if (lastBreakOutTime) {
+//           breakTime += new Date(time) - lastBreakOutTime;
+//           lastBreakOutTime = null;
+//         }
+//       }
+//     }
+
+//     const format = (ms) => ({
+//       hours: Math.floor(ms / (1000 * 60 * 60)),
+//       minutes: Math.floor((ms / (1000 * 60)) % 60),
+//     });
+
+//     return {
+//       workTime: format(workTime),
+//       breakTime: format(breakTime),
+//     };
+//   };
+//   try {
+//     const { employeeId, dateTime, shift, workType, reason, comments } =
+//       req.body;
+//     if (!reason) {
+//       return res
+//         .status(400)
+//         .json({ success: true, message: { reason: "Reason is required" } });
+//     }
+//     if (!workType) {
+//       return res
+//         .status(400)
+//         .json({ success: true, message: { workType: "workType is required" } });
+//     }
+
+//     const entry = {
+//       reason,
+//       time: dateTime,
+//     };
+
+//     const dateOnly = new Date(dateTime).toISOString().split("T")[0];
+//     const startOfDay = new Date(dateOnly); // "2025-07-07T00:00:00.000Z"
+//     const endOfDay = new Date(dateOnly);
+//     endOfDay.setDate(endOfDay.getDate() + 1); // "2025-07-08T00:00:00.000Z"
+
+//     let attendance = await Attendance.findOne({
+//       employeeId,
+//       date: {
+//         $gte: startOfDay,
+//         $lt: endOfDay,
+//       },
+//     });
+//     // check double api call and check new reason and previous reason
+
+//     if (attendance && attendance.entries.length > 0) {
+//       const lastEntry = attendance.entries[attendance.entries.length - 1];
+//       if (lastEntry.reason === reason) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `You have already marked ${reason} for today.`,
+//         });
+//       }
+//     }
+
+//     if (attendance) {
+//       attendance.entries.push(entry);
+//       if (comments) attendance.comments.push(comments);
+//       await attendance.save();
+//     } else {
+//       attendance = new Attendance({
+//         employeeId,
+//         date: dateTime,
+//         shift,
+//         workType,
+//         entries: [entry],
+//         comments: comments ? [comments] : [],
+//       });
+//       await attendance.save();
+//     }
+
+//     const result = calculateTime(attendance.entries);
+
+//     res.status(200).json({
+//       message: "Attendance saved",
+//       employee: reason,
+//       attendance,
+//       summary: {
+//         workTime: result.workTime,
+//         breakTime: result.breakTime,
+//       },
+//     });
+//   } catch (error) {
+//     // console.error("Error saving attendance:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 
 const addAttendance = async (req, res) => {
   try {
@@ -157,7 +306,7 @@ const addAttendance = async (req, res) => {
       employeeId,
       date: { $gte: startOfDay, $lte: endOfDay },
     });
-    if(existingAttendance){
+    if (existingAttendance) {
       const updatedAttendance = await Attendance.findOneAndUpdate(
         { employeeId, date: { $gte: startOfDay, $lte: endOfDay } },
         { $push: { entries: { reason: "Logout", time: logout } } },
@@ -169,27 +318,27 @@ const addAttendance = async (req, res) => {
         message: "Attendance updated successfully",
         data: updatedAttendance,
       });
-    }else{
+    } else {
 
-  
-    const newAttendance = new Attendance({
-      employeeId,
-      date: startOfDay,
-      shift,
-      workType,
-      entries: [
-        { reason: "Login", time: login },
-        { reason: "Logout", time: logout },
-      ],
-      comments,
-    });
-    const savedAttendance = await newAttendance.save();
 
-    return res.status(201).json({
-      success: true,
-      message: "Attendance added successfully",
-      data: savedAttendance,
-    });
+      const newAttendance = new Attendance({
+        employeeId,
+        date: startOfDay,
+        shift,
+        workType,
+        entries: [
+          { reason: "Login", time: login },
+          { reason: "Logout", time: logout },
+        ],
+        comments,
+      });
+      const savedAttendance = await newAttendance.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Attendance added successfully",
+        data: savedAttendance,
+      });
     }
 
 
@@ -817,7 +966,7 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
       daysInMonth,
       today.getMonth(),
       "daysInMonth",
-      monthNum - 1,fullDaysInMonth
+      monthNum - 1, fullDaysInMonth
     );
     const results = [];
     for (let day = 1; day <= daysInMonth; day++) {
@@ -859,12 +1008,12 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
 
           attData.loginTime = loginEntry
             ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           // Requirement 2: Check if login was after 10:30 AM
@@ -872,25 +1021,25 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
             const loginTime = new Date(loginEntry.time);
             const loginHours = loginTime.getHours();
             const loginMinutes = loginTime.getMinutes();
-            
+
             // Check if login time is after 10:30 AM
             if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
               after1030LoginCount++;
             }
-            console.log("loginHours",loginHours,"loginMinutes",loginMinutes);
-            if(loginEntry.reason==="Login"){
+            console.log("loginHours", loginHours, "loginMinutes", loginMinutes);
+            if (loginEntry.reason === "Login") {
               presentDaysCount++;
             }
           }
 
           attData.logout = logoutEntry
             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           // delete attData.entries;
@@ -1003,7 +1152,7 @@ const getparticularemployeeMonthlyAttendanceWithTop5 = async (req, res) => {
 
     /* -------------------- FETCH DATA -------------------- */
     const holidaysList = await UpcomingHoliday.find({});
-    
+
     const attendanceList = await Attendance.find({
       employeeId: user._id,
       date: { $gte: start, $lte: end },
@@ -1618,22 +1767,22 @@ const getparticularemployeeMonthlyAttendanceDetails = async (req, res) => {
 
           const loginTime = loginEntry
             ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           const logoutTime = logoutEntry
             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
-                timeZone: "Asia/Kolkata",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-              })
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: true,
+            })
             : "-";
 
           let status = "Present";
@@ -1816,11 +1965,11 @@ function calculateTime(entries) {
 
 const dashboardAttendanceAndBirthday = async (req, res) => {
   //  const userRole=req.query.role;
-    const announcements = await Announcements.find({
-         visible: { $in: ["Employee", "Both"] },
-         expiryDate: { $gte: new Date() }, // not expired
-         status:"1"
-       });
+  const announcements = await Announcements.find({
+    visible: { $in: ["Employee", "Both"] },
+    expiryDate: { $gte: new Date() }, // not expired
+    status: "1"
+  });
   const today = new Date();
   const todayMonth = today.getMonth();
   const todayDate = today.getDate();
@@ -1960,7 +2109,7 @@ const dashboardAttendanceAndBirthday = async (req, res) => {
       permission: permission,
       co: co,
       employeeType: employeeType.employeeType,
-      announcements:announcements
+      announcements: announcements
     });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
