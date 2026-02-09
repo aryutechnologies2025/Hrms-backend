@@ -136,7 +136,7 @@
 import mongoose from "mongoose";
 import Message from "../models/messageModel.js";
 
-import { getIO } from "../socket.js";
+import { getIO, onlineUsers } from "../socket.js";
 import Channel from "../models/channelModel.js";
 import fs from "fs";
 import path from "path";
@@ -284,7 +284,6 @@ export const getChannelHistory = async (req, res) => {
 
     updated = messages.map((msg) => {
       const requiredSeen = memberCount - 1;
-
       return {
         ...msg,
         isSeenByAll:
@@ -333,14 +332,14 @@ export const sendChatMessage = async (req, res) => {
     }));
 
     // check if receiver is online
-    const { pubClient } = await initRedis();
-    // const isReceiverOnline = onlineUsers.has(receiverId);
+    // const { pubClient } = await initRedis();
+    const isReceiverOnline = onlineUsers.has(receiverId);
     // console.log("isReceiverOnline", isReceiverOnline, "onlineUsers", onlineUsers);
-    const onlineUser = await pubClient.sMembers("online_users");
-    console.log("onlineUser:", onlineUser);
-    const isReceiverOnline = receiverId
-      ? await pubClient.sIsMember("online_users", receiverId.toString())
-      : false;
+    // const onlineUser = await pubClient.sMembers("online_users");
+    console.log("onlineUser:", onlineUsers);
+    // const isReceiverOnline = receiverId
+    //   ? await pubClient.sIsMember("online_users", receiverId.toString())
+    //   : false;
 
     console.log("isReceiverOnline:", isReceiverOnline);
 
@@ -368,6 +367,7 @@ export const sendChatMessage = async (req, res) => {
 
     res.json({ success: true, data: msg });
   } catch (err) {
+    console.log("error",err)
     res.status(500).json({ success: false, message: err.message });
   }
 };

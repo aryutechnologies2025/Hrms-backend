@@ -7,17 +7,18 @@ import { getIO } from "../socket.js";
 
 const createChannel = async (req, res) => {
   try {
-    const { name, createdBy, type } = req.body;
+    const { name, createdBy, channelType } = req.body;
+    console.log("member", req.body);
     const members = req.body.members || [];
 
     const channel = await Channel.create({
       name,
       createdBy,
-      type,
+      channelType,
       members: [createdBy, ...members], // creator auto-joined
     });
-    // Notify members about the new channel
 
+    // Notify members about the new channel
     const io = getIO();
 
     io.to(members.map((m) => m._id)).emit("channel_created", channel);
@@ -188,24 +189,27 @@ const listChannels = async (req, res) => {
 const updateChannel = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, members } = req.body;
+    const { name, members, channelType } = req.body;
     console.log("Update channel req.body:", req.body);
 
     const updateData = {};
 
-    // ✅ Update name ONLY if provided
+    //  Update name ONLY if provided
     if (name !== undefined) {
       updateData.name = name;
     }
 
-    // ✅ Update members ONLY if provided
+    //  Update members ONLY if provided
     if (members !== undefined) {
       updateData.members = [...new Set(members)];
+    }
+    if (channelType !== undefined || channelType !== "") {
+      updateData.channelType = channelType;
     }
 
     const updatedChannel = await Channel.findByIdAndUpdate(
       id,
-      { $set: updateData }, // ⭐ VERY IMPORTANT
+      { $set: updateData }, //  VERY IMPORTANT
       { new: true },
     ).populate("members", "name email");
 
@@ -259,4 +263,84 @@ const deleteChannel = async (req, res) => {
   }
 };
 
-export { createChannel, listChannels, updateChannel, deleteChannel };
+const viewChannelMembers = async (req, res) => {
+  const { channelId } = req.params;
+  try {
+    const response = await Channel.findById(channelId);
+    if (!response) {
+      res.status(404).json({ success: false, message: "Channel not found" });
+    }
+    //🔥resolve user info manually
+    const UsersInChannel = await Promise.all(
+      response.members.map(async (id) => {
+        // Try Employee
+        let user = await Employee.findById(id).select(
+          "employeeName email avatar",
+        );
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.employeeName,
+            email: user.email,
+            avatar: user.avatar,
+            role: "Employee",
+          };
+        }
+
+        // Try User
+        user = await User.findById(id).select("name email avatar");
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            role: "Admin",
+          };
+        }
+
+        // Try Client
+        user = await ClientDetails.findById(id).select(
+          "client_name email avatar",
+        );
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.client_name,
+            email: user.email,
+            avatar: user.avatar,
+            role: "Client",
+          };
+        }
+        // Try Client
+        user = await ClientSubUser.findById(id).select(
+          "name email avatar",
+        );
+        if (user) {
+          return {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            role: "ClientSubUser",
+          };
+        }
+        return null;
+      }),
+    );
+
+     res.status(200).json({
+      success: true,
+      data: UsersInChannel.filter(Boolean),
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+export {
+  createChannel,
+  listChannels,
+  updateChannel,
+  deleteChannel,
+  viewChannelMembers,
+};

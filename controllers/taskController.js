@@ -1935,6 +1935,212 @@ const fixAssignedTo = async (tasks) => {
 //   }
 // };
 
+
+// const getTaskEngagementSummary = async (req, res) => {
+//   try {
+//     const { employeeId, fromDate, toDate } = req.query;
+
+//     const matchStage = {};
+
+//     if (employeeId) {
+//       matchStage.assignedTo = new mongoose.Types.ObjectId(employeeId);
+//     }
+
+//     if (fromDate || toDate) {
+//       matchStage.createdAt = {};
+//       if (fromDate) matchStage.createdAt.$gte = new Date(fromDate);
+//       if (toDate) matchStage.createdAt.$lte = new Date(toDate);
+//     }
+
+//     const threeDaysAgo = new Date();
+//     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+//     const pipeline = [
+//       { $match: matchStage },
+
+//       {
+//         $facet: {
+//           /* ================= EMPLOYEE SUMMARY ================= */
+//           employeeSummary: [
+//             {
+//               $group: {
+//                 _id: { employee: "$assignedTo", status: "$status" },
+//                 count: { $sum: 1 },
+//               },
+//             },
+//             {
+//               $group: {
+//                 _id: "$_id.employee",
+//                 statusCounts: {
+//                   $push: {
+//                     status: "$_id.status",
+//                     count: "$count",
+//                   },
+//                 },
+//                 totalAssigned: { $sum: "$count" },
+//               },
+//             },
+//             {
+//               $lookup: {
+//                 from: "employees",
+//                 localField: "_id",
+//                 foreignField: "_id",
+//                 as: "employee",
+//               },
+//             },
+//             { $unwind: "$employee" },
+//             {
+//               $project: {
+//                 employeeId: "$_id",
+//                 employeeName: "$employee.employeeName",
+//                 totalAssigned: 1,
+//                 statusCounts: {
+//                   $arrayToObject: {
+//                     $map: {
+//                       input: "$statusCounts",
+//                       as: "s",
+//                       in: ["$$s.status", "$$s.count"],
+//                     },
+//                   },
+//                 },
+//               },
+//             },
+//           ],
+
+//           /* ================= PROJECT-WISE BREAKDOWN ================= */
+//           projectWise: [
+//             {
+//               $group: {
+//                 _id: {
+//                   employee: "$assignedTo",
+//                   project: "$projectId",
+//                   status: "$status",
+//                 },
+//                 count: { $sum: 1 },
+//               },
+//             },
+//             {
+//               $group: {
+//                 _id: {
+//                   employee: "$_id.employee",
+//                   project: "$_id.project",
+//                 },
+//                 statusCounts: {
+//                   $push: {
+//                     status: "$_id.status",
+//                     count: "$count",
+//                   },
+//                 },
+//               },
+//             },
+//             {
+//               $lookup: {
+//                 from: "projects",
+//                 localField: "_id.project",
+//                 foreignField: "_id",
+//                 as: "project",
+//               },
+//             },
+//             { $unwind: "$project" },
+//             {
+//               $group: {
+//                 _id: "$_id.employee",
+//                 projects: {
+//                   $push: {
+//                     projectId: "$project._id",
+//                     projectName: "$project.name",
+//                     statusCounts: {
+//                       $arrayToObject: {
+//                         $map: {
+//                           input: "$statusCounts",
+//                           as: "s",
+//                           in: ["$$s.status", "$$s.count"],
+//                         },
+//                       },
+//                     },
+//                   },
+//                 },
+//               },
+//             },
+//           ],
+
+//           /* ================= OVERDUE TASK DETAILS ================= */
+//           overdueTasks: [
+//             {
+//               $match: {
+//                 status: "todo",
+//                 createdAt: { $lte: threeDaysAgo },
+//                 status: { $ne: "block" },
+//               },
+//             },
+//             {
+//               $addFields: {
+//                 daysPending: {
+//                   $dateDiff: {
+//                     startDate: "$createdAt",
+//                     endDate: new Date(),
+//                     unit: "day",
+//                   },
+//                 },
+//               },
+//             },
+//             {
+//               $lookup: {
+//                 from: "projects",
+//                 localField: "projectId",
+//                 foreignField: "_id",
+//                 as: "project",
+//               },
+//             },
+//             { $unwind: "$project" },
+//             {
+//               $group: {
+//                 _id: "$assignedTo",
+//                 tasks: {
+//                   $push: {
+//                     taskId: "$taskId",
+//                     title: "$title",
+//                     createdAt: "$createdAt",
+//                     projectName: "$project.name",
+//                     daysPending: "$daysPending",
+//                   },
+//                 },
+//               },
+//             },
+//             {
+//               $lookup: {
+//                 from: "employees",
+//                 localField: "_id",
+//                 foreignField: "_id",
+//                 as: "employee",
+//               },
+//             },
+//             { $unwind: "$employee" },
+//             {
+//               $project: {
+//                 employeeId: "$_id",
+//                 employeeName: "$employee.employeeName",
+//                 tasks: 1,
+//               },
+//             },
+//           ],
+//         },
+//       },
+//     ];
+
+//     const [result] = await Task.aggregate(pipeline);
+
+//     return res.status(200).json({
+//       success: true,
+//       data: result,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
+
+
 const particularTask = async (req, res) => {
   try {
     const {

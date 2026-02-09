@@ -35,11 +35,11 @@ export default async function startSocketServer(httpServer) {
     cors: {
       origin: [
         // statging socket
-        // "https://hrms.aryuprojects.com",
-        // "https://employee.aryuprojects.com",
+        "https://hrms.aryuprojects.com",
+        "https://employee.aryuprojects.com",
         //  // live socket
-        "https://employee.aryutechnologies.com",
-        "https://portal.aryutechnologies.com"
+        // "https://employee.aryutechnologies.com",
+        // "https://portal.aryutechnologies.com"
         // // local testing
         // "http://localhost:5000",
         // "http://localhost:500",
@@ -61,7 +61,6 @@ export default async function startSocketServer(httpServer) {
     console.log("Connected:", socket.id);
 
     /* USER ONLINE */
-
     socket.on("user_online", async (userId) => {
       socket.userId = userId.toString();
 
@@ -86,7 +85,7 @@ export default async function startSocketServer(httpServer) {
 
       console.log("messages",messages)
 
-      if (messages.length) {
+      if (messages.length>0) {
         // 2️⃣ Update deliveredAt
         await Message.updateMany(
           { _id: { $in: messages.map((m) => m._id) } },
