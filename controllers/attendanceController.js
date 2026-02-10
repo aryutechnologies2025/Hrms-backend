@@ -2054,6 +2054,7 @@ const dashboardAttendanceAndBirthday = async (req, res) => {
           },
           dutyStatus: 1,
           relivingDate: 1,
+          dateOfJoining: 1,
         },
       },
     ]);
@@ -2070,33 +2071,78 @@ const dashboardAttendanceAndBirthday = async (req, res) => {
       }
     }
     // Filter employees whose birthday is today
+    // const matchBirthdayList = employees.filter((emp) => {
+    //   // Get today's date at midnight
+    //   const today = new Date();
+    //   today.setHours(0, 0, 0, 0);
+    //   let isTrue = false;
+    //   if (
+    //     emp.relivingDate && // Make sure relivingDate exists
+    //     emp.dutyStatus === "0"
+    //   ) {
+    //     if (today <= emp.relivingDate) {
+    //       isTrue = true;
+    //     }
+    //   }
+    //   if (emp.dutyStatus === "1") {
+    //     isTrue = true;
+    //   }
+    //   // Extract DOB day & month
+    //   const date = new Date(emp.dateOfBirth);
+    //   const day = date.getDate();
+    //   const month = date.getMonth(); // 0-based
+    //   const todayDate = today.getDate();
+    //   const todayMonth = today.getMonth();
+    //   if (isTrue) {
+    //     return day === todayDate && month === todayMonth;
+    //   }
+    //   return false;
+    // });
+
     const matchBirthdayList = employees.filter((emp) => {
-      // Get today's date at midnight
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let isTrue = false;
-      if (
-        emp.relivingDate && // Make sure relivingDate exists
-        emp.dutyStatus === "0"
-      ) {
-        if (today <= emp.relivingDate) {
-          isTrue = true;
-        }
-      }
-      if (emp.dutyStatus === "1") {
-        isTrue = true;
-      }
-      // Extract DOB day & month
-      const date = new Date(emp.dateOfBirth);
-      const day = date.getDate();
-      const month = date.getMonth(); // 0-based
-      const todayDate = today.getDate();
-      const todayMonth = today.getMonth();
-      if (isTrue) {
-        return day === todayDate && month === todayMonth;
-      }
-      return false;
-    });
+  // Today's date at midnight
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let isTrue = false;
+
+  if (emp.relivingDate && emp.dutyStatus === "0") {
+    if (today <= new Date(emp.relivingDate)) {
+      isTrue = true;
+    }
+  }
+
+  if (emp.dutyStatus === "1") {
+    isTrue = true;
+  }
+
+  if (!isTrue) return false;
+
+  const todayDate = today.getDate();
+  const todayMonth = today.getMonth(); // 0-based
+
+  // DOB check
+  let isBirthday = false;
+  if (emp.dateOfBirth) {
+    const dob = new Date(emp.dateOfBirth);
+    isBirthday =
+      dob.getDate() === todayDate &&
+      dob.getMonth() === todayMonth;
+  }
+
+  // DOJ check (same logic as birthday)
+  let isJoiningDay = false;
+  if (emp.dateOfJoining) {
+    const doj = new Date(emp.dateOfJoining);
+    isJoiningDay =
+      doj.getDate() === todayDate &&
+      doj.getMonth() === todayMonth;
+  }
+
+  // Match if either birthday OR joining date
+  return isBirthday || isJoiningDay;
+});
+
     res.status(200).json({
       success: true,
       message: "Employee birthday list",

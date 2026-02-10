@@ -847,12 +847,12 @@ const allEmployeesUserDetails = async (req, res) => {
       /* ================= ROLE FILTER ================= */
       ...(roleId && mongoose.Types.ObjectId.isValid(roleId)
         ? [
-            {
-              $match: {
-                "role._id": new mongoose.Types.ObjectId(roleId),
-              },
+          {
+            $match: {
+              "role._id": new mongoose.Types.ObjectId(roleId),
             },
-          ]
+          },
+        ]
         : []),
 
       /* ================= DEPARTMENT LOOKUP ================= */
@@ -874,33 +874,33 @@ const allEmployeesUserDetails = async (req, res) => {
       /* ================= DEPARTMENT FILTER ================= */
       ...(departmentId && mongoose.Types.ObjectId.isValid(departmentId)
         ? [
-            {
-              $match: {
-                "role.department._id": new mongoose.Types.ObjectId(
-                  departmentId,
-                ),
-              },
+          {
+            $match: {
+              "role.department._id": new mongoose.Types.ObjectId(
+                departmentId,
+              ),
             },
-          ]
+          },
+        ]
         : []),
 
       /* ================= GLOBAL SEARCH ================= */
       ...(search
         ? [
-            {
-              $match: {
-                $or: [
-                  { employeeName: { $regex: search, $options: "i" } },
-                  { email: { $regex: search, $options: "i" } },
-                  { phoneNumber: { $regex: search, $options: "i" } },
-                  { employeeId: { $regex: search, $options: "i" } },
-                  { employeeType: { $regex: search, $options: "i" } },
-                  { "role.name": { $regex: search, $options: "i" } },
-                  { "role.department.name": { $regex: search, $options: "i" } },
-                ],
-              },
+          {
+            $match: {
+              $or: [
+                { employeeName: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+                { phoneNumber: { $regex: search, $options: "i" } },
+                { employeeId: { $regex: search, $options: "i" } },
+                { employeeType: { $regex: search, $options: "i" } },
+                { "role.name": { $regex: search, $options: "i" } },
+                { "role.department.name": { $regex: search, $options: "i" } },
+              ],
             },
-          ]
+          },
+        ]
         : []),
 
       /* ================= EXPERIENCE CALCULATION ================= */
@@ -2497,10 +2497,543 @@ const getRevisionHistoryById = async (req, res) => {
 //     });
 //   }
 // };
+//old
+// const payroll = async (req, res) => {
+//   try {
+//     const { month } = req.query;
+//     // Validate the month query: expected format "MM/YYYY"
+//     if (!month || !/^\d{1,2}\/\d{4}$/.test(month)) {
+//       return res.status(400).json({
+//         message:
+//           "Invalid or missing 'month' query parameter. Expected format: MM/YYYY",
+//       });
+//     }
+//     const getPayrollDetails = await Settings.findOne({});
+
+//     const [monthNum, year] = month.split("/").map(Number);
+//     if (
+//       isNaN(monthNum) ||
+//       isNaN(year) ||
+//       monthNum < 1 ||
+//       monthNum > 12 ||
+//       year < 2000
+//     ) {
+//       return res.status(400).json({
+//         message: "Invalid month or year in query. Must be MM/YYYY.",
+//       });
+//     }
+//     const start = new Date(Date.UTC(year, monthNum - 1, 1));
+//     const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
+//     const holidaysList = await UpcomingHoliday.find({});
+//     // let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
+//     //   employeeName: 1,
+//     // });
+//     let today = new Date();
+//     today = today.setHours(0, 0, 0, 0);
+//     // Filter out employees who are no longer active
+//     // activeEmployees = activeEmployees.filter((emp) => {
+//     //   if (emp.dutyStatus === "1") return true;
+//     //   if (!emp.relivingDate) return true;
+//     //   return emp.dutyStatus === "0" && today <= new Date(emp.relivingDate);
+//     // });
+//     // particular month attendanceEmployee Deatils and get unique id
+//     // Step 1: Get attendance records for the selected month
+//     const currentMonthAttendance = await Attendance.aggregate([
+//       {
+//         $match: {
+//           date: {
+//             $gte: new Date(Date.UTC(year, monthNum - 1, 1)),
+//             $lte: new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999)),
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: "$employeeId", // group by employeeId
+//         },
+//       },
+//     ]);
+//     console.log(currentMonthAttendance);
+//     // Step 2: Extract unique employee IDs who have attendance
+//     const attendanceEmployeeIds = currentMonthAttendance.map((e) =>
+//       e._id.toString(),
+//     );
+//     // Step 3: Get all active employees
+//     let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
+//       employeeName: 1,
+//     });
+//     activeEmployees = activeEmployees.filter((value) => {
+//       if (value.dutyStatus == "1") return true;
+//       // Keep active employees with no relivingDate
+
+//       if (!value.relivingDate) return true;
+
+//       const relDate = new Date(value.relivingDate);
+//       relDate.setHours(0, 0, 0, 0); // Normalize to midnight
+
+//       // Keep only those whose relivingDate is after the selected date
+//       return relDate > start;
+//     });
+//     // console.log(activeEmployees);
+
+//     activeEmployees = activeEmployees.filter((emp) => {
+//       return emp.dateOfJoining <= start;
+//     });
+
+//     // Step 4: Filter to include only employees who have attendance this month
+//     activeEmployees = activeEmployees.filter((emp) =>
+//       attendanceEmployeeIds.includes(emp._id.toString()),
+//     );
+
+//     const finalResults = [];
+
+//     for (const emp of activeEmployees) {
+//       const attendanceList = await Attendance.find({
+//         employeeId: new mongoose.Types.ObjectId(emp._id),
+//         date: { $gte: start, $lte: end },
+//       }).populate(
+//         "employeeId",
+//         "_id photo employeeName phoneNumber email employeeType employeeId",
+//       );
+
+//       const leaveList = await Leave.find({
+//         employeeId: new mongoose.Types.ObjectId(emp._id),
+//         leaveType: { $in: ["Leave", "Permission"] },
+//         status: "approved",
+//         startDate: { $lte: end },
+//         endDate: { $gte: start },
+//       });
+//       const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getDate();
+//       let totalPresent = 0;
+//       let totalHolidays = 0;
+//       let totalAbsent = 0;
+//       let totalHalfDay = 0;
+//       let totalUnHappyDay = 0;
+//       let casualLeave = 0;
+//       let leaveTypeCount = {};
+//       let compensatoryLeaveCount = 0;
+//       // console.log("daysInMonth", daysInMonth);
+//       for (let day = 1; day <= daysInMonth; day++) {
+//         const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
+//         const currentDateStr = currentDate.toISOString().split("T")[0];
+//         const dayStart = new Date(currentDate);
+//         const options = { weekday: "long", timeZone: "Asia/Kolkata" };
+//         const dayName = dayStart.toLocaleDateString("en-IN", options);
+//         const attendance = attendanceList.find((att) => {
+//           const attDate = new Date(att.date).toISOString().split("T")[0];
+//           return attDate === currentDateStr;
+//         });
+//         const holiday = holidaysList.find(
+//           (h) =>
+//             new Date(h.date).toISOString().split("T")[0] === currentDateStr,
+//         );
+//         const calculateTime = (entries) => {
+//           let workTime = 0;
+//           let breakTime = 0;
+//           let lastInTime = null;
+//           let lastBreakOutTime = null;
+//           let totalBreakInCount = 0;
+//           entries.sort((a, b) => new Date(a.time) - new Date(b.time));
+//           for (let entry of entries) {
+//             const { reason, time } = entry;
+//             const entryTime = new Date(time);
+//             if (reason === "Break In" || reason === "Login") {
+//               if (lastBreakOutTime) {
+//                 totalBreakInCount++;
+//                 breakTime += entryTime - lastBreakOutTime;
+//                 lastBreakOutTime = null;
+//               }
+//               lastInTime = entryTime;
+//             }
+//             if (reason === "Break Out") {
+//               if (lastInTime) {
+//                 workTime += entryTime - lastInTime;
+//                 lastInTime = null;
+//               }
+//               lastBreakOutTime = entryTime;
+//             }
+//             if (reason === "Logout") {
+//               if (lastInTime) {
+//                 workTime += entryTime - lastInTime;
+//                 lastInTime = null;
+//               }
+//               if (lastBreakOutTime) {
+//                 breakTime += entryTime - lastBreakOutTime;
+//                 lastBreakOutTime = null;
+//               }
+//             }
+//           }
+//           const format = (ms) => {
+//             if (!ms || isNaN(ms)) return { hours: 0, minutes: 0, seconds: 0 };
+//             return {
+//               hours: Math.floor(ms / (1000 * 60 * 60)),
+//               minutes: Math.floor((ms / (1000 * 60)) % 60),
+//               seconds: Math.floor((ms / 1000) % 60),
+//             };
+//           };
+//           return {
+//             payableTime: format(workTime),
+//             breakTime: format(breakTime),
+//             totalWorkTime: format(workTime + breakTime),
+//             totalBreakInCount: totalBreakInCount,
+//           };
+//         };
+//         if (holiday || dayName === "Sunday") {
+//           totalHolidays++;
+//           if (attendance) {
+//             compensatoryLeaveCount++;
+//           }
+//         } else if (attendance) {
+//           totalPresent++;
+//           const attData = attendance.toObject();
+//           if (attData.entries.length > 0) {
+//             attData.result = calculateTime(attData.entries);
+//             const loginEntry = attData.entries.find(
+//               (e) => e.reason === "Login",
+//             );
+//             const logoutEntry = [...attData.entries]
+//               .reverse()
+//               .find((e) => e.reason === "Logout");
+//             attData.loginTime = loginEntry
+//               ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
+//                   timeZone: "Asia/Kolkata",
+//                   hour: "2-digit",
+//                   minute: "2-digit",
+//                   second: "2-digit",
+//                   hour12: true,
+//                 })
+//               : "-";
+//             attData.logout = logoutEntry
+//               ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
+//                   timeZone: "Asia/Kolkata",
+//                   hour: "2-digit",
+//                   minute: "2-digit",
+//                   second: "2-digit",
+//                   hour12: true,
+//                 })
+//               : "-";
+//           }
+//           // Half-day leave check
+//           leaveList.forEach((l) => {
+//             if (l.status === "approved") {
+//               const startStr = new Date(l.startDate)
+//                 .toISOString()
+//                 .split("T")[0];
+//               const endStr = new Date(l.endDate).toISOString().split("T")[0];
+//               if (startStr <= currentDateStr && endStr >= currentDateStr) {
+//                 l.leaveDuration.forEach((item) => {
+//                   if (!item?.date) return;
+//                   const itemDateStr = new Date(item.date)
+//                     .toISOString()
+//                     .split("T")[0];
+//                   if (
+//                     itemDateStr === currentDateStr &&
+//                     item.subLeaveType?.trim().toUpperCase() === "HD"
+//                   ) {
+//                     totalHalfDay += 0.5;
+//                   }
+
+//                   if (
+//                     itemDateStr === currentDateStr &&
+//                     item.subLeaveType?.trim().toUpperCase() === "CO"
+//                   ) {
+//                     compensatoryLeaveCount -= 1;
+//                   }
+//                   if (
+//                     itemDateStr === currentDateStr &&
+//                     item.subLeaveType?.trim().toUpperCase() === "UH"
+//                   ) {
+//                     totalUnHappyDay += 1;
+//                   }
+//                 });
+//               }
+//             }
+//           });
+//         } else {
+//           const leave = leaveList.find((l) => {
+//             const startStr = new Date(l.startDate).toISOString().split("T")[0];
+//             const endStr = new Date(l.endDate).toISOString().split("T")[0];
+//             return startStr <= currentDateStr && endStr >= currentDateStr;
+//           });
+//           //   let subLeaveType = leave?.subLeaveType || "Absent";
+//           //   if (leave) {
+//           //     leaveTypeCount[subLeaveType] =
+//           //       (leaveTypeCount[subLeaveType] || 0) + 1;
+//           //   } else {
+//           //     totalAbsent++;
+//           //   }
+//           if (leave && leave.leaveDuration) {
+//             let found = false;
+//             leave.leaveDuration.forEach((item) => {
+//               const itemDateStr = new Date(item.date)
+//                 .toISOString()
+//                 .split("T")[0];
+//               if (itemDateStr === currentDateStr) {
+//                 const type = item.subLeaveType?.trim().toUpperCase() || "Leave";
+//                 leaveTypeCount[type] = (leaveTypeCount[type] || 0) + 1;
+//                 found = true;
+//                 totalAbsent++;
+//               }
+//               if (
+//                 itemDateStr === currentDateStr &&
+//                 item.subLeaveType?.trim().toUpperCase() === "CL"
+//               ) {
+//                 casualLeave += 1;
+//               }
+//             });
+
+//             if (!found) {
+//               totalAbsent++;
+//               console.log("totalAbsent", totalAbsent);
+//             }
+//           } else {
+//             totalAbsent++;
+//           }
+//         }
+//       }
+
+//       // if (totalPresent <= 0) {
+//       //   continue;
+//       // }
+//       // --- Payroll Calculation ---
+
+//       const calculatePayroll = (
+//         payrollPercentValue,
+//         ctc,
+//         workingDays,
+//         totalDays,
+//         employeeType,
+//       ) => {
+//         let {
+//           payroll_basic_percent = 0,
+//           payroll_eepf_percent = 0,
+//           payroll_erpf_percent = 0,
+//           payroll_hra_percent = 0,
+//           payroll_medicalAllowance = 0,
+//           payroll_conveyanceAllowance = 0,
+//           payroll_eeesi_percent = 0,
+//           payroll_eresi_percent = 0,
+//         } = payrollPercentValue;
+
+//         // Convert percentages to decimal
+//         payroll_basic_percent = Number(payroll_basic_percent) / 100;
+//         payroll_eepf_percent = Number(payroll_eepf_percent) / 100;
+//         payroll_erpf_percent = Number(payroll_erpf_percent) / 100;
+//         payroll_hra_percent = Number(payroll_hra_percent) / 100;
+//         payroll_eeesi_percent = Number(payroll_eeesi_percent) / 100;
+//         payroll_eresi_percent = Number(payroll_eresi_percent) / 100;
+//         payroll_medicalAllowance = Number(payroll_medicalAllowance);
+//         payroll_conveyanceAllowance = Number(payroll_conveyanceAllowance);
+
+//         const taxYearStart = ctc * 12 - 75000; // taxable income for the year
+
+//         let dayRatio = workingDays / totalDays;
+//         let perDaySalary = ctc / totalDays;
+
+//         let grossSalary = 0,
+//           basic = 0,
+//           hra = 0,
+//           medicalAllowance = 0,
+//           conveyanceAllowance = 0,
+//           employeePF = 0,
+//           employerPF = 0,
+//           employerEPS = 0,
+//           otherAllowance = 0,
+//           employeeESI = 0,
+//           employerESI = 0,
+//           netSalary = 0,
+//           professionalTax = 0,
+//           actualNetSalary = ctc - perDaySalary * (totalDays - workingDays);
+
+//         const esiThreshold = 21000; // max gross salary for ESI applicability
+//         let actualGrossSalary = 0;
+//         if (employeeType === "Full Time") {
+//           if (ctc / 1.0925 <= 21000) {
+//             grossSalary = ctc / 1.0925; // ESI case
+//           } else if ((ctc / 1.06) * 0.5 <= 15000) {
+//             grossSalary = ctc / 1.06; // PF case based on 50% <= 15000
+//           } else {
+//             grossSalary = ctc - 1800; // Deduct employer PF
+//           }
+//           //basic
+//           basic = grossSalary * payroll_basic_percent * dayRatio;
+//           // hra
+//           hra = basic * payroll_hra_percent;
+//           // medicalAllowance and conveyanceAllowance
+//           medicalAllowance = payroll_medicalAllowance * dayRatio;
+//           // conv
+//           conveyanceAllowance = payroll_conveyanceAllowance * dayRatio;
+//           // otherAllowance
+//           otherAllowance =
+//             grossSalary * dayRatio -
+//             (basic + hra + medicalAllowance + conveyanceAllowance);
+//           console.log(
+//             "basic",
+//             grossSalary,
+//             basic,
+//             hra,
+//             medicalAllowance,
+//             conveyanceAllowance,
+//           );
+
+//           // Employee PF
+//           employeePF = Math.min(basic * payroll_eepf_percent, 1800);
+
+//           // Employer PF split into EPF and EPS
+//           const maxEPS = 1250;
+//           employerEPS = Math.min(basic * 0.0833, maxEPS); // 8.33% capped at 1250
+//           employerPF = Math.min(basic * 0.12, 1800) - employerEPS; // Employer EPF = total employer PF - EPS
+
+//           // ESI calculation only if grossSalary <= esiThreshold
+//           actualGrossSalary = (grossSalary / totalDays) * workingDays;
+
+//           if (grossSalary <= esiThreshold) {
+//             // employeeESI = actualGrossSalary * 0.0075; // 0.75%
+//             // employerESI = actualGrossSalary * 0.0325; // 3.25%
+//             console.log("yyy", payroll_eeesi_percent, payroll_eresi_percent);
+//             employeeESI = actualGrossSalary * payroll_eeesi_percent; // 0.75%
+//             employerESI = actualGrossSalary * payroll_eresi_percent; // 3.25%
+//           }
+
+//           netSalary = actualGrossSalary - employeePF - employeeESI;
+
+//           const getPT = (salary6Months) => {
+//             if (salary6Months <= 21000) return 0;
+//             if (salary6Months <= 30000) return 180;
+//             if (salary6Months <= 45000) return 425;
+//             if (salary6Months <= 60000) return 930;
+//             if (salary6Months <= 75000) return 1025;
+//             return 1250;
+//           };
+
+//           professionalTax = getPT(grossSalary * 6) / 6;
+//           actualNetSalary = netSalary - professionalTax;
+//         }
+
+//         const f = (n) => (isNaN(n) ? "0.00" : Math.round(Number(n)).toFixed(2));
+
+//         function calculateIncomeTax(income) {
+//           const slabs = [
+//             { limit: 400000, rate: 0 },
+//             { limit: 800000, rate: 0.05 },
+//             { limit: 1200000, rate: 0.1 },
+//             { limit: 1600000, rate: 0.15 },
+//             { limit: 2000000, rate: 0.2 },
+//             { limit: 2400000, rate: 0.25 },
+//             { limit: Infinity, rate: 0.3 },
+//           ];
+
+//           let tax = 0;
+//           let previousLimit = 0;
+
+//           for (const slab of slabs) {
+//             if (income > slab.limit) {
+//               tax += (slab.limit - previousLimit) * slab.rate;
+//               previousLimit = slab.limit;
+//             } else {
+//               tax += (income - previousLimit) * slab.rate;
+//               break;
+//             }
+//           }
+
+//           return Math.round(tax);
+//         }
+
+//         let annualTax = 0;
+//         let monthlyTax = 0;
+//         let healthandEducationCess = 0;
+//         let monthlyTaxAndHealthTax = 0;
+
+//         if (taxYearStart >= 1200000) {
+//           annualTax = calculateIncomeTax(taxYearStart);
+//           monthlyTax = Math.round(annualTax / 12);
+//           healthandEducationCess = Math.round(monthlyTax * 0.04);
+//           monthlyTaxAndHealthTax = monthlyTax + healthandEducationCess;
+//           actualNetSalary = actualNetSalary - monthlyTax;
+//         }
+
+//         return {
+//           workingDays,
+//           totalDays,
+//           basic: f(basic),
+//           hra: f(hra),
+//           medicalAllowance: f(medicalAllowance),
+//           conveyanceAllowance: f(conveyanceAllowance),
+//           employeePF: f(employeePF),
+//           employerPF: f(employerPF),
+//           employerEPS: f(employerEPS),
+//           employeeESI: f(employeeESI),
+//           employerESI: f(employerESI),
+//           otherAllowance: f(otherAllowance),
+//           grossSalary: f(grossSalary),
+//           actualGrossSalary: f(actualGrossSalary),
+//           professionalTax: f(professionalTax),
+//           netSalary: f(actualNetSalary),
+//           totalCTC: f(ctc),
+//           ActualCTC: f(
+//             (grossSalary / totalDays) * workingDays +
+//               employerPF +
+//               employerEPS +
+//               employerESI,
+//           ),
+//           annualTax: f(annualTax),
+//           monthlyTax: f(monthlyTax),
+//           healthandEducationCess: f(healthandEducationCess),
+//           monthlyTaxAndHealthTax: f(monthlyTaxAndHealthTax),
+//         };
+//       };
+
+//       const salarySlip = calculatePayroll(
+//         getPayrollDetails,
+//         emp.salaryAmount,
+//         totalPresent + casualLeave - totalHalfDay >
+//           Math.abs(daysInMonth - totalHolidays)
+//           ? Math.abs(daysInMonth - totalHolidays)
+//           : totalPresent + casualLeave - totalHalfDay,
+
+//         Math.abs(daysInMonth - totalHolidays),
+//         // 5,
+//         // 5,
+//         emp.employeeType,
+//       );
+//       finalResults.push({
+//         employee: {
+//           name: emp.employeeName,
+//           email: emp.email,
+//           photo: emp.photo,
+//           phone: emp.phoneNumber,
+//           id: emp._id,
+//         },
+//         data: salarySlip,
+//         summary: {
+//           present: totalPresent - totalHalfDay,
+//           holidays: totalHolidays,
+//           absent: totalAbsent,
+//           leaveTypes: leaveTypeCount,
+//           totalHalfDay: totalHalfDay,
+//           totalUnHappyDay: totalUnHappyDay,
+//           compensatoryLeaveCount: compensatoryLeaveCount,
+//         },
+//       });
+//     }
+//     res.status(200).json({
+//       message: "Monthly payroll for all active employees",
+//       data: finalResults,
+//     });
+//   } catch (error) {
+//     // console.error("Payroll error:", error);
+//     res.status(500).json({
+//       message: "Server error",
+//       error: error.message || "Unexpected error",
+//     });
+//   }
+// };
+
+
+
 const payroll = async (req, res) => {
   try {
     const { month } = req.query;
-    // Validate the month query: expected format "MM/YYYY"
     if (!month || !/^\d{1,2}\/\d{4}$/.test(month)) {
       return res.status(400).json({
         message:
@@ -2524,19 +3057,8 @@ const payroll = async (req, res) => {
     const start = new Date(Date.UTC(year, monthNum - 1, 1));
     const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
     const holidaysList = await UpcomingHoliday.find({});
-    // let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
-    //   employeeName: 1,
-    // });
-    let today = new Date();
-    today = today.setHours(0, 0, 0, 0);
-    // Filter out employees who are no longer active
-    // activeEmployees = activeEmployees.filter((emp) => {
-    //   if (emp.dutyStatus === "1") return true;
-    //   if (!emp.relivingDate) return true;
-    //   return emp.dutyStatus === "0" && today <= new Date(emp.relivingDate);
-    // });
-    // particular month attendanceEmployee Deatils and get unique id
-    // Step 1: Get attendance records for the selected month
+    
+    
     const currentMonthAttendance = await Attendance.aggregate([
       {
         $match: {
@@ -2548,38 +3070,37 @@ const payroll = async (req, res) => {
       },
       {
         $group: {
-          _id: "$employeeId", // group by employeeId
+          _id: "$employeeId",
         },
       },
     ]);
-    console.log(currentMonthAttendance);
-    // Step 2: Extract unique employee IDs who have attendance
+    
+  
     const attendanceEmployeeIds = currentMonthAttendance.map((e) =>
       e._id.toString(),
     );
-    // Step 3: Get all active employees
+    
+    
     let activeEmployees = await Employee.find({ employeeStatus: "1" }).sort({
       employeeName: 1,
     });
+    
     activeEmployees = activeEmployees.filter((value) => {
       if (value.dutyStatus == "1") return true;
-      // Keep active employees with no relivingDate
-
+ 
       if (!value.relivingDate) return true;
 
       const relDate = new Date(value.relivingDate);
-      relDate.setHours(0, 0, 0, 0); // Normalize to midnight
+      relDate.setHours(0, 0, 0, 0);
 
-      // Keep only those whose relivingDate is after the selected date
+      
       return relDate > start;
     });
-    // console.log(activeEmployees);
 
     activeEmployees = activeEmployees.filter((emp) => {
       return emp.dateOfJoining <= start;
     });
 
-    // Step 4: Filter to include only employees who have attendance this month
     activeEmployees = activeEmployees.filter((emp) =>
       attendanceEmployeeIds.includes(emp._id.toString()),
     );
@@ -2602,16 +3123,26 @@ const payroll = async (req, res) => {
         startDate: { $lte: end },
         endDate: { $gte: start },
       });
+      
       const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getDate();
       let totalPresent = 0;
+      let totalHalfDaysCount = 0;
       let totalHolidays = 0;
       let totalAbsent = 0;
-      let totalHalfDay = 0;
       let totalUnHappyDay = 0;
       let casualLeave = 0;
       let leaveTypeCount = {};
       let compensatoryLeaveCount = 0;
-      // console.log("daysInMonth", daysInMonth);
+      let compLeaveCount = 0;
+      let totalWorkingDays = 0;
+      
+      let totalWorkedHours = 0;
+      let totalBreakHours = 0;
+      let totalLoginToLogoutHours = 0;
+      let daysGreaterThan8Hours = 0;
+      let daysLessThan8Hours = 0;
+      let dailyWorkHours = [];
+
       for (let day = 1; day <= daysInMonth; day++) {
         const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
         const currentDateStr = currentDate.toISOString().split("T")[0];
@@ -2626,175 +3157,185 @@ const payroll = async (req, res) => {
           (h) =>
             new Date(h.date).toISOString().split("T")[0] === currentDateStr,
         );
-        const calculateTime = (entries) => {
-          let workTime = 0;
-          let breakTime = 0;
-          let lastInTime = null;
-          let lastBreakOutTime = null;
-          let totalBreakInCount = 0;
-          entries.sort((a, b) => new Date(a.time) - new Date(b.time));
-          for (let entry of entries) {
-            const { reason, time } = entry;
-            const entryTime = new Date(time);
-            if (reason === "Break In" || reason === "Login") {
-              if (lastBreakOutTime) {
-                totalBreakInCount++;
-                breakTime += entryTime - lastBreakOutTime;
-                lastBreakOutTime = null;
-              }
-              lastInTime = entryTime;
-            }
-            if (reason === "Break Out") {
-              if (lastInTime) {
-                workTime += entryTime - lastInTime;
-                lastInTime = null;
-              }
-              lastBreakOutTime = entryTime;
-            }
-            if (reason === "Logout") {
-              if (lastInTime) {
-                workTime += entryTime - lastInTime;
-                lastInTime = null;
-              }
-              if (lastBreakOutTime) {
-                breakTime += entryTime - lastBreakOutTime;
-                lastBreakOutTime = null;
-              }
-            }
-          }
-          const format = (ms) => {
-            if (!ms || isNaN(ms)) return { hours: 0, minutes: 0, seconds: 0 };
-            return {
-              hours: Math.floor(ms / (1000 * 60 * 60)),
-              minutes: Math.floor((ms / (1000 * 60)) % 60),
-              seconds: Math.floor((ms / 1000) % 60),
-            };
-          };
-          return {
-            payableTime: format(workTime),
-            breakTime: format(breakTime),
-            totalWorkTime: format(workTime + breakTime),
-            totalBreakInCount: totalBreakInCount,
-          };
-        };
+
+    
+        const isWorkingDay = !(holiday || dayName === "Sunday");
+        
+        if (isWorkingDay) {
+          totalWorkingDays++;
+        }
+
         if (holiday || dayName === "Sunday") {
           totalHolidays++;
-          if (attendance) {
-            compensatoryLeaveCount++;
-          }
         } else if (attendance) {
-          totalPresent++;
           const attData = attendance.toObject();
-          if (attData.entries.length > 0) {
-            attData.result = calculateTime(attData.entries);
-            const loginEntry = attData.entries.find(
-              (e) => e.reason === "Login",
+          let workedHours = 0;
+          let totalHours = 0;
+          let breakMs = 0;
+
+          if (attData.entries && attData.entries.length > 0) {
+        
+            const sortedEntries = [...attData.entries].sort(
+              (a, b) => new Date(a.time) - new Date(b.time)
             );
-            const logoutEntry = [...attData.entries]
-              .reverse()
-              .find((e) => e.reason === "Logout");
-            attData.loginTime = loginEntry
-              ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
-                  timeZone: "Asia/Kolkata",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: true,
-                })
-              : "-";
-            attData.logout = logoutEntry
-              ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
-                  timeZone: "Asia/Kolkata",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: true,
-                })
-              : "-";
+
+     
+            const loginEntry = sortedEntries.find(e => e.reason === "Login");
+            const logoutEntry = [...sortedEntries].reverse().find(e => e.reason === "Logout");
+
+            if (loginEntry && logoutEntry) {
+              const loginTime = new Date(loginEntry.time);
+              const logoutTime = new Date(logoutEntry.time);
+
+        
+              let lastBreakOut = null;
+              let totalBreakMs = 0;
+              let breakCount = 0;
+              
+              sortedEntries.forEach(entry => {
+                const entryTime = new Date(entry.time);
+                
+                if (entry.reason === "Break Out") {
+                  lastBreakOut = entryTime;
+                }
+                else if (entry.reason === "Break In" && lastBreakOut) {
+           
+                  if (entryTime > lastBreakOut) {
+                    const breakDuration = entryTime - lastBreakOut;
+                    totalBreakMs += breakDuration;
+                    breakCount++;
+                  }
+                  lastBreakOut = null;
+                }
+              });
+
+              if (lastBreakOut) {
+                totalBreakMs += logoutTime - lastBreakOut;
+                breakCount++;
+              }
+
+
+              const totalMs = logoutTime - loginTime;
+              totalHours = totalMs / (1000 * 60 * 60);
+              
+              const workedMs = totalMs - totalBreakMs;
+              workedHours = workedMs / (1000 * 60 * 60);
+              
+
+              totalLoginToLogoutHours += totalHours;
+              totalBreakHours += totalBreakMs / (1000 * 60 * 60);
+              totalWorkedHours += workedHours;
+              
+ 
+              const dailyDetail = {
+                date: currentDateStr,
+                loginToLogoutHours: parseFloat(totalHours.toFixed(2)),
+                breakHours: parseFloat((totalBreakMs / (1000 * 60 * 60)).toFixed(2)),
+                workedHours: parseFloat(workedHours.toFixed(2)),
+                status: ''
+              };
+
+     
+              if (workedHours >= 8) {
+                totalPresent++;
+                daysGreaterThan8Hours++;
+                dailyDetail.status = 'Full Day';
+                console.log(`${currentDateStr}: Full Day - ${workedHours.toFixed(2)} hours worked`);
+              } else if (workedHours > 0 && workedHours < 8) {
+                totalHalfDaysCount++;
+                daysLessThan8Hours++;
+                dailyDetail.status = 'Half Day';
+                console.log(` ${currentDateStr}: Half Day - ${workedHours.toFixed(2)} hours worked`);
+              } else if (workedHours <= 0) {
+     
+                dailyDetail.status = 'No Work';
+                console.log(`${currentDateStr}: No valid worked hours - ${workedHours.toFixed(2)}`);
+              }
+
+              dailyWorkHours.push(dailyDetail);
+            }
           }
-          // Half-day leave check
+
+      
+          let leaveFound = false;
           leaveList.forEach((l) => {
             if (l.status === "approved") {
-              const startStr = new Date(l.startDate)
-                .toISOString()
-                .split("T")[0];
+              const startStr = new Date(l.startDate).toISOString().split("T")[0];
               const endStr = new Date(l.endDate).toISOString().split("T")[0];
+
               if (startStr <= currentDateStr && endStr >= currentDateStr) {
                 l.leaveDuration.forEach((item) => {
                   if (!item?.date) return;
-                  const itemDateStr = new Date(item.date)
-                    .toISOString()
-                    .split("T")[0];
-                  if (
-                    itemDateStr === currentDateStr &&
-                    item.subLeaveType?.trim().toUpperCase() === "HD"
-                  ) {
-                    totalHalfDay += 0.5;
-                  }
 
-                  if (
-                    itemDateStr === currentDateStr &&
-                    item.subLeaveType?.trim().toUpperCase() === "CO"
-                  ) {
-                    compensatoryLeaveCount -= 1;
-                  }
-                  if (
-                    itemDateStr === currentDateStr &&
-                    item.subLeaveType?.trim().toUpperCase() === "UH"
-                  ) {
-                    totalUnHappyDay += 1;
+                  const itemDateStr = new Date(item.date).toISOString().split("T")[0];
+                  const subType = item.subLeaveType?.trim().toUpperCase();
+
+                  if (itemDateStr === currentDateStr) {
+                    leaveFound = true;
+                    
+                    if (subType === "HD") {
+                      totalHalfDaysCount++;
+                      daysLessThan8Hours++;
+                      console.log(`📝 ${currentDateStr}: Half Day Leave`);
+                    }
+
+                    if (subType === "UH") {
+                      totalUnHappyDay += 1;
+                    }
+                    
+                    leaveTypeCount[subType] = (leaveTypeCount[subType] || 0) + 1;
+                    if (subType === "CL") casualLeave += 1;
                   }
                 });
               }
             }
           });
+
         } else {
           const leave = leaveList.find((l) => {
             const startStr = new Date(l.startDate).toISOString().split("T")[0];
             const endStr = new Date(l.endDate).toISOString().split("T")[0];
             return startStr <= currentDateStr && endStr >= currentDateStr;
           });
-          //   let subLeaveType = leave?.subLeaveType || "Absent";
-          //   if (leave) {
-          //     leaveTypeCount[subLeaveType] =
-          //       (leaveTypeCount[subLeaveType] || 0) + 1;
-          //   } else {
-          //     totalAbsent++;
-          //   }
+
           if (leave && leave.leaveDuration) {
             let found = false;
             leave.leaveDuration.forEach((item) => {
-              const itemDateStr = new Date(item.date)
-                .toISOString()
-                .split("T")[0];
+              const itemDateStr = new Date(item.date).toISOString().split("T")[0];
               if (itemDateStr === currentDateStr) {
                 const type = item.subLeaveType?.trim().toUpperCase() || "Leave";
                 leaveTypeCount[type] = (leaveTypeCount[type] || 0) + 1;
-                found = true;
                 totalAbsent++;
-              }
-              if (
-                itemDateStr === currentDateStr &&
-                item.subLeaveType?.trim().toUpperCase() === "CL"
-              ) {
-                casualLeave += 1;
+                found = true;
+                if (type === "CL") casualLeave += 1;
               }
             });
-
-            if (!found) {
+            if (!found && isWorkingDay) {
               totalAbsent++;
-              console.log("totalAbsent", totalAbsent);
             }
-          } else {
+          } else if (isWorkingDay) {
             totalAbsent++;
           }
         }
       }
 
-      // if (totalPresent <= 0) {
-      //   continue;
-      // }
-      // --- Payroll Calculation ---
+      const startOfYear = new Date(Date.UTC(year, 0, 1));
+      const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+      compLeaveCount = await Leave.countDocuments({
+        employeeId: new mongoose.Types.ObjectId(emp._id),
+        status: "approved",
+        createdAt: { $gte: startOfYear, $lt: endOfYear },
+        "leaveDuration.subLeaveType": "CO",
+      });
+
+      const halfDayEquivalent = totalHalfDaysCount * 0.5;
+      
+ 
+      const totalPayableDays = totalPresent + halfDayEquivalent + compLeaveCount + casualLeave;
+      
+   
+      const finalPayableDays = Math.min(totalPayableDays, totalWorkingDays);
 
       const calculatePayroll = (
         payrollPercentValue,
@@ -2814,7 +3355,6 @@ const payroll = async (req, res) => {
           payroll_eresi_percent = 0,
         } = payrollPercentValue;
 
-        // Convert percentages to decimal
         payroll_basic_percent = Number(payroll_basic_percent) / 100;
         payroll_eepf_percent = Number(payroll_eepf_percent) / 100;
         payroll_erpf_percent = Number(payroll_erpf_percent) / 100;
@@ -2824,7 +3364,7 @@ const payroll = async (req, res) => {
         payroll_medicalAllowance = Number(payroll_medicalAllowance);
         payroll_conveyanceAllowance = Number(payroll_conveyanceAllowance);
 
-        const taxYearStart = ctc * 12 - 75000; // taxable income for the year
+        const taxYearStart = ctc * 12 - 75000;
 
         let dayRatio = workingDays / totalDays;
         let perDaySalary = ctc / totalDays;
@@ -2844,16 +3384,18 @@ const payroll = async (req, res) => {
           professionalTax = 0,
           actualNetSalary = ctc - perDaySalary * (totalDays - workingDays);
 
-        const esiThreshold = 21000; // max gross salary for ESI applicability
+        const esiThreshold = 21000;
         let actualGrossSalary = 0;
+        
         if (employeeType === "Full Time") {
           if (ctc / 1.0925 <= 21000) {
-            grossSalary = ctc / 1.0925; // ESI case
+            grossSalary = ctc / 1.0925;
           } else if ((ctc / 1.06) * 0.5 <= 15000) {
-            grossSalary = ctc / 1.06; // PF case based on 50% <= 15000
+            grossSalary = ctc / 1.06;
           } else {
-            grossSalary = ctc - 1800; // Deduct employer PF
+            grossSalary = ctc - 1800;
           }
+          
           //basic
           basic = grossSalary * payroll_basic_percent * dayRatio;
           // hra
@@ -2866,32 +3408,21 @@ const payroll = async (req, res) => {
           otherAllowance =
             grossSalary * dayRatio -
             (basic + hra + medicalAllowance + conveyanceAllowance);
-          console.log(
-            "basic",
-            grossSalary,
-            basic,
-            hra,
-            medicalAllowance,
-            conveyanceAllowance,
-          );
 
           // Employee PF
           employeePF = Math.min(basic * payroll_eepf_percent, 1800);
 
           // Employer PF split into EPF and EPS
           const maxEPS = 1250;
-          employerEPS = Math.min(basic * 0.0833, maxEPS); // 8.33% capped at 1250
-          employerPF = Math.min(basic * 0.12, 1800) - employerEPS; // Employer EPF = total employer PF - EPS
+          employerEPS = Math.min(basic * 0.0833, maxEPS);
+          employerPF = Math.min(basic * 0.12, 1800) - employerEPS;
 
           // ESI calculation only if grossSalary <= esiThreshold
           actualGrossSalary = (grossSalary / totalDays) * workingDays;
 
           if (grossSalary <= esiThreshold) {
-            // employeeESI = actualGrossSalary * 0.0075; // 0.75%
-            // employerESI = actualGrossSalary * 0.0325; // 3.25%
-            console.log("yyy", payroll_eeesi_percent, payroll_eresi_percent);
-            employeeESI = actualGrossSalary * payroll_eeesi_percent; // 0.75%
-            employerESI = actualGrossSalary * payroll_eresi_percent; // 3.25%
+            employeeESI = actualGrossSalary * payroll_eeesi_percent;
+            employerESI = actualGrossSalary * payroll_eresi_percent;
           }
 
           netSalary = actualGrossSalary - employeePF - employeeESI;
@@ -2971,9 +3502,9 @@ const payroll = async (req, res) => {
           totalCTC: f(ctc),
           ActualCTC: f(
             (grossSalary / totalDays) * workingDays +
-              employerPF +
-              employerEPS +
-              employerESI,
+            employerPF +
+            employerEPS +
+            employerESI,
           ),
           annualTax: f(annualTax),
           monthlyTax: f(monthlyTax),
@@ -2985,16 +3516,12 @@ const payroll = async (req, res) => {
       const salarySlip = calculatePayroll(
         getPayrollDetails,
         emp.salaryAmount,
-        totalPresent + casualLeave - totalHalfDay >
-          Math.abs(daysInMonth - totalHolidays)
-          ? Math.abs(daysInMonth - totalHolidays)
-          : totalPresent + casualLeave - totalHalfDay,
-
-        Math.abs(daysInMonth - totalHolidays),
-        // 5,
-        // 5,
+        // finalPayableDays,
+        totalPresent + halfDayEquivalent + compLeaveCount + casualLeave ,
+        totalWorkingDays,
         emp.employeeType,
       );
+
       finalResults.push({
         employee: {
           name: emp.employeeName,
@@ -3005,28 +3532,56 @@ const payroll = async (req, res) => {
         },
         data: salarySlip,
         summary: {
-          present: totalPresent - totalHalfDay,
+          present: totalPresent + halfDayEquivalent,
+          halfDays: totalHalfDaysCount,
           holidays: totalHolidays,
           absent: totalAbsent,
           leaveTypes: leaveTypeCount,
-          totalHalfDay: totalHalfDay,
           totalUnHappyDay: totalUnHappyDay,
-          compensatoryLeaveCount: compensatoryLeaveCount,
+          compensatoryLeaveCount: compLeaveCount,
+          casualLeave: casualLeave,
+          totalWorkingDays: totalWorkingDays,
+          totalPayableDays: finalPayableDays,
+          // Hours tracking
+          hoursSummary: {
+            totalWorkedHours: parseFloat(totalWorkedHours.toFixed(2)),
+            totalBreakHours: parseFloat(totalBreakHours.toFixed(2)),
+            totalLoginToLogoutHours: parseFloat(totalLoginToLogoutHours.toFixed(2)),
+            daysGreaterThan8Hours: daysGreaterThan8Hours,
+            daysLessThan8Hours: daysLessThan8Hours,
+            halfDayEquivalent: halfDayEquivalent, // Half days converted to full day equivalent
+            averageWorkedHoursPerDay: totalPresent + totalHalfDaysCount > 0 
+              ? parseFloat((totalWorkedHours / (totalPresent + totalHalfDaysCount)).toFixed(2))
+              : 0
+          },
+ 
+          calculationBreakdown: {
+            fullDays: totalPresent,
+            halfDaysCount: totalHalfDaysCount,
+            halfDaysEquivalent: halfDayEquivalent,
+            compensatoryLeaves: compLeaveCount,
+            casualLeaves: casualLeave,
+            total: finalPayableDays
+          },
+          dailyWorkHours: dailyWorkHours
         },
       });
     }
+    
     res.status(200).json({
       message: "Monthly payroll for all active employees",
       data: finalResults,
     });
   } catch (error) {
-    // console.error("Payroll error:", error);
+    console.error("Payroll error:", error);
     res.status(500).json({
       message: "Server error",
       error: error.message || "Unexpected error",
     });
   }
 };
+
+
 
 const forgotPassword_employee = async (req, res) => {
   const { email } = req.body;
@@ -4798,7 +5353,7 @@ const dashboard = async (req, res) => {
 //     if(type=='client')
 //     {
 //        employeeFilter.dutyStatus="1";
-       
+
 //     }
 
 //     const employees = await Employee.find(
@@ -4867,7 +5422,7 @@ const dashboard = async (req, res) => {
 // };
 
 
- const allUserAdminAndEmployee = async (req, res) => {
+const allUserAdminAndEmployee = async (req, res) => {
   const { userId, type } = req.query;
   // console.log("allUserAdminAndEmployee params", req.query,userId, type );
 
@@ -4894,7 +5449,7 @@ const dashboard = async (req, res) => {
         $or: [
           { createdByAdmin: userId },
           { projectManager: userId },
-          {teamMembers:userId}
+          { teamMembers: userId }
         ]
       });
 
@@ -4926,7 +5481,7 @@ const dashboard = async (req, res) => {
 
     // 🔹 CLIENT
     if (type === "client") {
-      admins = await User.find({superUser:true});
+      admins = await User.find({ superUser: true });
       clients = await ClientDetails.find({ _id: userId });
 
       const projects = await ProjectModel.find({ clientName: userId });
@@ -4935,14 +5490,14 @@ const dashboard = async (req, res) => {
         ...projects.map(p => p.projectManager),
         ...projects.flatMap(p => p.teamMembers)
       ];
-      
+
       employees = await Employee.find({ _id: { $in: employeeIds } });
       clientSubUsers = await ClientSubUser.find({ clientId: userId });
     }
 
     // 🔹 CLIENT SUBUSER
     if (type === "subuser") {
-      admins = await User.find({superUser:true});
+      admins = await User.find({ superUser: true });
       //  admins=[]
       const subUser = await ClientSubUser.findById(userId);
       clients = await ClientDetails.find({ _id: subUser.clientId });
