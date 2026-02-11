@@ -270,7 +270,7 @@ const viewChannelMembers = async (req, res) => {
     if (!response) {
       res.status(404).json({ success: false, message: "Channel not found" });
     }
-    //🔥resolve user info manually
+    //resolve user info manually
     const UsersInChannel = await Promise.all(
       response.members.map(async (id) => {
         // Try Employee
@@ -286,7 +286,6 @@ const viewChannelMembers = async (req, res) => {
             role: "Employee",
           };
         }
-
         // Try User
         user = await User.findById(id).select("name email avatar");
         if (user) {
