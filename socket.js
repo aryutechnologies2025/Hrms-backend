@@ -77,7 +77,7 @@ export default async function startSocketServer(httpServer) {
 
       // dm messages delivery
 
-      // 1️⃣ Find messages that will be delivered now
+      // 1️ Find messages that will be delivered now
       const messages = await Message.find({
         receiverId: socket.userId,
         deliveredAt: null,
@@ -408,8 +408,8 @@ export default async function startSocketServer(httpServer) {
     });
 
     // actionable message delete
-    socket.on("message_deleted", ({ messageId }) => {
-      socket.broadcast.emit("message_deleted", { messageId });
+    socket.on("message_deleted", ({ messageId,parentMessageId}) => {
+      socket.broadcast.emit("message_deleted", { messageId,parentMessageId });
     });
     // delete_message_file
     socket.on("delete_message_file", async ({ messageId, fileId }) => {

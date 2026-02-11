@@ -149,7 +149,7 @@ import Employee from "../models/employeeModel.js";
 import { initRedis } from "../redis.js";
 
 /* CHAT HISTORY */
-export const getDMHistory = async (req, res) => {
+const getDMHistory = async (req, res) => {
   const { userId, otherUserId } = req.params;
 
   const messages = await Message.find({
@@ -163,7 +163,7 @@ export const getDMHistory = async (req, res) => {
 };
 
 /* SIDEBAR UNREAD */
-export const getUnreadCounts = async (req, res) => {
+const getUnreadCounts = async (req, res) => {
   const { userId } = req.params;
 
   const unread = await Message.aggregate([
@@ -185,7 +185,7 @@ export const getUnreadCounts = async (req, res) => {
 };
 
 /* MARK SEEN (CLICK CHAT) */
-export const markMessagesSeen = async (req, res) => {
+const markMessagesSeen = async (req, res) => {
   const { senderId, receiverId } = req.body;
 
   const updated = await Message.updateMany(
@@ -262,7 +262,7 @@ export const markMessagesSeen = async (req, res) => {
 //   }
 // };
 
-export const getChannelHistory = async (req, res) => {
+const getChannelHistory = async (req, res) => {
   const { channelId, type } = req.params;
   try {
     const channel = await Channel.findById(channelId).select("members");
@@ -276,7 +276,7 @@ export const getChannelHistory = async (req, res) => {
     let updated = [];
     // if (channel.type === "general") {
     // public channel
-    const messages = await Message.find({ channelId })
+    const messages = await Message.find({ channelId, parentMessageId: null })
       .sort({ createdAt: 1 })
       .lean();
 
@@ -304,7 +304,7 @@ export const getChannelHistory = async (req, res) => {
   }
 };
 
-export const sendChatMessage = async (req, res) => {
+const sendChatMessage = async (req, res) => {
   try {
     let {
       senderId,
@@ -367,7 +367,7 @@ export const sendChatMessage = async (req, res) => {
 
     res.json({ success: true, data: msg });
   } catch (err) {
-    console.log("error",err)
+    console.log("error", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -410,7 +410,7 @@ export const sendChatMessage = async (req, res) => {
 // };
 
 // controllers/messageController.js
-export const markChannelMessagesSeen = async (req, res) => {
+const markChannelMessagesSeen = async (req, res) => {
   try {
     const { channelId, userId } = req.body;
 
@@ -435,7 +435,7 @@ export const markChannelMessagesSeen = async (req, res) => {
 };
 
 // controllers/channelController.js
-export const getChannelUnreadCounts = async (req, res) => {
+const getChannelUnreadCounts = async (req, res) => {
   const { userId } = req.params;
 
   const unread = await Message.aggregate([
@@ -462,7 +462,7 @@ export const getChannelUnreadCounts = async (req, res) => {
   res.json({ success: true, data: result });
 };
 
-export const deleteMessage = async (req, res) => {
+const deleteMessage = async (req, res) => {
   try {
     const msg = await Message.findById(req.params.id);
 
@@ -548,7 +548,7 @@ export const deleteMessage = async (req, res) => {
 //   }
 // };
 
-export const deleteMessageFile = async (req, res) => {
+const deleteMessageFile = async (req, res) => {
   try {
     const { messageId, fileId } = req.query;
 
@@ -592,11 +592,20 @@ export const deleteMessageFile = async (req, res) => {
         .sort()
         .join("_");
     }
-
-    io.to(room).emit("message_file_deleted", {
+    if (message.parentMessageId) {
+      io.to(room).emit("message_file_deleted", {
+        messageId,
+        fileId,
+        parentMessageId:message.parentMessageId
+      });
+    } else {
+      io.to(room).emit("message_file_deleted", {
       messageId,
       fileId,
+      parentMessageId:message.parentMessageId
+      
     });
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -606,7 +615,7 @@ export const deleteMessageFile = async (req, res) => {
 };
 
 // controllers/messageController.js
-export const editMessageFiles = async (req, res) => {
+const editMessageFiles = async (req, res) => {
   try {
     const { messageId, text } = req.body;
     console.log(
@@ -641,7 +650,7 @@ export const editMessageFiles = async (req, res) => {
     // Save updated message
     await message.save();
     // 🔥 SOCKET EMIT
-    
+
     const io = getIO();
 
     let room;
@@ -652,6 +661,9 @@ export const editMessageFiles = async (req, res) => {
         .sort()
         .join("_");
     }
+
+
+
     // Emit socket event
     io.to(room).emit("message_edited", message);
 
@@ -662,10 +674,13 @@ export const editMessageFiles = async (req, res) => {
   }
 };
 
-export const getThreadReplies = async (req, res) => {
+const getThreadReplies = async (req, res) => {
   try {
     const replies = await Message.find({
-      parentMessageId: req.params.parentId,
+      $or: [
+        { _id: req.params.parentId },
+        { parentMessageId: req.params.parentId },
+      ],
     }).sort({ createdAt: 1 });
 
     res.json({ success: true, data: replies });
@@ -674,7 +689,7 @@ export const getThreadReplies = async (req, res) => {
   }
 };
 
-export const getSeenMessage = async (req, res) => {
+const getSeenMessage = async (req, res) => {
   const { messageId } = req.params;
 
   try {
@@ -743,4 +758,19 @@ export const getSeenMessage = async (req, res) => {
       message: err.message,
     });
   }
+};
+
+export {
+  getDMHistory,
+  getUnreadCounts,
+  markMessagesSeen,
+  getChannelHistory,
+  sendChatMessage,
+  markChannelMessagesSeen,
+  getChannelUnreadCounts,
+  deleteMessage,
+  deleteMessageFile,
+  editMessageFiles,
+  getThreadReplies,
+  getSeenMessage,
 };
