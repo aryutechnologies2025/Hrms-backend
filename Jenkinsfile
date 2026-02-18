@@ -16,7 +16,7 @@ pipeline {
     stage("Deploy Code (Preserve Uploads)") {
       steps {
         sh """
-          rsync -av \
+          rsync -av --no-perms --no-owner --no-group \
           --exclude='.git' \
           --exclude='node_modules' \
           --exclude='uploads' \
@@ -24,6 +24,7 @@ pipeline {
         """
       }
     }
+
 
     stage("Install Dependencies") {
       steps {
