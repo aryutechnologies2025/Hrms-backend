@@ -16,14 +16,15 @@ pipeline {
     stage("Deploy Code (Preserve Uploads)") {
       steps {
         sh """
-          rsync -av --no-perms --no-owner --no-group \
+          rsync -rl --no-perms --no-owner --no-group --no-times \
           --exclude='.git' \
           --exclude='node_modules' \
           --exclude='uploads' \
           ./ ${APP_PATH}/
-        """
+       """
       }
     }
+
 
 
     stage("Install Dependencies") {
