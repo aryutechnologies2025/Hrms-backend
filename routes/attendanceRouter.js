@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   markAttendance,
+  deleteAttendance,
   getAttendanceList,
   getAttendanceReport,
   getparticularemployeeMonthlyAttendance,
@@ -17,6 +18,7 @@ import useAuth from "../middlewares/userAuth.js";
 const attendanceRouter = Router();
 
 attendanceRouter.post("/mark", markAttendance);
+attendanceRouter.delete("/delete-attendance", deleteAttendance);
 attendanceRouter.post("/mark-by-admin", addAttendance);
 attendanceRouter.get("/view-mark-by-admin", getODAttendanceList);
 attendanceRouter.get("/attendancelist", getAttendanceList);
