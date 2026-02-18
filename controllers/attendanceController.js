@@ -156,25 +156,25 @@ const markAttendance = async (req, res) => {
 };
 
 //delete Attendance
-// const deleteAttendance = async (req, res) => {
-//   try {
-//     const { attendanceId } = req.query;
+const deleteAttendance = async (req, res) => {
+  try {
+    const { attendanceId } = req.query;
 
-//     const deletedAttendance = await Attendance.findByIdAndDelete(attendanceId);
+    const deletedAttendance = await Attendance.findByIdAndDelete(attendanceId);
 
-//     if (!deletedAttendance) {
-//       return res.status(404).json({ message: "Attendance not found" });
-//     }
+    if (!deletedAttendance) {
+      return res.status(404).json({ message: "Attendance not found" });
+    }
 
-//     res.status(200).json({
-//       message: "Attendance deleted successfully",
-//       data: deletedAttendance
-//     });
+    res.status(200).json({
+      message: "Attendance deleted successfully",
+      data: deletedAttendance
+    });
 
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
 
 
 
@@ -2439,7 +2439,7 @@ const payroll = async (req, res) => {
 
 export {
   markAttendance,
-  // deleteAttendance,
+  deleteAttendance,
   getAttendanceReport,
   getAttendanceList,
   getparticularemployeeMonthlyAttendance,
