@@ -6,6 +6,9 @@ import Message from "./models/messageModel.js";
 import { initRedis, getRedisAdapter } from "./redis.js";
 import User from "./models/userModel.js";
 import mongoose from "mongoose";
+import Employee from "./models/employeeModel.js";
+import ClientDetails from "./models/clientModals.js";
+import ClientSubUser from "./models/clientSubUserModel.js";
 let ioInstance;
 
 const verifyToken = (token) => {
@@ -35,14 +38,15 @@ export default async function startSocketServer(httpServer) {
     cors: {
       origin: [
         // statging socket
-        "https://hrms.aryuprojects.com",
-        "https://employee.aryuprojects.com",
+        // "https://hrms.aryuprojects.com",
+        // "https://employee.aryuprojects.com",
         //  // live socket
-        // "https://employee.aryutechnologies.com",
-        // "https://portal.aryutechnologies.com"
+        "https://employee.aryutechnologies.com",
+        "https://portal.aryutechnologies.com"
         // // local testing
         // "http://localhost:5000",
-        // "http://localhost:500",
+        // "http://localhost:5173",
+       
       ],
       credentials: true,
     },
@@ -53,7 +57,7 @@ export default async function startSocketServer(httpServer) {
   // --- Attach Redis Adapter ---
   io.adapter(getRedisAdapter());
 
-  // 🔥 ADD THIS
+  // 🔥 ADD THISFV
   ioInstance = io;
 
   // const onlineUsers = new Set();
@@ -216,18 +220,63 @@ export default async function startSocketServer(httpServer) {
     });
 
     // send_channel_message
-    socket.on("new_channel_message", async (msg) => {
-      if (!msg.channelId) return;
-      // const msg = await Message.create({
-      //   senderId,
-      //   channelId,
-      //   text,
-      //   deliveredAt: new Date(), // channel is live
-      // });
-      console.log("msg in socket send_channel_message", msg);
+    // socket.on("new_channel_message", async (msg) => {
+    //   if (!msg.channelId) return;
+    //   // const msg = await Message.create({
+    //   //   senderId,
+    //   //   channelId,
+    //   //   text,
+    //   //   deliveredAt: new Date(), // channel is live
+    //   // });
+    //   console.log("msg in socket send_channel_message", msg);
 
-      io.to(msg.channelId.toString()).emit("receive_channel_message", msg);
-    });
+    //   io.to(msg.channelId.toString()).emit("receive_channel_message", msg);
+    // });
+
+    socket.on("new_channel_message", async (msg) => {
+  try {
+    if (!msg?.channelId) return;
+
+    let senderName = null;
+
+    // Employee
+    let user = await Employee.findById(msg.senderId).select("employeeName").lean();
+    if (user) senderName = user.employeeName;
+
+    // Admin
+    if (!senderName) {
+      user = await User.findById(msg.senderId).select("name").lean();
+      if (user) senderName = user.name;
+    }
+
+    // Client
+    if (!senderName) {
+      user = await ClientDetails.findById(msg.senderId)
+        .select("client_name")
+        .lean();
+      if (user) senderName = user.client_name;
+    }
+
+    // Client Sub User
+    if (!senderName) {
+      user = await ClientSubUser.findById(msg.senderId)
+        .select("name")
+        .lean();
+      if (user) senderName = user.name;
+    }
+
+    const updatedMsg = {
+      ...msg,
+      senderName,
+    };
+
+    //console.log("msg in socket send_channel_message", msg);
+
+      io.to(msg.channelId.toString()).emit("receive_channel_message", updatedMsg);
+  } catch (err) {
+    console.error("Socket new_channel_message error:", err);
+  }
+});
 
     // socket.on("channel_typing", ({ channelId, senderId }) => {
     //   socket.to(channelId.toString()).emit("channel_typing", {
@@ -235,6 +284,7 @@ export default async function startSocketServer(httpServer) {
     //     senderId,
     //   });
     // });
+
 
     socket.on("channel_stop_typing", ({ channelId, senderId }) => {
       socket.to(channelId.toString()).emit("channel_stop_typing", {

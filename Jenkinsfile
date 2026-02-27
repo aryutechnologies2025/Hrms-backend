@@ -2,33 +2,26 @@ pipeline {
   agent any
 
   environment {
-    BASE = "/var/www/ayhrms-staging-node"
-    RELEASES = "${BASE}/releases"
-    CURRENT = "${BASE}/current"
+    APP_DIR = "/var/www/ayhrms-node-main"
   }
 
   stages {
 
-    stage("Checkout") {
+    stage("Checkout Code") {
       steps {
         checkout scm
       }
     }
 
-    stage("Prepare Release Path") {
-      steps {
-        script {
-          env.TIME = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
-          env.RELEASE = "${RELEASES}/${TIME}"
-        }
-      }
-    }
-
-    stage("Create Release") {
+    stage("Deploy Code Safely") {
       steps {
         sh """
-          mkdir -p ${RELEASE}
-          rsync -av --delete --exclude='.git' ./ ${RELEASE}/
+          rsync -av --delete \
+            --exclude '.env' \
+            --exclude 'uploads' \
+            --exclude 'uploads/**' \
+            --exclude 'node_modules' \
+            ./ ${APP_DIR}/
         """
       }
     }
@@ -36,27 +29,18 @@ pipeline {
     stage("Install Dependencies") {
       steps {
         sh """
-          cd ${RELEASE}
+          cd ${APP_DIR}
           npm install --omit=dev
         """
       }
     }
 
-    stage("Activate Release") {
+    stage("Restart PM2") {
       steps {
         sh """
-          ln -sfn ${RELEASE} ${CURRENT}
-        """
-      }
-    }
-
-    stage("Restart PM2 (staging)") {
-      steps {
-        sh """
-          sudo -u aryu_user pm2 reload hrms-staging-api --update-env
+          pm2 restart hrms-live --update-env
         """
       }
     }
   }
 }
-
