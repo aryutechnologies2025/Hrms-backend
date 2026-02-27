@@ -147,6 +147,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import Employee from "../models/employeeModel.js";
 import { initRedis } from "../redis.js";
+import ClientSubUser from "../models/clientSubUserModel.js";
 
 /* CHAT HISTORY */
 const getDMHistory = async (req, res) => {
@@ -262,8 +263,50 @@ const markMessagesSeen = async (req, res) => {
 //   }
 // };
 
+// const getChannelHistory = async (req, res) => {
+//   const { channelId, type } = req.params;
+//   try {
+//     const channel = await Channel.findById(channelId).select("members");
+
+//     if (!channel) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Channel not found" });
+//     }
+
+//     let updated = [];
+//     // if (channel.type === "general") {
+//     // public channel
+//     const messages = await Message.find({ channelId, parentMessageId: null })
+//       .sort({ createdAt: 1 })
+//       .lean();
+
+//     const memberCount = channel.members.length;
+
+//     updated = messages.map((msg) => {
+//       const requiredSeen = memberCount - 1;
+//       return {
+//         ...msg,
+//         isSeenByAll:
+//           msg.seenBy.length >= requiredSeen &&
+//           !msg.seenBy.includes(msg.senderId.toString()),
+//       };
+//     });
+//     // }
+//     // else {
+//     //   // private channel
+//     //   updated = await Message.find({ channelId }).sort({ createdAt: 1 });
+
+//     // }
+
+//     res.json({ success: true, data: updated });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
 const getChannelHistory = async (req, res) => {
-  const { channelId, type } = req.params;
+  const { channelId } = req.params;
+
   try {
     const channel = await Channel.findById(channelId).select("members");
 
@@ -273,30 +316,56 @@ const getChannelHistory = async (req, res) => {
         .json({ success: false, message: "Channel not found" });
     }
 
-    let updated = [];
-    // if (channel.type === "general") {
-    // public channel
-    const messages = await Message.find({ channelId, parentMessageId: null })
+    const messages = await Message.find({
+      channelId,
+      parentMessageId: null,
+    })
       .sort({ createdAt: 1 })
       .lean();
 
     const memberCount = channel.members.length;
 
-    updated = messages.map((msg) => {
-      const requiredSeen = memberCount - 1;
-      return {
-        ...msg,
-        isSeenByAll:
-          msg.seenBy.length >= requiredSeen &&
-          !msg.seenBy.includes(msg.senderId.toString()),
-      };
-    });
-    // }
-    // else {
-    //   // private channel
-    //   updated = await Message.find({ channelId }).sort({ createdAt: 1 });
+    const updated = await Promise.all(
+      messages.map(async (msg) => {
+        const requiredSeen = memberCount - 1;
 
-    // }
+        let senderName = null;
+
+        // Try Employee
+        let user = await Employee.findById(msg.senderId).select(
+          "employeeName"
+        );
+        if (user) senderName = user.employeeName;
+
+        // Try Admin
+        if (!senderName) {
+          user = await User.findById(msg.senderId).select("name");
+          if (user) senderName = user.name;
+        }
+
+        // Try Client
+        if (!senderName) {
+          user = await ClientDetails.findById(msg.senderId).select(
+            "client_name"
+          );
+          if (user) senderName = user.client_name;
+        }
+
+        // Try ClientSubUser
+        if (!senderName) {
+          user = await ClientSubUser.findById(msg.senderId).select("name");
+          if (user) senderName = user.name;
+        }
+
+        return {
+          ...msg,
+          senderName,
+          isSeenByAll:
+            msg.seenBy.length >= requiredSeen &&
+            !msg.seenBy.includes(msg.senderId.toString()),
+        };
+      })
+    );
 
     res.json({ success: true, data: updated });
   } catch (err) {
@@ -674,6 +743,21 @@ const editMessageFiles = async (req, res) => {
   }
 };
 
+// const getThreadReplies = async (req, res) => {
+//   try {
+//     const replies = await Message.find({
+//       $or: [
+//         { _id: req.params.parentId },
+//         { parentMessageId: req.params.parentId },
+//       ],
+//     }).sort({ createdAt: 1 });
+
+//     res.json({ success: true, data: replies });
+//   } catch (error) {
+//     res.status(500).json({ success: false, error: error });
+//   }
+// };
+
 const getThreadReplies = async (req, res) => {
   try {
     const replies = await Message.find({
@@ -681,11 +765,34 @@ const getThreadReplies = async (req, res) => {
         { _id: req.params.parentId },
         { parentMessageId: req.params.parentId },
       ],
-    }).sort({ createdAt: 1 });
+    })
+      .sort({ createdAt: 1 })
+      .lean();
 
-    res.json({ success: true, data: replies });
+    const senderIds = [...new Set(replies.map(r => r.senderId.toString()))];
+
+    const [employees, admins, clients, subUsers] = await Promise.all([
+      Employee.find({ _id: { $in: senderIds } }).select("employeeName").lean(),
+      User.find({ _id: { $in: senderIds } }).select("name").lean(),
+      ClientDetails.find({ _id: { $in: senderIds } }).select("client_name").lean(),
+      ClientSubUser.find({ _id: { $in: senderIds } }).select("name").lean(),
+    ]);
+
+    const userMap = new Map();
+
+    employees.forEach(u => userMap.set(u._id.toString(), u.employeeName));
+    admins.forEach(u => userMap.set(u._id.toString(), u.name));
+    clients.forEach(u => userMap.set(u._id.toString(), u.client_name));
+    subUsers.forEach(u => userMap.set(u._id.toString(), u.name));
+
+    const updated = replies.map(msg => ({
+      ...msg,
+      senderName: userMap.get(msg.senderId.toString()) || "Unknown",
+    }));
+
+    res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, error: error });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

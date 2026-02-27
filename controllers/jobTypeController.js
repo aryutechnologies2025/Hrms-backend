@@ -603,7 +603,7 @@ const getCandidate = async (req, res) => {
       { $sort: { createdAt: -1 } },
       {
         $facet: {
-          data: [{ $skip: skip }, { $limit: Number(limit) }],
+          data: [],
           total: [{ $count: "count" }],
         },
       }
