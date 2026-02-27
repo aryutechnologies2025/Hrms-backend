@@ -36,24 +36,75 @@ const applyLeave = async (req, res) => {
       leaveReason,
       note,
       status,
-      subLeaveType,
     } = req.body;
 
-    // Convert start/end into Date
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const now = new Date();
 
-    // Generate array of dates
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59
+    );
+
+    // Prepare each day for leaveDuration
     let eachDay = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       eachDay.push({
-        date: new Date(d), // actual date value
+        date: new Date(d),
         subLeaveType: null,
         status: "pending",
       });
     }
 
-    // Create leave object
+    // Helper to calculate hours from "hh:mm am/pm" format
+    const calculateHours = (startTime, endTime) => {
+      const toDate = (timeStr) => {
+        const [time, modifier] = timeStr.split(" ");
+        let [hours, minutes] = time.split(":").map(Number);
+
+        if (modifier.toLowerCase() === "pm" && hours !== 12) hours += 12;
+        if (modifier.toLowerCase() === "am" && hours === 12) hours = 0;
+
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+      };
+      return (toDate(endTime) - toDate(startTime)) / (1000 * 60 * 60);
+    };
+
+    // Initialize the permission message
+    let permissionMessage = "-";
+
+    // Calculate total Permission hours if leaveType is "Permission"
+    if (leaveType === "Permission") {
+      const permissions = await Leave.find({
+        employeeId,
+        leaveType: "Permission",
+        status: "approved",
+        startDate: { $gte: startOfMonth, $lte: endOfMonth },
+      });
+
+      let totalPermissionHours = 0;
+
+      for (const p of permissions) {
+        if (p.startTime && p.endTime) {
+          totalPermissionHours += calculateHours(p.startTime, p.endTime);
+        }
+      }
+
+      if (totalPermissionHours >= 2) {
+        permissionMessage =
+          "Permission limit exceeded (2 hours per month). The excess time will be deducted from the salary.";
+      }
+    }
+
+    // Save the leave
     const leave = new Leave({
       employeeId,
       leaveType,
@@ -64,12 +115,17 @@ const applyLeave = async (req, res) => {
       leaveReason,
       note,
       status: status || "pending",
-      leaveDuration: eachDay, //  store calculated dates array
+      leaveDuration: eachDay,
     });
 
     await leave.save();
 
-    res.status(201).json({ message: "Leave applied successfully", leave });
+    // Send the response including permission message
+    res.status(201).json({
+      message: "Leave applied successfully",
+      leave,
+      permissionMessage,
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
@@ -81,6 +137,7 @@ const applyLeave = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
 
 // particular
 const getAllLeaves = async (req, res) => {
@@ -886,17 +943,26 @@ const getAllLeaves = async (req, res) => {
 
 const getAllLeavesPending = async (req, res) => {
   const { status } = req.query;
-  const currentDate = new Date();
-      const startOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        1
-      );
-      const endOfMonth = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() + 1,
-        1
-      );
+  // const currentDate = new Date();
+  // const startOfMonth = new Date(
+  //   currentDate.getFullYear(),
+  //   currentDate.getMonth(),
+  //   1
+  // );
+  // const endOfMonth = new Date(
+  //   currentDate.getFullYear(),
+  //   currentDate.getMonth() + 1,
+  //   1
+  // );
+
+  const currentYear = new Date().getFullYear();
+
+  const startOfYear = new Date(`${currentYear}-01-01T00:00:00.000Z`);
+  const endOfYear = new Date(`${currentYear}-12-31T23:59:59.999Z`);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
   try {
     const leaveSettings = await Settings.find({}).select(
       "wfh_leave unhappy_leave casual_leave complementary_leave permission unhappy_leave_option"
@@ -924,21 +990,20 @@ const getAllLeavesPending = async (req, res) => {
     const leaves = [];
 
     for (const leave of leavesList) {
-      if (!leave.employeeId) continue; // skip if no employee
+      if (!leave.employeeId) continue;
 
-      // ✅ calculate leave counts for this employee
       const cl = await Leave.countDocuments({
         employeeId: leave.employeeId._id,
         "leaveDuration.subLeaveType": "CL",
         status: "approved",
       });
-      
+
       const cl_month = await Leave.countDocuments({
         employeeId: leave.employeeId._id,
         "leaveDuration.subLeaveType": "CL",
         status: "approved",
-        
-        updatedAt: { $gte: startOfMonth, $lt: endOfMonth },
+
+        updatedAt: { $gte: startOfYear, $lt: endOfYear },
       });
 
       const unHappy = await Leave.countDocuments({
@@ -950,34 +1015,59 @@ const getAllLeavesPending = async (req, res) => {
         employeeId: leave.employeeId._id,
         "leaveDuration.subLeaveType": "UH",
         status: "approved",
-        updatedAt: { $gte: startOfMonth, $lt: endOfMonth },
+        updatedAt: { $gte: startOfYear, $lt: endOfYear },
       });
 
-      const permission = await Leave.countDocuments({
-        employeeId: leave.employeeId._id,
-        "leaveDuration.subLeaveType": "P",
+      const permissions = await Leave.find({
+        employeeId: leave.employeeId,
+        leaveType: "Permission",
         status: "approved",
-      });
-      const permission_month = await Leave.countDocuments({
-        employeeId: leave.employeeId._id,
-        "leaveDuration.subLeaveType": "P",
-        status: "approved",
-        updatedAt: { $gte: startOfMonth, $lt: endOfMonth },
+        startDate: { $gte: startOfMonth, $lte: endOfMonth },
       });
 
-      const co = await Leave.countDocuments({
+      const calculateHours = (startTime, endTime) => {
+        const toDate = (timeStr) => {
+          const [time, modifier] = timeStr.split(" ");
+          let [hours, minutes] = time.split(":").map(Number);
+
+          if (modifier.toLowerCase() === "pm" && hours !== 12) hours += 12;
+          if (modifier.toLowerCase() === "am" && hours === 12) hours = 0;
+
+          const date = new Date();
+          date.setHours(hours, minutes, 0, 0);
+          return date;
+        };
+
+        return (toDate(endTime) - toDate(startTime)) / (1000 * 60 * 60);
+      };
+
+      let totalPermissionHours = 0;
+
+      for (const p of permissions) {
+        if (p.startTime && p.endTime) {
+          totalPermissionHours += calculateHours(p.startTime, p.endTime);
+        }
+      }
+
+
+
+      // const co = await Leave.countDocuments({
+      //   employeeId: leave.employeeId._id,
+      //   "leaveDuration.subLeaveType": "CO",
+      //   status: "approved",
+      // });
+      const co = await Attendance.countDocuments({
         employeeId: leave.employeeId._id,
-        "leaveDuration.subLeaveType": "CO",
-        status: "approved",
+        compLeave: 1,
       });
+
       const co_month = await Leave.countDocuments({
         employeeId: leave.employeeId._id,
         "leaveDuration.subLeaveType": "CO",
         status: "approved",
-        updatedAt: { $gte: startOfMonth, $lt: endOfMonth },
+        updatedAt: { $gte: startOfYear, $lt: endOfYear },
       });
 
-      // ✅ calculate duration & days
       const startDate = new Date(leave.startDate);
       const endDate = new Date(leave.endDate);
       const startTime = new Date(leave.startTime);
@@ -996,12 +1086,12 @@ const getAllLeavesPending = async (req, res) => {
         totalDuration,
         cl,
         unHappy,
-        permission,
+        permission: totalPermissionHours,
         co,
 
         cl_month: cl_month ? cl_month : 0,
         unHappy_month: unHappy_month ? unHappy_month : 0,
-        permission_month: permission_month ? permission_month : 0,
+        // permission_month: permission_month ? permission_month : 0,
         co_month: co_month ? co_month : 0,
       });
     }
@@ -1030,7 +1120,6 @@ const updateLeaveStatus = async (req, res) => {
       startTime,
       endTime,
     } = req.body;
-    console.log("Request body:", req.body);
 
     const leave = await Leave.findByIdAndUpdate(
       id,
@@ -1045,9 +1134,37 @@ const updateLeaveStatus = async (req, res) => {
       },
       { new: true }
     );
-    res
-      .status(200)
-      .json({ success: true, message: "Leave status updated", leave });
+
+    console.log("Updated leave:", leave);
+
+
+    const hasCO = leave.leaveDuration?.some(
+      (item) => item.subLeaveType === "CO"
+    );
+
+    if (status === "approved" && hasCO) {
+      const currentYear = new Date().getFullYear();
+
+      const startOfYear = new Date(`${currentYear}-01-01T00:00:00.000Z`);
+      const endOfYear = new Date(`${currentYear}-12-31T23:59:59.999Z`);
+
+      const attendance = await Attendance.findOne({
+        employeeId: leave.employeeId,
+        compLeave: 1,
+        date: { $gte: startOfYear, $lte: endOfYear },
+      }).sort({ date: 1 });
+
+      if (attendance) {
+        attendance.compLeave = undefined;
+        await attendance.save();
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Leave status updated",
+      leave,
+    });
   } catch (error) {
     if (error.name === "ValidationError") {
       const errors = {};
@@ -1056,9 +1173,15 @@ const updateLeaveStatus = async (req, res) => {
       }
       return res.status(400).json({ errors });
     }
-    res.status(400).json({ error: error.message });
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 const particularLeavesList = async (req, res) => {
   try {
@@ -1085,15 +1208,17 @@ const particularLeavesList = async (req, res) => {
       status: "approved",
     });
 
-    const co = await Leave.countDocuments({
+    const co = await Attendance.countDocuments({
       employeeId: id,
-      "leaveDuration.subLeaveType": "CO",
-      status: "approved",
+      compLeave: 1,
     });
+    console.log("cl", cl, "unHappy", unHappy, "permission", permission, "co", co);
+
 
     const leaveSettings = await Settings.find({}).select(
       "wfh_leave unhappy_leave casual_leave complementary_leave permission unhappy_leave_option"
     );
+
 
     const leave = await Leave.find({
       employeeId: id,
@@ -1820,7 +1945,7 @@ const getLeaveReport = async (req, res) => {
     const holidaysList = await UpcomingHoliday.find({});
 
     let activeEmployees = await Employee.find({
-      employeeStatus: "1",employeeId: { $nin: ["AYE201202", "AYE180301"] },
+      employeeStatus: "1", employeeId: { $nin: ["AYE201202", "AYE180301"] },
     }).sort({ employeeName: 1 });
 
     const toUTCDateOnly = (date) =>

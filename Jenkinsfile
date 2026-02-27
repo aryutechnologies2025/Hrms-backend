@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    APP_DIR = "/var/www/ayhrms-node-main"
+    APP_PATH = "/var/www/ayhrms-staging-node-main"
   }
 
   stages {
@@ -13,23 +13,24 @@ pipeline {
       }
     }
 
-    stage("Deploy Code Safely") {
+    stage("Deploy Code (Preserve Uploads)") {
       steps {
         sh """
-          rsync -av --delete \
-            --exclude '.env' \
-            --exclude 'uploads' \
-            --exclude 'uploads/**' \
-            --exclude 'node_modules' \
-            ./ ${APP_DIR}/
-        """
+          rsync -rl --no-perms --no-owner --no-group --no-times \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='uploads' \
+          ./ ${APP_PATH}/
+       """
       }
     }
+
+
 
     stage("Install Dependencies") {
       steps {
         sh """
-          cd ${APP_DIR}
+          cd ${APP_PATH}
           npm install --omit=dev
         """
       }
@@ -38,9 +39,10 @@ pipeline {
     stage("Restart PM2") {
       steps {
         sh """
-          pm2 restart hrms-live --update-env
+          sudo -u aryu_user pm2 restart hrms-staging-api
         """
       }
     }
+
   }
 }
