@@ -470,6 +470,18 @@ export default async function startSocketServer(httpServer) {
       console.log("msg in socket send_channel_message", msg);
 
       io.to(msg.channelId.toString()).emit("receive_channel_message", msg);
+      // notify members
+const channel = await Channel.findById(msg.channelId).select("members");
+
+channel.members.forEach((memberId) => {
+
+  if (memberId.toString() !== msg.senderId.toString()) {
+
+    io.to(`user_${memberId}`).emit("channel_notification", updatedMsg);
+
+  }
+
+});
     });
 
     // socket.on("channel_typing", ({ channelId, senderId }) => {
