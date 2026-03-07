@@ -42,11 +42,10 @@ export default async function startSocketServer(httpServer) {
         // "https://employee.aryuprojects.com",
         //  // live socket
         "https://employee.aryutechnologies.com",
-        "https://portal.aryutechnologies.com"
+        "https://portal.aryutechnologies.com",
         // // local testing
         // "http://localhost:5000",
         // "http://localhost:5173",
-       
       ],
       credentials: true,
     },
@@ -68,6 +67,9 @@ export default async function startSocketServer(httpServer) {
     socket.on("user_online", async (userId) => {
       socket.userId = userId.toString();
 
+      // join personal notification room
+      socket.join(`user_${socket.userId}`);
+
       // storing online users in memory set
       onlineUsers.add(socket.userId);
       console.log("onlineUsers", onlineUsers);
@@ -87,9 +89,9 @@ export default async function startSocketServer(httpServer) {
         deliveredAt: null,
       }).select("_id senderId receiverId");
 
-      console.log("messages",messages)
+      console.log("messages", messages);
 
-      if (messages.length>0) {
+      if (messages.length > 0) {
         // 2️⃣ Update deliveredAt
         await Message.updateMany(
           { _id: { $in: messages.map((m) => m._id) } },
@@ -176,6 +178,8 @@ export default async function startSocketServer(httpServer) {
         .join("_");
 
       io.to(room).emit("receive_dm", msg);
+      // notification
+      io.to(`user_${msg.receiverId}`).emit("dm_notification", msg);
     });
 
     // socket.on("send_channel_message", async ({ senderId, channelId, text }) => {
@@ -234,49 +238,63 @@ export default async function startSocketServer(httpServer) {
     // });
 
     socket.on("new_channel_message", async (msg) => {
-  try {
-    if (!msg?.channelId) return;
+      try {
+        if (!msg?.channelId) return;
 
-    let senderName = null;
+        let senderName = null;
 
-    // Employee
-    let user = await Employee.findById(msg.senderId).select("employeeName").lean();
-    if (user) senderName = user.employeeName;
+        // Employee
+        let user = await Employee.findById(msg.senderId)
+          .select("employeeName")
+          .lean();
+        if (user) senderName = user.employeeName;
 
-    // Admin
-    if (!senderName) {
-      user = await User.findById(msg.senderId).select("name").lean();
-      if (user) senderName = user.name;
-    }
+        // Admin
+        if (!senderName) {
+          user = await User.findById(msg.senderId).select("name").lean();
+          if (user) senderName = user.name;
+        }
 
-    // Client
-    if (!senderName) {
-      user = await ClientDetails.findById(msg.senderId)
-        .select("client_name")
-        .lean();
-      if (user) senderName = user.client_name;
-    }
+        // Client
+        if (!senderName) {
+          user = await ClientDetails.findById(msg.senderId)
+            .select("client_name")
+            .lean();
+          if (user) senderName = user.client_name;
+        }
 
-    // Client Sub User
-    if (!senderName) {
-      user = await ClientSubUser.findById(msg.senderId)
-        .select("name")
-        .lean();
-      if (user) senderName = user.name;
-    }
+        // Client Sub User
+        if (!senderName) {
+          user = await ClientSubUser.findById(msg.senderId)
+            .select("name")
+            .lean();
+          if (user) senderName = user.name;
+        }
 
-    const updatedMsg = {
-      ...msg,
-      senderName,
-    };
+        const updatedMsg = {
+          ...msg,
+          senderName,
+        };
 
-    //console.log("msg in socket send_channel_message", msg);
+        //console.log("msg in socket send_channel_message", msg);
 
-      io.to(msg.channelId.toString()).emit("receive_channel_message", updatedMsg);
-  } catch (err) {
-    console.error("Socket new_channel_message error:", err);
-  }
-});
+        io.to(msg.channelId.toString()).emit(
+          "receive_channel_message",
+          updatedMsg,
+        );
+
+        // notify members
+        const channel = await Channel.findById(msg.channelId).select("members");
+
+        channel.members.forEach((memberId) => {
+          if (memberId.toString() !== msg.senderId.toString()) {
+            io.to(`user_${memberId}`).emit("channel_notification", updatedMsg);
+          }
+        });
+      } catch (err) {
+        console.error("Socket new_channel_message error:", err);
+      }
+    });
 
     // socket.on("channel_typing", ({ channelId, senderId }) => {
     //   socket.to(channelId.toString()).emit("channel_typing", {
@@ -284,7 +302,6 @@ export default async function startSocketServer(httpServer) {
     //     senderId,
     //   });
     // });
-
 
     socket.on("channel_stop_typing", ({ channelId, senderId }) => {
       socket.to(channelId.toString()).emit("channel_stop_typing", {
@@ -435,21 +452,21 @@ export default async function startSocketServer(httpServer) {
       const channel = await Channel.findById(channelId).select("members");
       if (!channel || !channel.members?.length) return;
 
-      // 4️⃣ Get last message
+      //  Get last message
       const lastMessage = await Message.findOne({ channelId })
         .sort({ createdAt: -1 })
         .lean();
 
       if (!lastMessage) return;
 
-      // 5️⃣ Compute isSeenByAll
+      //  Compute isSeenByAll
       const requiredSeen = channel.members.length - 1;
 
       const isSeenByAll =
         lastMessage.seenBy.length >= requiredSeen &&
         !lastMessage.seenBy.map(String).includes(String(lastMessage.senderId));
 
-      // 6️⃣ Emit blue-tick update
+      //  Emit blue-tick update
       io.to(channelId.toString()).emit("channel_seen_update", {
         channelId,
         messageId: lastMessage._id,
@@ -458,8 +475,8 @@ export default async function startSocketServer(httpServer) {
     });
 
     // actionable message delete
-    socket.on("message_deleted", ({ messageId,parentMessageId}) => {
-      socket.broadcast.emit("message_deleted", { messageId,parentMessageId });
+    socket.on("message_deleted", ({ messageId, parentMessageId }) => {
+      socket.broadcast.emit("message_deleted", { messageId, parentMessageId });
     });
     // delete_message_file
     socket.on("delete_message_file", async ({ messageId, fileId }) => {
@@ -491,7 +508,7 @@ export default async function startSocketServer(httpServer) {
         io.to(msg.channelId.toString()).emit("thread_reply", msg);
         return;
       }
-
+      
       // DM THREAD
       if (msg.senderId && msg.receiverId) {
         const room = [msg.senderId.toString(), msg.receiverId.toString()]
