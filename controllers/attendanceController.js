@@ -866,6 +866,294 @@ const getAttendanceReport = async (req, res) => {
 //     res.status(500).json({ message: "Server error", error: error.message });
 //   }
 // };
+// const getparticularemployeeMonthlyAttendance = async (req, res) => {
+//   const { employeeId, month } = req.query;
+
+//   const [monthNum, year] = month.toString().split("-").map(Number);
+//   console.log("monthNum", monthNum, "year", year);
+//   const start = new Date(Date.UTC(year, monthNum - 1, 1));
+//   const end = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59, 999));
+
+//   // Add new requirement counters
+//   let lessThan8HoursCount = 0;
+//   let after1030LoginCount = 0;
+//   let presentDaysCount = 0;
+//   let absentDaysCount = 0;
+//   let totalHolidaysCount = 0;
+
+//   const calculateTime = (entries) => {
+//     let workTime = 0;
+//     let breakTime = 0;
+//     let lastInTime = null;
+//     let lastBreakOutTime = null;
+
+//     entries.sort((a, b) => new Date(a.time) - new Date(b.time));
+//     let totalBreakInCount = 0;
+//     for (let i = 0; i < entries.length; i++) {
+//       const { reason, time } = entries[i];
+//       const entryTime = new Date(time);
+
+//       if (reason === "Break In" || reason === "Login") {
+//         if (lastBreakOutTime) {
+//           totalBreakInCount++;
+//           breakTime += entryTime - lastBreakOutTime;
+//           lastBreakOutTime = null;
+//         }
+//         lastInTime = entryTime;
+//       }
+
+//       if (reason === "Break Out") {
+//         if (lastInTime) {
+//           workTime += entryTime - lastInTime;
+//           lastInTime = null;
+//         }
+//         lastBreakOutTime = entryTime;
+//       }
+
+//       if (reason === "Logout") {
+//         if (lastInTime) {
+//           workTime += entryTime - lastInTime;
+//           lastInTime = null;
+//         }
+//         if (lastBreakOutTime) {
+//           breakTime += entryTime - lastBreakOutTime;
+//           lastBreakOutTime = null;
+//         }
+//       }
+//     }
+
+//     const format = (ms) => {
+//       if (!ms || isNaN(ms)) return { hours: 0, minutes: 0, seconds: 0 };
+//       return {
+//         hours: Math.floor(ms / (1000 * 60 * 60)),
+//         minutes: Math.floor((ms / (1000 * 60)) % 60),
+//         seconds: Math.floor((ms / 1000) % 60),
+//       };
+//     };
+
+//     const totalWorkTime = workTime + breakTime;
+
+//     return {
+//       payableTime: format(workTime),
+//       breakTime: format(breakTime),
+//       totalWorkTime: format(totalWorkTime),
+//       totalBreakInCount: totalBreakInCount,
+//     };
+//   };
+
+//   try {
+//     const user = await Employee.findOne({
+//       _id: new mongoose.Types.ObjectId(employeeId),
+//       employeeStatus: "1",
+//     });
+//     if (!user) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
+
+//     const holidaysList = await UpcomingHoliday.find({});
+//     const attendanceList = await Attendance.find({
+//       employeeId: user._id,
+//       date: { $gte: start, $lte: end },
+//     }).populate(
+//       "employeeId",
+//       "_id photo employeeName phoneNumber email employeeType employeeId"
+//     );
+//     // console.log("login",attendanceList);
+//     const leaveList = await Leave.find({
+//       employeeId: user._id,
+//       leaveType: "Leave",
+//       status: "approved",
+//       startDate: { $lte: end },
+//       endDate: { $gte: start },
+//     });
+
+//     // Full days in that month
+//     const today = new Date();
+
+//     const fullDaysInMonth = new Date(year, monthNum, 0).getDate();
+
+//     let daysInMonth;
+
+//     // If this is the current month/year, show only up to today
+//     if (today.getFullYear() === year && today.getMonth() === monthNum - 1) {
+//       daysInMonth = today.getDate(); // up to today
+//     } else {
+//       daysInMonth = fullDaysInMonth; // full month
+//     }
+
+//     console.log("Days in month:", daysInMonth);
+
+//     console.log(
+//       today.getFullYear(),
+//       "daysInMonth",
+//       daysInMonth,
+//       today.getMonth(),
+//       "daysInMonth",
+//       monthNum - 1, fullDaysInMonth
+//     );
+//     const results = [];
+//     for (let day = 1; day <= daysInMonth; day++) {
+//       const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
+//       const currentDateStr = currentDate.toISOString().split("T")[0];
+//       const options = { weekday: "long", timeZone: "Asia/Kolkata" };
+//       const dayName = currentDate.toLocaleDateString("en-IN", options);
+//       const attendance = attendanceList.find((att) => {
+//         const attDate = new Date(att.date).toISOString().split("T")[0];
+//         return attDate === currentDateStr;
+//       });
+
+//       const holiday = holidaysList.find(
+//         (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
+//       );
+
+//       if (holiday || (dayName === "Sunday" && !attendance)) {
+//         results.push({
+//           date: currentDateStr,
+//           status: "Holiday",
+//           reason: holiday?.reason || "Sunday",
+//         });
+//         totalHolidaysCount++;
+//       } else if (attendance) {
+//         const attData = attendance.toObject();
+
+//         if (attData.entries.length > 0) {
+//           attData.result = calculateTime(attData.entries);
+
+//           // Requirement 1: Check if payableTime < 8 hours
+//           if (attData.result.payableTime.hours < 8) {
+//             lessThan8HoursCount++;
+//           }
+
+//           const loginEntry = attData.entries.find((e) => e.reason === "Login");
+//           const logoutEntry = [...attData.entries]
+//             .reverse()
+//             .find((e) => e.reason === "Logout");
+
+//           attData.loginTime = loginEntry
+//             ? new Date(loginEntry.time).toLocaleTimeString("en-IN", {
+//               timeZone: "Asia/Kolkata",
+//               hour: "2-digit",
+//               minute: "2-digit",
+//               second: "2-digit",
+//               hour12: true,
+//             })
+//             : "-";
+
+//           // Requirement 2: Check if login was after 10:30 AM
+//           if (loginEntry && loginEntry.reason === "Login") {
+//             const loginTime = new Date(loginEntry.time);
+//             const loginHours = loginTime.getHours();
+//             const loginMinutes = loginTime.getMinutes();
+
+//             // Check if login time is after 10:30 AM
+//             if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
+//               after1030LoginCount++;
+//             }
+//             console.log("loginHours", loginHours, "loginMinutes", loginMinutes);
+//             if (loginEntry.reason === "Login") {
+//               presentDaysCount++;
+//             }
+//           }
+
+//           attData.logout = logoutEntry
+//             ? new Date(logoutEntry.time).toLocaleTimeString("en-IN", {
+//               timeZone: "Asia/Kolkata",
+//               hour: "2-digit",
+//               minute: "2-digit",
+//               second: "2-digit",
+//               hour12: true,
+//             })
+//             : "-";
+
+//           // delete attData.entries;
+//         }
+
+//         results.push({
+//           date: currentDateStr,
+//           status: "Present",
+//           ...attData,
+//         });
+//       } else {
+//         const currentDateStr = new Date(currentDate)
+//           .toISOString()
+//           .split("T")[0];
+
+//         const leave = leaveList.find((leave) => {
+//           const leaveStartStr = new Date(leave.startDate)
+//             .toISOString()
+//             .split("T")[0];
+//           const leaveEndStr = new Date(leave.endDate)
+//             .toISOString()
+//             .split("T")[0];
+
+//           return (
+//             leaveStartStr <= currentDateStr && leaveEndStr >= currentDateStr
+//           );
+//         });
+
+//         if (leave) {
+//           results.push({
+//             date: currentDateStr,
+//             status: "Leave",
+//             leaveType: leave.leaveType,
+//             reason: leave.reason,
+//           });
+//         } else {
+//           // console.log("User's date of joining:", user.dateOfJoining);
+
+//           const joiningDate = new Date(user.dateOfJoining); // Convert to Date object
+//           const currentDate = new Date(currentDateStr); // Assuming currentDateStr is already defined
+//           console.log(joiningDate, currentDate);
+//           if (currentDate < joiningDate) {
+//             results.push({
+//               date: currentDateStr,
+//               status: "-",
+//               loginTime: "-",
+//               logout: "-",
+//             });
+//           } else {
+//             results.push({
+//               date: currentDateStr,
+//               status: "Absent",
+//               loginTime: "-",
+//               logout: "-",
+//             });
+//           }
+//         }
+//       }
+//     }
+//     const workingDays = daysInMonth - totalHolidaysCount;
+
+//     // Add the counts to the response
+//     const summary = {
+//       lessThan8HoursCount,
+//       after1030LoginCount,
+//       presentDaysCount,
+//       totalHolidaysCount,
+//       absentDaysCount: workingDays - presentDaysCount,
+//       totalDays: daysInMonth - totalHolidaysCount
+//     };
+
+//     res.status(200).json({
+//       message: "Monthly attendance data",
+//       employee: {
+//         name: user.employeeName,
+//         email: user.email,
+//         photo: user.photo,
+//         phone: user.phoneNumber,
+//       },
+//       data: results,
+//       summary: summary // Add summary with the required counts
+//     });
+//   } catch (error) {
+//     // console.error("Error fetching attendance:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
+
+//new
+
 const getparticularemployeeMonthlyAttendance = async (req, res) => {
   const { employeeId, month } = req.query;
 
@@ -878,8 +1166,16 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
   let lessThan8HoursCount = 0;
   let after1030LoginCount = 0;
   let presentDaysCount = 0;
-  let absentDaysCount = 0;
-  let totalHolidaysCount = 0;
+  let totalHalfDaysCount = 0;
+  let halfDaysCount = 0;
+
+  // Add leave type tracking
+  let leaveTypeCount = {};
+  let casualLeave = 0;
+  let lop = 0;
+  let compensatoryLeaveCount = 0;
+  let totalUnHappyDay = 0;
+  let permission = 0;
 
   const calculateTime = (entries) => {
     let workTime = 0;
@@ -889,6 +1185,7 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
 
     entries.sort((a, b) => new Date(a.time) - new Date(b.time));
     let totalBreakInCount = 0;
+
     for (let i = 0; i < entries.length; i++) {
       const { reason, time } = entries[i];
       const entryTime = new Date(time);
@@ -946,6 +1243,7 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
       _id: new mongoose.Types.ObjectId(employeeId),
       employeeStatus: "1",
     });
+
     if (!user) {
       return res.status(404).json({ message: "Employee not found" });
     }
@@ -958,10 +1256,10 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
       "employeeId",
       "_id photo employeeName phoneNumber email employeeType employeeId"
     );
-    // console.log("login",attendanceList);
+
     const leaveList = await Leave.find({
       employeeId: user._id,
-      leaveType: "Leave",
+      leaveType: { $in: ["Leave", "Permission"] },
       status: "approved",
       startDate: { $lte: end },
       endDate: { $gte: start },
@@ -969,58 +1267,167 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
 
     // Full days in that month
     const today = new Date();
-
     const fullDaysInMonth = new Date(year, monthNum, 0).getDate();
 
     let daysInMonth;
 
     // If this is the current month/year, show only up to today
     if (today.getFullYear() === year && today.getMonth() === monthNum - 1) {
-      daysInMonth = today.getDate(); // up to today
+      daysInMonth = fullDaysInMonth;
+      // daysInMonth = today.getDate();
     } else {
-      daysInMonth = fullDaysInMonth; // full month
+      daysInMonth = fullDaysInMonth;
     }
 
     console.log("Days in month:", daysInMonth);
 
-    console.log(
-      today.getFullYear(),
-      "daysInMonth",
-      daysInMonth,
-      today.getMonth(),
-      "daysInMonth",
-      monthNum - 1, fullDaysInMonth
-    );
+    // Count holidays directly from the database
+    const totalHolidaysCount = await UpcomingHoliday.countDocuments({
+      date: {
+        $gte: start,
+        $lte: end,
+      },
+    });
+
+    // Calculate compensatory leave count for the year
+    const startOfYear = new Date(Date.UTC(year, 0, 1));
+    const endOfYear = new Date(Date.UTC(year + 1, 0, 1));
+
+    compensatoryLeaveCount = await Leave.countDocuments({
+      employeeId: new mongoose.Types.ObjectId(employeeId),
+      status: "approved",
+      createdAt: { $gte: startOfYear, $lt: endOfYear },
+      "leaveDuration.subLeaveType": "CO",
+    });
+
     const results = [];
+
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(Date.UTC(year, monthNum - 1, day));
       const currentDateStr = currentDate.toISOString().split("T")[0];
       const options = { weekday: "long", timeZone: "Asia/Kolkata" };
       const dayName = currentDate.toLocaleDateString("en-IN", options);
+
       const attendance = attendanceList.find((att) => {
         const attDate = new Date(att.date).toISOString().split("T")[0];
         return attDate === currentDateStr;
       });
 
-      const holiday = holidaysList.find(
-        (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
-      );
+      // Check for leave on this day
+      let leaveFound = false;
+      let leaveSubTypeForDay = null;
+      let leaveReasonForDay = null;
+      const getStatusWithLeave = (leaveFound, subType, hasAttendance) => {
+        if (!leaveFound) return hasAttendance ? "Present" : "Absent";
 
-      if (holiday || (dayName === "Sunday" && !attendance)) {
-        results.push({
-          date: currentDateStr,
-          status: "Holiday",
-          reason: holiday?.reason || "Sunday",
-        });
-        totalHolidaysCount++;
-      } else if (attendance) {
+        // If leave found, determine status based on subtype
+        switch (subType) {
+          case "HD":
+            return hasAttendance ? "Present (Half Day)" : "Half Day Leave";
+          case "UH":
+            return "Unhappy Day";
+          case "LOP":
+            return "Loss of Pay";
+          case "P":
+            return "Permission";
+          case "CL":
+            return "Casual Leave";
+          case "CO":
+            return "Compensatory Off";
+          case "SL":
+            return "Sick Leave";
+          case "PL":
+            return "Paid Leave";
+          case "ML":
+            return "Maternity Leave";
+          case "PL":
+            return "Paternity Leave";
+          default:
+            return hasAttendance ? `Present (${subType})` : `Leave (${subType})`;
+        }
+      };
+      const isUpcomingDay = currentDate > new Date();
+      leaveList.forEach((l) => {
+        if (l.status === "approved") {
+          const startStr = new Date(l.startDate).toISOString().split("T")[0];
+          const endStr = new Date(l.endDate).toISOString().split("T")[0];
+
+          if (startStr <= currentDateStr && endStr >= currentDateStr) {
+            l.leaveDuration.forEach((item) => {
+              if (!item?.date) return;
+
+              const itemDateStr = new Date(item.date).toISOString().split("T")[0];
+              const subType = item.subLeaveType?.trim().toUpperCase();
+              if (itemDateStr === currentDateStr) {
+                leaveFound = true;
+                const subType = item.subLeaveType?.trim().toUpperCase();
+                leaveSubTypeForDay = subType;
+                leaveReasonForDay = l.reason || "";
+
+                // Count based on subtype
+                switch (subType) {
+                  case "HD":
+                    totalHalfDaysCount++;
+                    halfDaysCount++;
+                    break;
+                  case "UH":
+                    totalUnHappyDay += 1;
+                    break;
+                  case "LOP":
+                    lop += 1;
+                    break;
+                  case "P":
+                    permission += 1;
+                    break;
+                  case "CL":
+                    casualLeave += 1;
+                    break;
+                  case "CO":
+                    compensatoryLeaveCount += 1;
+                    break;
+                  // Add more cases as needed
+                }
+
+                // Count in leaveTypeCount object
+                leaveTypeCount[subType] = (leaveTypeCount[subType] || 0) + 1;
+              }
+              // if (itemDateStr === currentDateStr) {
+              //   leaveFound = true;
+
+              //   if (subType === "HD") {
+              //     totalHalfDaysCount++;
+              //     halfDaysCount++;
+              //   }
+
+              //   if (subType === "UH") {
+              //     totalUnHappyDay += 1;
+              //   }
+              //   if (subType === "LOP") {
+              //     lop += 1;
+              //   } if (subType === "P") {
+              //     permission += 1;
+              //   }
+
+              //   leaveTypeCount[subType] = (leaveTypeCount[subType] || 0) + 1;
+              //   if (subType === "CL") casualLeave += 1;
+
+              // }
+            });
+          }
+        }
+      });
+
+      if (attendance) {
         const attData = attendance.toObject();
 
         if (attData.entries.length > 0) {
           attData.result = calculateTime(attData.entries);
 
           // Requirement 1: Check if payableTime < 8 hours
-          if (attData.result.payableTime.hours < 8) {
+          const payableHours = attData.result.payableTime.hours +
+            attData.result.payableTime.minutes / 60;
+          console.log("payableHours", payableHours);
+          if (payableHours < 8) {
             lessThan8HoursCount++;
           }
 
@@ -1040,18 +1447,29 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
             : "-";
 
           // Requirement 2: Check if login was after 10:30 AM
-          if (loginEntry && loginEntry.reason === "Login") {
+          if (loginEntry && logoutEntry) {
             const loginTime = new Date(loginEntry.time);
-            const loginHours = loginTime.getHours();
-            const loginMinutes = loginTime.getMinutes();
+            const loginHours = loginTime.getUTCHours();
+            const loginMinutes = loginTime.getUTCMinutes();
 
-            // Check if login time is after 10:30 AM
-            if (loginHours > 10 || (loginHours === 10 && loginMinutes >= 30)) {
+            // Convert to IST for comparison (UTC+5:30)
+            const istHours = (loginHours + 5) % 24;
+            const istMinutes = (loginMinutes + 30) % 60;
+
+            // Adjust hour if minutes overflow
+            const adjustedIstHours = loginMinutes + 30 >= 60 ? istHours + 1 : istHours;
+            const finalIstHours = adjustedIstHours % 24;
+
+            // Check if login time is after 10:30 AM IST
+            if (finalIstHours > 10 || (finalIstHours === 10 && istMinutes >= 30)) {
               after1030LoginCount++;
             }
-            console.log("loginHours", loginHours, "loginMinutes", loginMinutes);
-            if (loginEntry.reason === "Login") {
-              presentDaysCount++;
+
+            presentDaysCount++;
+
+            //less than 6hrs
+            if (payableHours < 6) {
+              totalHalfDaysCount++;
             }
           }
 
@@ -1064,13 +1482,15 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
               hour12: true,
             })
             : "-";
-
-          // delete attData.entries;
         }
 
         results.push({
           date: currentDateStr,
-          status: "Present",
+          status: getStatusWithLeave(leaveFound, leaveSubTypeForDay, true),
+          leaveType: leaveSubTypeForDay,
+          leaveReason: leaveReasonForDay,
+          // status: leaveFound ? "Present" : "Present",
+          leaveType: leaveFound ? Object.keys(leaveTypeCount).join(", ") : null,
           ...attData,
         });
       } else {
@@ -1078,6 +1498,23 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
           .toISOString()
           .split("T")[0];
 
+        // Check if it's a holiday
+        const holiday = holidaysList.find(
+          (h) => new Date(h.date).toISOString().split("T")[0] === currentDateStr
+        );
+
+        if (holiday || dayName === "Sunday") {
+          results.push({
+            date: currentDateStr,
+            status: "Holiday",
+            reason: holiday?.reason || "Sunday",
+            loginTime: "-",
+            logout: "-",
+          });
+          continue;
+        }
+
+        // Check for leave
         const leave = leaveList.find((leave) => {
           const leaveStartStr = new Date(leave.startDate)
             .toISOString()
@@ -1091,20 +1528,21 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
           );
         });
 
-        if (leave) {
+        if (leave || leaveFound) {
           results.push({
             date: currentDateStr,
-            status: "Leave",
-            leaveType: leave.leaveType,
-            reason: leave.reason,
+            // status: "Leave",
+            status: getStatusWithLeave(leaveFound, leaveSubTypeForDay, false),
+            leaveType: leave?.leaveType || "Leave",
+            reason: leave?.reason || "",
+            loginTime: "-",
+            logout: "-",
           });
         } else {
-          // console.log("User's date of joining:", user.dateOfJoining);
+          const joiningDate = new Date(user.dateOfJoining);
+          const currentDateObj = new Date(currentDateStr);
 
-          const joiningDate = new Date(user.dateOfJoining); // Convert to Date object
-          const currentDate = new Date(currentDateStr); // Assuming currentDateStr is already defined
-          console.log(joiningDate, currentDate);
-          if (currentDate < joiningDate) {
+          if (currentDateObj < joiningDate) {
             results.push({
               date: currentDateStr,
               status: "-",
@@ -1114,7 +1552,8 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
           } else {
             results.push({
               date: currentDateStr,
-              status: "Absent",
+              // For upcoming days without leave, still show appropriate status
+              status: isUpcomingDay ? "Upcoming Day" : "Absent",
               loginTime: "-",
               logout: "-",
             });
@@ -1122,16 +1561,38 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
         }
       }
     }
+
+
     const workingDays = daysInMonth - totalHolidaysCount;
 
-    // Add the counts to the response
+
+
+    const halfDayEquivalent = totalHalfDaysCount * 0.5;
+
+
+
+    const totalPresentWithAdjustments = presentDaysCount + halfDayEquivalent + casualLeave + compensatoryLeaveCount;
+
+
+
     const summary = {
       lessThan8HoursCount,
       after1030LoginCount,
       presentDaysCount,
+      totalHalfDaysCount,
+      halfDayEquivalent,
       totalHolidaysCount,
       absentDaysCount: workingDays - presentDaysCount,
-      totalDays: daysInMonth - totalHolidaysCount
+      totalMonthInDays: daysInMonth,
+      totalWorkingDays: workingDays,
+      totalPayableDays: Math.min(totalPresentWithAdjustments, workingDays),
+      leaveTypes: leaveTypeCount,
+      lop,
+      permission,
+      casualLeave,
+      compensatoryLeaveCount,
+      totalUnHappyDay,
+      halfDaysCount
     };
 
     res.status(200).json({
@@ -1143,10 +1604,10 @@ const getparticularemployeeMonthlyAttendance = async (req, res) => {
         phone: user.phoneNumber,
       },
       data: results,
-      summary: summary // Add summary with the required counts
+      summary: summary
     });
   } catch (error) {
-    // console.error("Error fetching attendance:", error);
+    console.error("Error fetching attendance:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
