@@ -71,7 +71,7 @@ import customerRouter from "./routes/customerRouter.js";
 import digitalMarketingRouter from "./routes/digitalMarketingRouter.js";
 
 import backupRouter from "./routes/backupRouter.js";
-
+import recurringPaymentRouter from "./routes/recurringPaymentRouter.js";
 // Load environment variables
 dotenv.config();
 
@@ -154,6 +154,7 @@ const startApp = async () => {
   app.use("/api/digital-marketing",digitalMarketingRouter);
   app.use("/api/technology-Portfolio",TechnologyPortfolio);
   app.use("/api/backup",backupRouter);
+  app.use("/api/recurring-payment",recurringPaymentRouter);
   // socket sever
   const server = http.createServer(app);
   startSocketServer(server);
