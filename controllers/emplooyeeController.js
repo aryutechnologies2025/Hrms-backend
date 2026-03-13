@@ -23,6 +23,7 @@ import ProjectModel from "../models/projectModel.js";
 import Announcements from "../models/announcementModel.js";
 import ClientDetails from "../models/clientModals.js";
 import ClientSubUser from "../models/clientSubUserModel.js";
+import RecurringPayment from "../models/recurringPaymentModel.js";
 
 // const loginEmployee = async (req, res) => {
 //   try {
@@ -4981,6 +4982,360 @@ const updateReliving = async (req, res) => {
 //     },
 //   });
 // };
+// const dashboard = async (req, res) => {
+//   const userRole = req.query.role;
+//   const date = new Date().toISOString().split("T")[0];
+//   const today = new Date();
+//   const [year, month, day] = date.split("-").map(Number);
+
+//   const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+//   const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+//   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+//   const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+//   // 🔹 Holidays in current month
+//   const holidays = await UpcomingHoliday.find({
+//     date: { $gte: today, $lte: endOfMonth },
+//   });
+//   //Employees with role + department
+//   const employees = await Employee.aggregate([
+//     {
+//       $match: { employeeStatus: "1", dateOfBirth: { $ne: null } },
+//     },
+//     {
+//       $lookup: {
+//         from: "employeeroles",
+//         localField: "roleId",
+//         foreignField: "_id",
+//         as: "role",
+//       },
+//     },
+//     { $unwind: "$role" },
+//     {
+//       $lookup: {
+//         from: "employeedepartments",
+//         localField: "role.departmentId",
+//         foreignField: "_id",
+//         as: "role.department",
+//       },
+//     },
+//     {
+//       $unwind: { path: "$role.department", preserveNullAndEmptyArrays: true },
+//     },
+//     {
+//       $project: {
+//         _id: 1,
+//         name: 1,
+//         email: 1,
+//         dateOfBirth: 1,
+//         photo: 1,
+//         employeeName: 1,
+//         role: { _id: "$role._id", name: "$role.name" },
+//         department: {
+//           _id: "$role.department._id",
+//           name: "$role.department.name",
+//         },
+//         dutyStatus: 1,
+//         relivingDate: 1,
+//         dateOfJoining: 1,
+//         internDuration: 1, // ✅ add this field to use below
+//       },
+//     },
+//   ]);
+
+//   // 🔹 Birthday check
+//   const matchBirthdayList = employees.filter((emp) => {
+//     const todayMid = new Date();
+//     todayMid.setHours(0, 0, 0, 0);
+
+//     let isTrue = false;
+//     if (emp.relivingDate && emp.dutyStatus === "0") {
+//       if (todayMid <= emp.relivingDate) isTrue = true;
+//     }
+//     if (emp.dutyStatus === "1") isTrue = true;
+
+//     const dob = new Date(emp.dateOfBirth);
+//     return (
+//       isTrue &&
+//       dob.getDate() === todayMid.getDate() &&
+//       dob.getMonth() === todayMid.getMonth()
+//     );
+//   });
+
+//   // 🔹 Employee Requests
+//   const employeeRequest = await EmployeeRequestDetails.find({
+//     status: "pending",
+//   })
+//     .sort({ createdAt: -1 })
+//     .populate("employeeId", "employeeName");
+
+//   // 🔹 Active employees
+//   let activeEmployees = await Employee.find({
+//     employeeStatus: "1",
+//     dutyStatus: "1",
+//     employeeId: { $nin: ["AYE201202", "AYE180301"] },
+//   })
+//     .select(
+//       "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus",
+//     )
+//     .populate("roleId", "name");
+
+//   activeEmployees = activeEmployees.filter((value) => {
+//     if (value.dutyStatus === "1") return true;
+//     if (!value.relivingDate) return true;
+//     return value.dutyStatus === "0" && today <= value.relivingDate;
+//   });
+
+//   // 🔹 Attendance
+//   const attendanceRecords = await Attendance.find({
+//     entries: {
+//       $elemMatch: {
+//         reason: "Login",
+//         time: { $gte: startOfDay, $lte: endOfDay },
+//       },
+//     },
+
+//     // employeeId: { $in: activeEmployees.map((e) => e._id) },
+//   })
+//     .sort({ createdAt: -1 })
+//     .select("employeeId entries workType");
+
+//   const presentSet = new Set();
+//   const wfhSet = new Set();
+//   const presentData = [];
+//   const wfhData = [];
+//   const convertToKolkataTime = (utcDate) => {
+//     const date = new Date(utcDate);
+//     // IST is UTC+5:30
+//     const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+//     const istTime = new Date(date.getTime() + istOffset);
+
+//     return {
+//       original: utcDate,
+//       kolkataTime: istTime,
+//       formatted: istTime.toLocaleString("en-IN", {
+//         timeZone: "Asia/Kolkata",
+//         year: "numeric",
+//         month: "2-digit",
+//         day: "2-digit",
+//         hour: "2-digit",
+//         minute: "2-digit",
+//         second: "2-digit",
+//         hour12: true,
+//       }),
+//       timeOnly: istTime.toLocaleString("en-IN", {
+//         timeZone: "Asia/Kolkata",
+//         hour: "2-digit",
+//         minute: "2-digit",
+//         second: "2-digit",
+//         hour12: true,
+//       }),
+//       dateOnly: istTime.toLocaleString("en-IN", {
+//         timeZone: "Asia/Kolkata",
+//         year: "numeric",
+//         month: "2-digit",
+//         day: "2-digit",
+//       }),
+//     };
+//   };
+//   attendanceRecords.forEach((record) => {
+//     const loginEntry = record.entries.find(
+//       (e) =>
+//         e.reason === "Login" &&
+//         new Date(e.time) >= startOfDay &&
+//         new Date(e.time) <= endOfDay,
+//     );
+
+//     if (loginEntry) {
+//       const empId = record.employeeId.toString();
+//       presentSet.add(empId);
+
+//       const employee = activeEmployees.find((e) => e._id.toString() === empId);
+//       // if (employee) presentData.push(employee);
+//       if (employee) {
+//         const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+
+//         // Create a copy of employee with loginDate added
+//         const employeeWithLogin = {
+//           ...(employee.toObject ? employee.toObject() : employee), // Handle both mongoose doc and plain object
+//           login: kolkataLoginTime.kolkataTime,
+//           time: kolkataLoginTime.timeOnly,
+//         };
+//         presentData.push(employeeWithLogin);
+//       }
+//       if (record.workType === "WFH") {
+//         wfhSet.add(empId);
+//         // if (employee) wfhData.push(employee);
+//         if (employee) {
+//           const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
+
+//           // Create a copy for WFH with loginDate added
+//           const employeeWithLogin = {
+//             ...(employee.toObject ? employee.toObject() : employee),
+//             login: kolkataLoginTime.kolkataTime,
+//             time: kolkataLoginTime.timeOnly,
+//             workType: record.workType,
+//           };
+//           wfhData.push(employeeWithLogin);
+//         }
+//       }
+//     }
+//   });
+
+//   const absentData = activeEmployees.filter(
+//     (e) => !presentSet.has(e._id.toString()),
+//   );
+
+//   // 🔹 Future employees
+//   const futureEmployees = await Employee.find({
+//     dutyStatus: "1",
+//     $expr: {
+//       $and: [
+//         // Ensure last_working_date exists and is not invalid
+//         { $ne: ["$last_working_date", null] },
+//         { $ne: ["$last_working_date", ""] },
+//         { $ne: ["$last_working_date", "-"] },
+//         {
+//           $gte: [
+//             {
+//               $dateFromString: {
+//                 dateString: "$last_working_date",
+//                 onError: null, // <— prevents crash if parsing fails
+//                 onNull: null, // <— prevents crash if null
+//               },
+//             },
+//             new Date(),
+//           ],
+//         },
+//       ],
+//     },
+//   })
+//     .select(
+//       "_id employeeId employeeName email roleId last_working_date relivingDate dutyStatus",
+//     )
+//     .populate("roleId", "name");
+
+//   // Announcement
+//   //  const userRole = req.query.role; // e.g., "admin" or "employee"
+//   const announcements = await Announcements.find({
+//     visible: { $in: [userRole, "Both"] },
+//     expiryDate: { $gte: new Date() }, // not expired
+//     status: "1",
+//   });
+
+//   // res.status(200).json({
+//   //   success: true,
+//   //   data: announcements,
+//   //   message: "Announcements fetched successfully",
+//   // });
+
+//   //Internship End Dates
+//   const interns = await Employee.find({
+//     dateOfJoining: { $ne: null },
+//     internDuration: { $ne: null },
+//     employeeType: { $ne: "Full Time" },
+//   })
+//     .select("_id employeeName dateOfJoining internDuration")
+//     .populate("roleId", "name");
+
+//   const internsWithEnd = interns
+//     .map((emp) => {
+//       const joinDate = new Date(emp.dateOfJoining);
+//       const months = parseInt(emp.internDuration);
+//       const endDate = new Date(joinDate);
+//       endDate.setMonth(endDate.getMonth() + months);
+
+//       return {
+//         _id: emp._id,
+//         employeeName: emp.employeeName,
+//         roleId: emp.roleId,
+//         dateOfJoining: emp.dateOfJoining,
+//         internDuration: emp.internDuration,
+//         internshipEndDate: endDate,
+//       };
+//     })
+//     .filter((emp) => {
+//       const today = new Date();
+//       const oneWeekBeforeEnd = new Date(emp.internshipEndDate);
+//       oneWeekBeforeEnd.setDate(oneWeekBeforeEnd.getDate() - 7);
+
+//       return today >= oneWeekBeforeEnd && today <= emp.internshipEndDate;
+//     });
+
+//   const recurringDates = await ProjectModel.find({
+//     recurringDays: { $ne: null },
+//   })
+//     .populate("clientName", "client_name")
+//     .lean()
+//     .then((docs) =>
+//       docs
+//         .map((emp) => {
+//           const startDate = new Date(emp.createdAt);
+//           const days = parseInt(emp.recurringDays);
+//           const endDate = new Date(startDate);
+//           endDate.setDate(endDate.getDate() + days);
+
+//           const today = new Date();
+//           const oneWeekBeforeEnd = new Date(endDate);
+//           oneWeekBeforeEnd.setDate(oneWeekBeforeEnd.getDate() - 7);
+
+//           return {
+//             _id: emp._id,
+//             name: emp.name,
+//             clientName: emp.clientName,
+//             budget: emp.budget,
+//             withGst: emp.gst_amount,
+//             createdAt: emp.createdAt,
+//             recurringDays: emp.recurringDays,
+//             recurringEndDate: endDate,
+
+//             isCurrent: today < endDate && today >= oneWeekBeforeEnd,
+//           };
+//         })
+//         .filter(({ isCurrent }) => isCurrent),
+//     );
+
+// const targetStart = new Date(today);
+// targetStart.setDate(today.getDate() + 2);
+// targetStart.setHours(0, 0, 0, 0);
+
+// const targetEnd = new Date(targetStart);
+// targetEnd.setHours(23, 59, 59, 999);
+
+// const upcomingRecurringPayments = await RecurringPayment.find({
+//   dueDate: {
+//     $gte: targetStart,
+//     $lte: targetEnd
+//   }
+// });
+
+
+// console.log(upcomingRecurringPayments);
+//   res.status(200).json({
+//     success: true,
+//     data: {
+//       upcomingHolidays: holidays,
+//       employeeRequests: employeeRequest,
+//       todayBirthday: matchBirthdayList,
+//       count: {
+//         total: activeEmployees.length,
+//         present: presentSet.size,
+//         absent: absentData.length,
+//         wfh: wfhSet.size,
+//       },
+//       todayAttendanceDetails: {
+//         present: presentData,
+//         absent: absentData,
+//         wfh: wfhData,
+//       },
+//       futureEmployees,
+//       interns: internsWithEnd,
+//       pendingRecurringReached: recurringDates,
+//       announcements: announcements,
+//       upcomingRecurringPayments: upcomingRecurringPayments,
+//     },
+//   });
+// };
 const dashboard = async (req, res) => {
   const userRole = req.query.role;
   const date = new Date().toISOString().split("T")[0];
@@ -4996,6 +5351,7 @@ const dashboard = async (req, res) => {
   const holidays = await UpcomingHoliday.find({
     date: { $gte: today, $lte: endOfMonth },
   });
+  
   //Employees with role + department
   const employees = await Employee.aggregate([
     {
@@ -5037,7 +5393,7 @@ const dashboard = async (req, res) => {
         dutyStatus: 1,
         relivingDate: 1,
         dateOfJoining: 1,
-        internDuration: 1, // ✅ add this field to use below
+        internDuration: 1,
       },
     },
   ]);
@@ -5093,8 +5449,6 @@ const dashboard = async (req, res) => {
         time: { $gte: startOfDay, $lte: endOfDay },
       },
     },
-
-    // employeeId: { $in: activeEmployees.map((e) => e._id) },
   })
     .sort({ createdAt: -1 })
     .select("employeeId entries workType");
@@ -5103,10 +5457,10 @@ const dashboard = async (req, res) => {
   const wfhSet = new Set();
   const presentData = [];
   const wfhData = [];
+  
   const convertToKolkataTime = (utcDate) => {
     const date = new Date(utcDate);
-    // IST is UTC+5:30
-    const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+    const istOffset = 5.5 * 60 * 60 * 1000;
     const istTime = new Date(date.getTime() + istOffset);
 
     return {
@@ -5137,6 +5491,7 @@ const dashboard = async (req, res) => {
       }),
     };
   };
+  
   attendanceRecords.forEach((record) => {
     const loginEntry = record.entries.find(
       (e) =>
@@ -5150,13 +5505,10 @@ const dashboard = async (req, res) => {
       presentSet.add(empId);
 
       const employee = activeEmployees.find((e) => e._id.toString() === empId);
-      // if (employee) presentData.push(employee);
       if (employee) {
         const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
-
-        // Create a copy of employee with loginDate added
         const employeeWithLogin = {
-          ...(employee.toObject ? employee.toObject() : employee), // Handle both mongoose doc and plain object
+          ...(employee.toObject ? employee.toObject() : employee),
           login: kolkataLoginTime.kolkataTime,
           time: kolkataLoginTime.timeOnly,
         };
@@ -5164,11 +5516,8 @@ const dashboard = async (req, res) => {
       }
       if (record.workType === "WFH") {
         wfhSet.add(empId);
-        // if (employee) wfhData.push(employee);
         if (employee) {
           const kolkataLoginTime = convertToKolkataTime(loginEntry.time);
-
-          // Create a copy for WFH with loginDate added
           const employeeWithLogin = {
             ...(employee.toObject ? employee.toObject() : employee),
             login: kolkataLoginTime.kolkataTime,
@@ -5190,7 +5539,6 @@ const dashboard = async (req, res) => {
     dutyStatus: "1",
     $expr: {
       $and: [
-        // Ensure last_working_date exists and is not invalid
         { $ne: ["$last_working_date", null] },
         { $ne: ["$last_working_date", ""] },
         { $ne: ["$last_working_date", "-"] },
@@ -5199,8 +5547,8 @@ const dashboard = async (req, res) => {
             {
               $dateFromString: {
                 dateString: "$last_working_date",
-                onError: null, // <— prevents crash if parsing fails
-                onNull: null, // <— prevents crash if null
+                onError: null,
+                onNull: null,
               },
             },
             new Date(),
@@ -5215,18 +5563,11 @@ const dashboard = async (req, res) => {
     .populate("roleId", "name");
 
   // Announcement
-  //  const userRole = req.query.role; // e.g., "admin" or "employee"
   const announcements = await Announcements.find({
     visible: { $in: [userRole, "Both"] },
-    expiryDate: { $gte: new Date() }, // not expired
+    expiryDate: { $gte: new Date() },
     status: "1",
   });
-
-  // res.status(200).json({
-  //   success: true,
-  //   data: announcements,
-  //   message: "Announcements fetched successfully",
-  // });
 
   //Internship End Dates
   const interns = await Employee.find({
@@ -5287,13 +5628,34 @@ const dashboard = async (req, res) => {
             createdAt: emp.createdAt,
             recurringDays: emp.recurringDays,
             recurringEndDate: endDate,
-
             isCurrent: today < endDate && today >= oneWeekBeforeEnd,
           };
         })
         .filter(({ isCurrent }) => isCurrent),
     );
 
+
+today.setHours(0, 0, 0, 0);
+
+const twoDaysFromNow = new Date(today);
+twoDaysFromNow.setDate(today.getDate() + 2);
+twoDaysFromNow.setHours(0, 0, 0, 0);
+
+const endOfThatDay = new Date(twoDaysFromNow);
+endOfThatDay.setHours(23, 59, 59, 999);
+
+console.log('Today:', today);
+console.log('Looking for payments due in 2 days (on):', twoDaysFromNow);
+console.log('Looking for payments due between:', twoDaysFromNow, 'and', endOfThatDay);
+
+const upcomingRecurringPayments = await RecurringPayment.find({
+  dueDate: {
+    $gte: twoDaysFromNow,
+    $lte: endOfThatDay
+  }
+}).populate('account', 'name');
+
+console.log('Found upcoming recurring payments (due in 2 days):', upcomingRecurringPayments.length);
   res.status(200).json({
     success: true,
     data: {
@@ -5315,10 +5677,10 @@ const dashboard = async (req, res) => {
       interns: internsWithEnd,
       pendingRecurringReached: recurringDates,
       announcements: announcements,
+      upcomingRecurringPayments: upcomingRecurringPayments,
     },
   });
 };
-
 // const allUserAdminAndEmployee=async(req, res) => {
 //   try {
 //     const employees = await Employee.find({dutyStatus:"1"}, "employeeName photo dutyStatus");
