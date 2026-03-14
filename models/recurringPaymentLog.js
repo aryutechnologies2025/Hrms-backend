@@ -1,43 +1,48 @@
 import mongoose from "mongoose";
 
-const recurringPaymentSchema = new mongoose.Schema({
+const recurringPaymentLogSchema = new mongoose.Schema({
+    parent_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "RecurringPayment",
+        required: true
+    },
     account: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "FinanceCompany",
         required: [true, "Please provide an account"]
     },
-    lenderName: {  type: mongoose.Schema.Types.ObjectId, 
-        ref: "FinanceLender",
-        required: [true, "Please provide an account"]
-    },
+    lenderName: { type: mongoose.Schema.Types.ObjectId, 
+            ref: "FinanceLender",
+            required: [true, "Please provide an account"]
+        },
     paymentType: { type: String },
     start_date: { type: Date },
     end_date: { type: Date },
     amount: { type: String },
     dueDate: { type: Date },
-    dueDay: { type: Number }, // For day of month (1-30)
+    dueDay: { type: Number },
     recurringType: { type: String },
     totalEmi: { type: String },
     totalAmount: { type: String },
     balance_amount: { type: String },
     interest_rate: { type: String },
-    monthlyInterest: { type: String }, // For gold loan monthly interest amount
-    monthlyPrincipal: { type: String }, // For gold loan monthly principal amount
+    monthlyInterest: { type: String },
+    monthlyPrincipal: { type: String },
     loanStatus: { 
         type: String, 
         enum: ["inprogress", "completed", "pending"],
         default: "inprogress"
-    }, // For loan/gold loan status
+    },
     payment_status: { 
         type: String,
         enum: ["paid", "unpaid"],
         default: "unpaid"
     },
-    notes: { type: String }, // For subscription notes
+    notes: { type: String },
     status: { type: String, default: "1" }
 }, {
     timestamps: true
 });
 
-const RecurringPayment = mongoose.model("RecurringPayment", recurringPaymentSchema);
-export default RecurringPayment;
+const RecurringPaymentLog = mongoose.model("RecurringPaymentLog", recurringPaymentLogSchema);
+export default RecurringPaymentLog;

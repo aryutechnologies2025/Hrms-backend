@@ -1,7 +1,7 @@
 import IncomeDetails from "../models/incomeModel.js";
 import ExpenseDetails from "../models/expenseModel.js";
 import FinanceCompany from "../models/financeCompanyModel.js";
-
+import FinanceLender from "../models/financeLenderModel.js";
 const createFinanceCompany = async (req, res) => {
   try {
     const { name } = req.body;
@@ -54,6 +54,66 @@ const deleteFinanceCompany = async (req, res) => {
   const {id} = req.params;
   try {
     const deleted = await FinanceCompany.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Finance Company not found" });
+    }
+    res.status(200).json({ success: true, message: "Finance Company deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+const createFinanceLender = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const newFinanceCompany = new FinanceLender({ name });
+    const savedFinanceCompany = await newFinanceCompany.save();
+    res.status(201).json({ success: true, data: savedFinanceCompany });
+  } catch (error) {
+    // console.error(" Error creating project:", error);
+
+    if (error.name === "ValidationError") {
+      const errors = {};
+      for (let field in error.errors) {
+        errors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({ success: false, errors });
+    }
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+const getFinanceLender= async (req, res) => {
+  try {
+    const financeCompanies = await FinanceLender.find();
+    res.status(200).json({ success: true, data: financeCompanies });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const editFinanceLender = async (req, res) => {
+  try {
+    const { id } = req.params;
+     const updated = await FinanceLender.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Finance Company not found" });
+    }
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteFinanceLender = async (req, res) => {
+  const {id} = req.params;
+  try {
+    const deleted = await FinanceLender.findByIdAndDelete(id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Finance Company not found" });
     }
@@ -404,6 +464,13 @@ const getFinanceName = async (req, res)=>{
   }
   res.status(200).json({ message: "Finance Company fetched successfully", getFinanceName });
 }
+const getFinanceLenderName = async (req, res)=>{
+  const getFinanceName = await FinanceLender.find({status: "1"}).select("name");
+  if (!getFinanceName) {
+    return res.status(404).json({ message: "Finance Company not found" });
+  }
+  res.status(200).json({ message: "Finance Company fetched successfully", getFinanceName });
+}
 
 export{
     getFinanceName,
@@ -426,6 +493,16 @@ export{
     createFinanceCompany,
     getFinanceCompany,
     editFinanceCompany,
-    deleteFinanceCompany
+    deleteFinanceCompany,
+
+
+
+    //lender
+
+    createFinanceLender,
+    getFinanceLender,
+    editFinanceLender,
+    deleteFinanceLender,
+    getFinanceLenderName
 }
 
