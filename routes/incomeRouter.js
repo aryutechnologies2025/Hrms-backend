@@ -12,7 +12,13 @@ import {
   getFinanceCompany,
   editFinanceCompany,
   deleteFinanceCompany,
-  getFinanceName
+  getFinanceName,
+
+   createFinanceLender,
+      getFinanceLender,
+      editFinanceLender,
+      deleteFinanceLender,
+      getFinanceLenderName
 } from "../controllers/incomeController.js";
 const incomeRouter = express.Router();
 
@@ -30,4 +36,11 @@ incomeRouter.get("/view-financecompany", getFinanceCompany);
 incomeRouter.put("/edit-financecompany/:id", editFinanceCompany);
 incomeRouter.delete("/delete-financecompany/:id", deleteFinanceCompany);
 incomeRouter.get("/finance-name", getFinanceName);
+//finance Lender
+
+incomeRouter.post("/create-financelender", createFinanceLender);
+incomeRouter.get("/view-financelender", getFinanceLender);
+incomeRouter.put("/edit-financelender/:id", editFinanceLender);
+incomeRouter.delete("/delete-financelender/:id", deleteFinanceLender);
+incomeRouter.get("/finance-lender-name", getFinanceLenderName);
 export default incomeRouter;
