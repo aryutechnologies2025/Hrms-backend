@@ -13,7 +13,7 @@ const recurringPaymentLogSchema = new mongoose.Schema({
     },
     lenderName: { type: mongoose.Schema.Types.ObjectId, 
             ref: "FinanceLender",
-            required: [true, "Please provide an account"]
+            required:[false]
         },
     paymentType: { type: String },
     start_date: { type: Date },
@@ -35,8 +35,11 @@ const recurringPaymentLogSchema = new mongoose.Schema({
     },
     payment_status: { 
         type: String,
-        enum: ["paid", "unpaid"],
+        enum: ["paid", "unpaid","partial"],
         default: "unpaid"
+    },
+    payment_date:{
+        type:String
     },
     notes: { type: String },
     status: { type: String, default: "1" }
