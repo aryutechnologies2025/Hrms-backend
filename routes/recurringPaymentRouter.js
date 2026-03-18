@@ -1,5 +1,6 @@
 import express from 'express';
-import {addPayment, deletePayment, editPaymentLogById, getRecurringLog, createRecurringPayment, getRecurringPayments, editRecurringPayment, deleteRecurringPayment } from '../controllers/recurringPaymentController.js';
+import {getRecurringPaymentReport,
+    getLoanName,addPayment, deletePayment, editPaymentLogById, getRecurringLog, createRecurringPayment, getRecurringPayments, editRecurringPayment, deleteRecurringPayment } from '../controllers/recurringPaymentController.js';
 
 const recurringPaymentRouter = express.Router();
 recurringPaymentRouter.post('/create', createRecurringPayment);
@@ -13,4 +14,9 @@ recurringPaymentRouter.delete('/delete/:id', deleteRecurringPayment);
 
 recurringPaymentRouter.post('/add-payment', addPayment);
 recurringPaymentRouter.delete('/delete-payment/:id', deletePayment);
+
+
+//report
+recurringPaymentRouter.get('/report', getRecurringPaymentReport);
+recurringPaymentRouter.get('/loan-name', getLoanName);
 export default recurringPaymentRouter;

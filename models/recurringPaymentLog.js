@@ -28,6 +28,9 @@ const recurringPaymentLogSchema = new mongoose.Schema({
     interest_rate: { type: String },
     monthlyInterest: { type: String },
     monthlyPrincipal: { type: String },
+    loanName:{
+        type:String
+    },
     loanStatus: { 
         type: String, 
         enum: ["inprogress", "completed", "pending"],
