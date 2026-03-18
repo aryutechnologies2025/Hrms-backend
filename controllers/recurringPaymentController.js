@@ -50,6 +50,7 @@ const addPayment = async (req, res) => {
             parent_id: parent_id,
             account: parentPayment.account,
             lenderName: parentPayment.lenderName,
+            loanName: parentPayment.loanName,
             paymentType: parentPayment.paymentType,
             amount: amount,
             payment_date: payment_date || new Date(),
@@ -159,12 +160,10 @@ const editPaymentLogById = async(req,res) =>{
     }
 }
 
-// Delete a payment
 const deletePayment = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Find the payment log
         const paymentLog = await RecurringPaymentLog.findById(id);
         if (!paymentLog) {
             return res.status(404).json({
@@ -176,7 +175,6 @@ const deletePayment = async (req, res) => {
         const parentId = paymentLog.parent_id;
         const paymentAmount = Number(paymentLog.amount);
 
-        // Find parent recurring payment
         const parentPayment = await RecurringPayment.findById(parentId);
         if (!parentPayment) {
             return res.status(404).json({
@@ -185,7 +183,6 @@ const deletePayment = async (req, res) => {
             });
         }
 
-        // Calculate total amount based on payment type
         let totalAmount = 0;
         if (parentPayment.paymentType === 'Loan' || parentPayment.paymentType === 'Gold Loan') {
             totalAmount = Number(parentPayment.totalAmount) || 0;
@@ -193,7 +190,6 @@ const deletePayment = async (req, res) => {
             totalAmount = Number(parentPayment.amount) || 0;
         }
 
-        // Get all remaining paid logs (excluding the one being deleted)
         const remainingLogs = await RecurringPaymentLog.find({ 
             parent_id: parentId,
             payment_status: 'paid',
@@ -202,10 +198,8 @@ const deletePayment = async (req, res) => {
         
         const remainingPaid = remainingLogs.reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
         
-        // Calculate new balance
         const newBalance = totalAmount - remainingPaid;
 
-        // Update parent payment status based on new balance
         let updatedPaymentStatus = parentPayment.payment_status;
         let updatedLoanStatus = parentPayment.loanStatus;
 
@@ -223,23 +217,19 @@ const deletePayment = async (req, res) => {
             }
         }
 
-        // Update parent payment
         await RecurringPayment.findByIdAndUpdate(parentId, {
             payment_status: updatedPaymentStatus,
             loanStatus: updatedLoanStatus,
             balance_amount: newBalance > 0 ? newBalance : 0
         });
 
-        // Reverse account balance changes
         if (parentPayment.paymentType === 'Loan' || parentPayment.paymentType === 'Gold Loan') {
-            // For loans, removing payment decreases account balance
             const account = await Account.findById(parentPayment.account);
             if (account) {
                 account.balance = (Number(account.balance) - paymentAmount).toString();
                 await account.save();
             }
         } else if (parentPayment.paymentType === 'Saving') {
-            // For savings, removing payment increases account balance
             const account = await Account.findById(parentPayment.account);
             if (account) {
                 account.balance = (Number(account.balance) + paymentAmount).toString();
@@ -247,7 +237,6 @@ const deletePayment = async (req, res) => {
             }
         }
 
-        // Delete the payment log
         await RecurringPaymentLog.findByIdAndDelete(id);
 
         res.status(200).json({
@@ -268,7 +257,6 @@ const deletePayment = async (req, res) => {
     }
 };
 
-// Update the existing getRecurringLog to include payment_method
 const getRecurringLog = async (req, res) => {
     const { parent_id } = req.query;
 
@@ -314,12 +302,12 @@ const getRecurringLog = async (req, res) => {
     }
 };
 
-// Update the existing createRecurringPayment to handle initial balance correctly
 const createRecurringPayment = async (req, res) => {
     try {
         const { 
             account, 
             lenderName, 
+            loanName,
             paymentType, 
             amount, 
             dueDate,
@@ -338,7 +326,6 @@ const createRecurringPayment = async (req, res) => {
             status 
         } = req.body;
         
-        // Calculate initial balance amount
         let initialBalance = 0;
         if (paymentType === 'Loan' || paymentType === 'Gold Loan') {
             initialBalance = totalAmount || 0;
@@ -349,6 +336,7 @@ const createRecurringPayment = async (req, res) => {
         const newRecurringPayment = new RecurringPayment({
             account,
             lenderName,
+            loanName,
             paymentType,
             amount,
             dueDate,
@@ -370,7 +358,6 @@ const createRecurringPayment = async (req, res) => {
         
         const savedRecurringPayment = await newRecurringPayment.save();
 
-        // If payment_status is 'paid', create an initial payment log
         if (payment_status === 'paid') {
             const paymentAmount = paymentType === 'Loan' || paymentType === 'Gold Loan' ? totalAmount : amount;
             
@@ -378,11 +365,12 @@ const createRecurringPayment = async (req, res) => {
                 parent_id: savedRecurringPayment._id,
                 account: account,
                 lenderName: lenderName,
+                loanName: loanName,
                 paymentType: paymentType,
                 amount: paymentAmount,
                 payment_date: new Date(),
                 payment_status: 'paid',
-                payment_method: 'cash', // Default method
+           
                 notes: 'Initial payment',
                 dueDate: dueDate,
                 dueDay: dueDay,
@@ -401,7 +389,6 @@ const createRecurringPayment = async (req, res) => {
             
             await paymentLog.save();
 
-            // Update account balance for savings
             if (paymentType === 'Saving') {
                 const accountDoc = await Account.findById(account);
                 if (accountDoc) {
@@ -426,7 +413,188 @@ const createRecurringPayment = async (req, res) => {
     }
 };
 
-// Export all functions including the new ones
+const getLoanName = async (req, res) => {
+    const { from, to } = req.query;
+    try {
+        const filter = {};
+        
+        if (from && to) {
+            const startDate = new Date(from);
+            startDate.setUTCHours(0, 0, 0, 0);
+            
+            const endDate = new Date(to);
+            endDate.setUTCHours(23, 59, 59, 999);
+            
+            filter.createdAt = {
+                $gte: startDate,
+                $lte: endDate
+            };
+        }
+
+        const loanName = await RecurringPayment.find(filter).distinct('loanName');
+        res.status(200).json({ success: true, data: loanName });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: "Internal server error", 
+            error: error.message 
+        });
+    }
+}
+
+// const getRecurringPaymentReport = async (req, res) => {
+//     const { loanName, from, to } = req.query;
+//     console.log("loanName", loanName);
+
+//     try {
+//         const filter = {};
+
+//         if (loanName) {
+//             filter.loanName = loanName;
+//         }
+
+//         if (from && to) {
+//             filter.createdAt = {
+//                 $gte: new Date(from),
+//                 $lte: new Date(to)
+//             };
+//         }
+
+//         const recurringPayment = await RecurringPayment.findOne(filter)
+//             .populate("account", "name")
+//             .populate("lenderName", "name");
+
+//         if (!recurringPayment) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "Recurring payment not found"
+//             });
+//         }
+
+//         const recurringLog = await RecurringPaymentLog.find({
+//             parent_id: recurringPayment._id
+//         })
+//             .populate("account", "name")
+//             .populate("lenderName", "name");
+
+//         const formattedRecurringLog = recurringLog.map((log) => ({
+//             account: log.account?.name,
+//             lender_name: log.lenderName?.name,
+//             payment_type: log.paymentType,
+//             start_date: log.start_date,
+//             end_date: log.end_date,
+//             amount: log.amount,
+//             due_date: log.dueDay,
+//             recurring_type: log.recurringType,
+//             total_emi: log.totalEmi,
+//             total_amount: log.totalAmount,
+//             payment_date: log.payment_date,
+//             payment_status: log.payment_status,
+//             monthlyInterest: log.monthlyInterest,
+//             monthlyPrincipal: log.monthlyPrincipal,
+//             loanStatus: log.loanStatus,
+//             status: log.status,
+//             notes: log.notes
+//         }));
+
+//         return res.status(200).json({
+//             success: true,
+//             data: recurringPayment,
+//             log: formattedRecurringLog
+//         });
+
+//     } catch (error) {
+//         return res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message
+//         });
+//     }
+// };
+const getRecurringPaymentReport = async (req, res) => {
+    const { loanName, from, to } = req.query;
+    console.log("loanName", loanName);
+
+    try {
+        const filter = {};
+
+        if (loanName) {
+            filter.loanName = loanName;
+        }
+        
+
+        const recurringPayment = await RecurringPayment.findOne(filter)
+            .populate("account", "name")
+            .populate("lenderName", "name");
+
+        if (!recurringPayment) {
+            return res.status(404).json({
+                success: false,
+                message: "Recurring payment not found"
+            });
+        }
+
+        const logFilter = {
+            parent_id: recurringPayment._id
+        };
+
+        
+         if (from && to) {
+            const startDate = new Date(from);
+            startDate.setUTCHours(0, 0, 0, 0);
+            
+            const endDate = new Date(to);
+            endDate.setUTCHours(23, 59, 59, 999);
+            
+            logFilter.createdAt = {
+                $gte: startDate,
+                $lte: endDate
+            };
+        }
+
+        const recurringLog = await RecurringPaymentLog.find(logFilter)
+            .populate("account", "name")
+            .populate("lenderName", "name")
+            .sort({ payment_date: -1 });
+
+        const formattedRecurringLog = recurringLog.map((log) => ({
+            account: log.account?.name,
+            lender_name: log.lenderName?.name,
+            payment_type: log.paymentType,
+            start_date: log.start_date,
+            end_date: log.end_date,
+            amount: log.amount,
+            due_date: log.dueDay,
+            recurring_type: log.recurringType,
+            total_emi: log.totalEmi,
+            total_amount: log.totalAmount,
+            payment_date: log.payment_date,
+            payment_status: log.payment_status,
+            monthlyInterest: log.monthlyInterest,
+            monthlyPrincipal: log.monthlyPrincipal,
+            loanStatus: log.loanStatus,
+            status: log.status,
+            notes: log.notes
+        }));
+
+        return res.status(200).json({
+            success: true,
+            data: recurringPayment,
+            log: formattedRecurringLog,
+            filterApplied: {
+                from: from || null,
+                to: to || null
+            }
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
 export { 
     createRecurringPayment, 
     getRecurringPayments, 
@@ -435,7 +603,9 @@ export {
     getRecurringLog,
     addPayment,
     deletePayment,
-    editPaymentLogById
+    editPaymentLogById,
+    getRecurringPaymentReport,
+    getLoanName
 };
 
 
@@ -511,17 +681,14 @@ const getRecurringPayments = async (req, res) => {
         const recurringPayments = await RecurringPayment.find()
             .populate("account", "name balance")
             .populate("lenderName", "name balance")
-            .lean(); // Use lean() for better performance
+            .lean();
 
-        // Calculate balance amount for each payment based on logs
         const paymentsWithBalance = await Promise.all(
             recurringPayments.map(async (payment) => {
-                // Get all logs for this payment
                 const logs = await RecurringPaymentLog.find({ 
                     parent_id: payment._id 
                 }).select('amount payment_status');
 
-                // Calculate total paid amount
                 const totalPaid = logs
                     .filter(log => log.payment_status === 'paid')
                     .reduce((sum, log) => sum + (Number(log.amount) || 0), 0);
@@ -622,12 +789,12 @@ const editRecurringPayment = async (req, res) => {
             });
         }
         
-        // Create log entry only if payment status is 'paid'
         if(updatedRecurringPayment) {
             await RecurringPaymentLog.create({
                 parent_id: id,
                 account: updatedRecurringPayment.account,
                 lenderName: updatedRecurringPayment.lenderName,
+                loanName: updatedRecurringPayment.loanName,
                 paymentType: updatedRecurringPayment.paymentType,
                 amount: updatedRecurringPayment.amount,
                 dueDate: updatedRecurringPayment.dueDate,
