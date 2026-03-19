@@ -1,48 +1,48 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    APP_PATH = "/var/www/ayhrms-staging-node-main"
-  }
-
-  stages {
-
-    stage("Checkout Code") {
-      steps {
-        checkout scm
-      }
+    environment {
+        DOCKER_USER = "aryutechnologies2025"
+        IMAGE = "hrms-backend"
     }
 
-    stage("Deploy Code (Preserve Uploads)") {
-      steps {
-        sh """
-          rsync -rl --no-perms --no-owner --no-group --no-times \
-          --exclude='.git' \
-          --exclude='node_modules' \
-          --exclude='uploads' \
-          ./ ${APP_PATH}/
-       """
-      }
+    stages {
+
+        stage('Build Image') {
+            steps {
+                sh '''
+                docker build -t $DOCKER_USER/$IMAGE:latest .
+                '''
+            }
+        }
+
+        stage('Docker Login & Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh '''
+                    echo $PASS | docker login -u $USER --password-stdin
+                    docker push $USER/$IMAGE:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Backend') {
+            steps {
+                sh '''
+                cd /var/www/Hrms
+                docker-compose pull backend
+                docker-compose up -d backend
+                '''
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                sh '''
+                docker ps | grep hrms-backend
+                '''
+            }
+        }
     }
-
-
-
-    stage("Install Dependencies") {
-      steps {
-        sh """
-          cd ${APP_PATH}
-          npm install --omit=dev
-        """
-      }
-    }
-
-    stage("Restart PM2") {
-      steps {
-        sh """
-          sudo -u aryu_user pm2 restart hrms-staging-api
-        """
-      }
-    }
-
-  }
 }
